@@ -36,6 +36,14 @@ data class ProjectResourceEdge(
      * they want, and no amount of other supply overrides that choice.
      */
     val supersededBySupplier: Boolean = false,
+    /**
+     * The id of [itemName], where the edge comes from derived demand (MCO-542).
+     *
+     * The roadmap only ever needed the name. The project page needs the id too, to match an edge
+     * against the plan's own lines — which are keyed by id — without re-deriving which farm makes
+     * what. Null wherever [itemName] is.
+     */
+    val itemId: String? = null,
 ) {
     /**
      * Whether the consumer is still waiting on this producer.

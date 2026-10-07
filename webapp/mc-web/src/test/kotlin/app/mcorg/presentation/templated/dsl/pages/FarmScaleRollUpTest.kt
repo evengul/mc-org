@@ -11,8 +11,13 @@ import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNode
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.PlanRequirement
 import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.engine.plan.SupplySource
+import app.mcorg.pipeline.resources.CoveredDemand
+import app.mcorg.pipeline.resources.FarmSuggestion
+import app.mcorg.pipeline.resources.PendingFarmItem
+import app.mcorg.pipeline.resources.PendingFarmSupply
 import org.junit.jupiter.api.Test
 import java.time.ZonedDateTime
 import kotlin.test.assertContains
@@ -36,6 +41,7 @@ class FarmScaleRollUpTest {
     private val torch = Item("minecraft:torch", "Torch")
     private val water = Item("minecraft:water", "Water")
     private val lava = Item("minecraft:lava", "Lava")
+    private val deepslateIronOre = Item("minecraft:deepslate_iron_ore", "Deepslate Iron Ore")
 
     private fun project() = Project(
         id = 2,
@@ -64,6 +70,7 @@ class FarmScaleRollUpTest {
         status: PlanNodeStatus = PlanNodeStatus.RAW_GATHER,
         supply: SupplySource? = null,
         source: SourceNode? = null,
+        requires: List<PlanRequirement> = emptyList(),
     ) = PlanNode(
         item = item,
         quantity = quantity,
@@ -72,6 +79,7 @@ class FarmScaleRollUpTest {
         status = status,
         source = source,
         supply = supply,
+        requires = requires,
     )
 
     /** Fill a bucket from the world — water, lava (MCO-467). */
@@ -86,6 +94,8 @@ class FarmScaleRollUpTest {
         plan: GatheringPlan,
         threshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
         isWorldAdmin: Boolean = true,
+        pendingFarms: List<PendingFarmSupply> = emptyList(),
+        farmSuggestions: List<FarmSuggestion> = emptyList(),
     ) = gatheringPlannerFragment(
         project = project(),
         resources = emptyList(),
@@ -93,7 +103,12 @@ class FarmScaleRollUpTest {
         plan = plan,
         farmScaleThreshold = threshold,
         isWorldAdmin = isWorldAdmin,
+        pendingFarms = pendingFarms,
+        farmSuggestions = farmSuggestions,
     )
+
+    private fun farm(id: Int, name: String, item: Item, quantity: Long) =
+        PendingFarmSupply(id, name, listOf(PendingFarmItem(item.id, item.name, quantity)))
 
     @Test
     fun `bulk raw demand is rolled up largest first`() {
@@ -230,6 +245,112 @@ class FarmScaleRollUpTest {
         // sits above it and names an outstanding activity, which may well be the very material
         // the roll-up drops for being under the threshold. Both are right.
         assertFalse(rollUpOf(html).contains("20,611"))
+    }
+
+
+    // ---- MCO-542: a line a farm project already answers ------------------------------
+
+    @Test
+    fun `a line a planned farm makes names that farm instead of sitting under No design yet`() {
+        val html = rollUpOf(
+            render(
+                plan(node(cobblestone, 51_437), node(ice, 2_281)),
+                pendingFarms = listOf(farm(7, "231k-924k Cobblestone farm", cobblestone, 51_437)),
+            )
+        )
+
+        assertContains(html, "Solved when ")
+        assertContains(html, """href="/worlds/1/projects/7"""")
+        assertContains(html, "231k-924k Cobblestone farm")
+
+        // "No design yet" heads only what nothing in the world answers.
+        val noDesign = html.indexOf("No design yet")
+        val planned = html.indexOf("plan-farm-scale__planned")
+        assertTrue(noDesign >= 0, "there is something to separate the unanswered line from")
+        val unansweredBlock = html.substring(noDesign, planned)
+        assertContains(unansweredBlock, "2,281")
+        assertFalse(unansweredBlock.contains("51,437"), "cobblestone is answered, not undesigned")
+        assertContains(html.substring(planned), "51,437")
+    }
+
+    @Test
+    fun `the answered lines are folded`() {
+        val html = rollUpOf(
+            render(
+                plan(node(cobblestone, 51_437), node(ice, 2_281)),
+                pendingFarms = listOf(farm(7, "Cobble Farm", cobblestone, 51_437)),
+            )
+        )
+
+        assertContains(html, """<details class="plan-farm-scale__planned">""")
+        assertContains(html, "1 answered by farms in this world")
+    }
+
+    @Test
+    fun `the lead counts lines farm projects answer`() {
+        val html = rollUpOf(
+            render(
+                plan(node(cobblestone, 51_437), node(ice, 2_281)),
+                pendingFarms = listOf(farm(7, "Cobble Farm", cobblestone, 51_437)),
+            )
+        )
+
+        assertContains(html, "2 raw materials need more than ")
+        assertContains(html, "farm projects in this world cover 1 of them.")
+    }
+
+    @Test
+    fun `the lead counts designs and farm projects separately`() {
+        val iceFarm = FarmSuggestion(
+            ideaId = 3,
+            ideaName = "Ice Farm",
+            produces = listOf(CoveredDemand(ice.id, ice.name, 2_281)),
+            alsoRemoves = emptyList(),
+        )
+
+        val html = rollUpOf(
+            render(
+                plan(node(cobblestone, 51_437), node(ice, 2_281)),
+                pendingFarms = listOf(farm(7, "Cobble Farm", cobblestone, 51_437)),
+                farmSuggestions = listOf(iceFarm),
+            )
+        )
+
+        assertContains(html, "farm projects in this world cover 1 of them; your designs cover 1.")
+        assertFalse(html.contains("No design yet"), "every line is answered by something")
+    }
+
+    @Test
+    fun `ore under a farm's ingot says what it feeds and never that the farm makes it`() {
+        val html = rollUpOf(
+            render(
+                plan(
+                    node(ironIngot, 32_949, PlanNodeStatus.RESOLVED, requires = listOf(PlanRequirement(deepslateIronOre.id, 1))),
+                    node(deepslateIronOre, 32_949),
+                ),
+                pendingFarms = listOf(farm(9, "3.8k 8 Pod Iron Farm", ironIngot, 32_949)),
+            )
+        )
+
+        assertContains(html, "3.8k 8 Pod Iron Farm")
+        assertContains(html, "32,949")
+        assertContains(html, "only feeds Iron Ingot, which this farm makes")
+        assertFalse(html.contains("No design yet"), "the ore line is answered")
+    }
+
+    @Test
+    fun `a line a farm project answers has no dismiss button`() {
+        // Dismissing says "we are not farming this". A farm project for it says otherwise; the
+        // way out is the project itself, not a second decision on this panel.
+        val html = rollUpOf(
+            render(
+                plan(node(cobblestone, 51_437)),
+                pendingFarms = listOf(farm(7, "Cobble Farm", cobblestone, 51_437)),
+            )
+        )
+
+        assertFalse(html.contains("plan-farm-scale__dismiss\""), "no dismiss on an answered line")
+        assertFalse(html.contains("Stop suggesting a farm for Cobblestone"))
     }
 
     /**
