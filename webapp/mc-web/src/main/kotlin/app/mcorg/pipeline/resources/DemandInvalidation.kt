@@ -5,6 +5,7 @@ import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import org.slf4j.LoggerFactory
 
@@ -128,23 +129,31 @@ private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.Deman
  * numbers rather than an empty graph — the same "one load behind" the fill-on-read path has
  * always had, and strictly better than a project blinking out of the table.
  *
- * Call it **before** the change when the change removes what it reads (deleting a production
- * row, deleting the project), and after when it does not (a state transition).
+ * Call it **after** the change when the change leaves what it reads in place (a state transition).
+ * When the change removes it (deleting a production row, deleting the project), call it before
+ * the change **in the same transaction**, via [transactionConnection]. Committed on its own first,
+ * the bump would come before the change, and a derivation starting in between would read the new
+ * generation with the old supply and store its plan as current (MCO-584).
  *
  * @return the number of projects invalidated.
  */
 data class InvalidateDemandSuppliedByStep(
     val worldId: Int,
     val producerProjectId: Int,
+    val transactionConnection: TransactionConnection? = null,
 ) : Step<Unit, AppFailure.DatabaseError, Int> {
 
+    // "Nothing current stored" is GetWorldDemandCoverageStep's test of a current row — a
+    // fingerprint, this code's revision, and the version's latest ingestion epoch — so a project
+    // the roadmap is about to re-derive after a deploy or a re-ingest is reached as well. Rows are
+    // locked in project order, so two invalidations in one world cannot deadlock on each other.
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Int> =
         DatabaseSteps.query<Unit, Int>(
             sql = SafeSQL.with(
                 """
                 WITH invalidated AS (
-                    INSERT INTO project_demand_state (project_id, fingerprint, generation)
-                    SELECT c.id, NULL, 1
+                    INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+                    SELECT c.id, NULL, NULL, 1
                     FROM projects c
                     WHERE c.world_id = ?
                       AND c.id <> ?
@@ -155,9 +164,20 @@ data class InvalidateDemandSuppliedByStep(
                                         SELECT pp.item_id FROM project_productions pp WHERE pp.project_id = ?
                                     ))
                           OR (EXISTS (SELECT 1 FROM resource_gathering rg WHERE rg.project_id = c.id)
-                              AND NOT EXISTS (SELECT 1 FROM project_demand_state s
-                                              WHERE s.project_id = c.id AND s.fingerprint IS NOT NULL))
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM project_demand_state s
+                                  WHERE s.project_id = c.id
+                                    AND s.fingerprint IS NOT NULL
+                                    AND s.revision = ?
+                                    AND NOT EXISTS (
+                                        SELECT 1 FROM world w
+                                        JOIN minecraft_version_ingestion i
+                                          ON i.version = w.version AND i.status = 'completed'
+                                        WHERE w.id = c.world_id
+                                          AND (s.game_data_epoch IS NULL OR s.game_data_epoch < i.completed_at)
+                                    )))
                       )
+                    ORDER BY c.id
                     ON CONFLICT (project_id) DO UPDATE
                         SET fingerprint = NULL, generation = project_demand_state.generation + 1
                     RETURNING project_id
@@ -169,8 +189,10 @@ data class InvalidateDemandSuppliedByStep(
                 statement.setInt(1, worldId)
                 statement.setInt(2, producerProjectId)
                 statement.setInt(3, producerProjectId)
+                statement.setInt(4, DemandFingerprint.REVISION)
             },
             resultMapper = { rs -> rs.next(); rs.getInt("invalidated") },
+            transactionConnection = transactionConnection,
         ).process(Unit)
 }
 

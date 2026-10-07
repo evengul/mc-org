@@ -126,9 +126,11 @@ object GetWorldVersionStep : Step<Int, AppFailure.DatabaseError, String?> {
  * stay readable until the next roadmap load re-derives them. The `IS DISTINCT FROM` guard makes
  * re-saving the current version a no-op rather than a world-wide re-derivation.
  *
- * Every project in the world is invalidated, including those with no state row yet: one of them
- * may be on its first derivation in the roadmap's fill loop, with the old version already read,
- * and the generation bump is what stops it storing that plan as current (MCO-584).
+ * Every project in the world with a state row is invalidated, and so is every one that can be in
+ * the roadmap's fill loop without one — gathering or demand rows, coverage's own candidates: it
+ * may be on its first derivation with the old version already read, and the generation bump is
+ * what stops it storing that plan as current (MCO-584). A project with neither gets no row. Rows
+ * are locked in project order.
  */
 data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: MinecraftVersion): Result<AppFailure.DatabaseError, Int> {
@@ -140,10 +142,14 @@ data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, App
                     WHERE id = ? AND version IS DISTINCT FROM ?
                     RETURNING id
                 ), dropped AS (
-                    INSERT INTO project_demand_state (project_id, fingerprint, generation)
-                    SELECT p.id, NULL, 1
+                    INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+                    SELECT p.id, NULL, NULL, 1
                     FROM projects p
                     JOIN changed c ON c.id = p.world_id
+                    WHERE EXISTS (SELECT 1 FROM resource_gathering rg WHERE rg.project_id = p.id)
+                       OR EXISTS (SELECT 1 FROM project_demand d WHERE d.project_id = p.id)
+                       OR EXISTS (SELECT 1 FROM project_demand_state s WHERE s.project_id = p.id)
+                    ORDER BY p.id
                     ON CONFLICT (project_id) DO UPDATE
                         SET fingerprint = NULL, generation = project_demand_state.generation + 1
                     RETURNING project_id

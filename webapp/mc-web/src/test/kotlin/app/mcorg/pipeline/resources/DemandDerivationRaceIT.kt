@@ -10,7 +10,10 @@ import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import app.mcorg.pipeline.project.DeleteProjectStep
+import app.mcorg.pipeline.project.resources.DeleteProjectProductionStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.settings.general.UpdatePreferredWoodSpeciesStep
@@ -84,6 +87,7 @@ class DemandDerivationRaceIT : WithUser() {
     @Test
     fun `an own-input change during a first derivation leaves the project uncovered`() {
         val (worldId, projectId) = smelter("Own Input First World")
+        assertEquals(true, stateRow(projectId), "the trigger's row for a project never derived has no derivation time")
         val derivation = derive(worldId, projectId)
 
         setRequired(projectId, 4)
@@ -116,12 +120,14 @@ class DemandDerivationRaceIT : WithUser() {
     @Test
     fun `a version switch during a fill-loop derivation leaves the project uncovered`() {
         val (worldId, projectId) = smelter("Version Race World")
+        val emptyId = createProject(worldId, "Nothing To Gather")
         val derivation = derive(worldId, projectId)
 
         assertIs<Result.Success<*>>(runBlocking { UpdateWorldVersionStep(worldId).process(after) })
         storeDerivation(derivation)
 
         assertTrue(projectId in uncovered(worldId), "a 1.91.0 plan must not be stored as current for a 1.91.1 world")
+        assertNull(stateRow(emptyId), "a project that can never be in the fill loop gets no row")
 
         storeDerivation(derive(worldId, projectId))
         assertTrue(blackstone.id in demandItems(projectId))
@@ -208,6 +214,66 @@ class DemandDerivationRaceIT : WithUser() {
     }
 
     /**
+     * Deleting a farm invalidates *before* the delete, because afterwards its productions are gone.
+     * Committed on its own, that bump would land first: a derivation starting before the delete
+     * would read the new generation with the farm still supplying, and its save would match. The
+     * delete is held at its `DELETE` by a lock on the farm's row, which is exactly that gap.
+     */
+    @Test
+    fun `deleting a supplying farm commits its invalidation with the delete`() {
+        val (worldId, projectId) = smelter("Farm Delete World")
+        val farmId = suppliedBy(worldId, projectId)
+
+        val derivation = deriveWhileHeld("SELECT 1 FROM projects WHERE id = ? FOR UPDATE", farmId, worldId, projectId) {
+            DeleteProjectStep(worldId).process(farmId)
+        }
+        storeDerivation(derivation)
+
+        assertTrue(projectId in uncovered(worldId), "a plan that counts a deleted farm as supply")
+    }
+
+    @Test
+    fun `deleting a supplying farm's production commits its invalidation with the delete`() {
+        val (worldId, projectId) = smelter("Production Delete World")
+        val farmId = suppliedBy(worldId, projectId)
+        val productionId = productionIdOf(farmId)
+
+        val derivation = deriveWhileHeld(
+            "SELECT 1 FROM project_productions WHERE id = ? FOR UPDATE", productionId, worldId, projectId,
+        ) {
+            DeleteProjectProductionStep(farmId, invalidateInWorld = worldId).process(productionId)
+        }
+        storeDerivation(derivation)
+
+        assertTrue(projectId in uncovered(worldId), "a plan that counts a deleted production as supply")
+    }
+
+    /**
+     * A project whose row carries a fingerprint from an older planner revision is uncovered — the
+     * roadmap is about to re-derive it — but has demand rows from the old plan, which the new one
+     * need not share. A farm going DONE mid-derivation must reach it, or the new-revision plan is
+     * stored against the pre-farm supply.
+     */
+    @Test
+    fun `a farm reaching DONE reaches a project the roadmap is re-deriving after a revision bump`() {
+        val (worldId, projectId) = smelter("Revision Race World")
+        storeDerivation(derive(worldId, projectId))
+        // What a deploy that bumps REVISION leaves behind: an older revision, and a fingerprint
+        // that no longer matches what the new code computes.
+        sql("UPDATE project_demand_state SET revision = 0, fingerprint = 'older-revision' WHERE project_id = ?", projectId)
+        assertTrue(projectId in uncovered(worldId))
+        val farmId = createProject(worldId, "Blackstone Farm")
+        produce(farmId, blackstone)
+        val derivation = derive(worldId, projectId)
+
+        setState(farmId, "DONE")
+        assertIs<Result.Success<*>>(runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId).process(Unit) })
+        storeDerivation(derivation)
+
+        assertTrue(projectId in uncovered(worldId))
+    }
+
+    /**
      * The trigger fires on rows a project delete cascades to, after the project is gone. Its
      * insert must find no project rather than fail the foreign key — and with it the delete.
      */
@@ -236,6 +302,34 @@ class DemandDerivationRaceIT : WithUser() {
 
     private fun storeDerivation(derivation: Derivation) = runBlocking {
         GenerateGatheringPlanStep.store(derivation.write!!)
+    }
+
+    /**
+     * Holds the row [lockSql] locks, starts [change], and derives once [change] is waiting on that
+     * lock — part-way through its transaction. Then lets it finish and returns the derivation.
+     */
+    private fun deriveWhileHeld(
+        lockSql: String,
+        lockedId: Int,
+        worldId: Int,
+        projectId: Int,
+        change: suspend () -> Result<AppFailure.DatabaseError, *>,
+    ): Derivation = runBlocking {
+        Database.getConnection().use { blocker ->
+            blocker.autoCommit = false
+            blocker.prepareStatement(lockSql).use { stmt ->
+                stmt.setInt(1, lockedId)
+                stmt.executeQuery().close()
+            }
+            val pending = async(Dispatchers.IO) { change() }
+            withTimeout(10_000) {
+                while (!blockedOnLock(blocker)) delay(20)
+            }
+            val derivation = derive(worldId, projectId)
+            blocker.commit()
+            assertIs<Result.Success<*>>(pending.await())
+            derivation
+        }
     }
 
     // ---- fixtures ---------------------------------------------------------------------------
@@ -343,6 +437,45 @@ class DemandDerivationRaceIT : WithUser() {
                 stmt.setString(3, item.name)
             }
         ).process(Unit)
+    }
+
+    /** A DONE farm making cobblestone, and [projectId]'s plan stored as current with it supplying. */
+    private fun suppliedBy(worldId: Int, projectId: Int): Int {
+        val farmId = createProject(worldId, "Cobble Generator")
+        produce(farmId, cobblestone)
+        setState(farmId, "DONE")
+        storeDerivation(derive(worldId, projectId))
+        assertFalse(projectId in uncovered(worldId))
+        assertTrue(cobblestone.id in demandItems(projectId), "the supply join matches on the plan's items")
+        return farmId
+    }
+
+    private fun productionIdOf(projectId: Int): Int = runBlocking {
+        val result = DatabaseSteps.query<Unit, Int>(
+            sql = SafeSQL.select("SELECT id FROM project_productions WHERE project_id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            resultMapper = { rs -> rs.next(); rs.getInt("id") }
+        ).process(Unit)
+        (result as Result.Success).value
+    }
+
+    private fun sql(statement: String, projectId: Int) = runBlocking {
+        assertIs<Result.Success<*>>(
+            DatabaseSteps.update<Unit>(
+                sql = SafeSQL.update(statement),
+                parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            ).process(Unit)
+        )
+    }
+
+    /** The state row, whatever is in it: (derived_at is null) or null when there is no row. */
+    private fun stateRow(projectId: Int): Boolean? = runBlocking {
+        val result = DatabaseSteps.query<Unit, Boolean?>(
+            sql = SafeSQL.select("SELECT derived_at IS NULL AS never FROM project_demand_state WHERE project_id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+            resultMapper = { rs -> if (rs.next()) rs.getBoolean("never") else null }
+        ).process(Unit)
+        (result as Result.Success).value
     }
 
     private fun setState(projectId: Int, state: String) = runBlocking {

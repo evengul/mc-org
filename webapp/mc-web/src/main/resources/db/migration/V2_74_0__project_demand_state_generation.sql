@@ -17,8 +17,13 @@
 -- A NULL fingerprint is "not derived" to every reader, exactly as a missing row was: coverage
 -- requires one, the project page's write-through compares against it, and a scenario is fresh only
 -- while it equals its base.
+--
+-- derived_at goes nullable for the rows an invalidation inserts: a project never derived has no
+-- derivation time, and the column's default would give it one. An invalidation of an existing row
+-- leaves it alone, so it keeps saying when the last (now stale) plan was derived.
 ALTER TABLE project_demand_state
     ALTER COLUMN fingerprint DROP NOT NULL,
+    ALTER COLUMN derived_at DROP NOT NULL,
     ADD COLUMN generation BIGINT NOT NULL DEFAULT 0;
 
 -- Same trigger, same bookkeeping-column rule (V2_73_0); only what "invalidate" does changes.
@@ -35,14 +40,14 @@ BEGIN
         RETURN NULL;
     END IF;
     IF TG_OP IN ('UPDATE', 'DELETE') THEN
-        INSERT INTO project_demand_state (project_id, fingerprint, generation)
-        SELECT p.id, NULL, 1 FROM projects p WHERE p.id = OLD.project_id
+        INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+        SELECT p.id, NULL, NULL, 1 FROM projects p WHERE p.id = OLD.project_id
         ON CONFLICT (project_id) DO UPDATE
             SET fingerprint = NULL, generation = project_demand_state.generation + 1;
     END IF;
     IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.project_id <> OLD.project_id) THEN
-        INSERT INTO project_demand_state (project_id, fingerprint, generation)
-        SELECT p.id, NULL, 1 FROM projects p WHERE p.id = NEW.project_id
+        INSERT INTO project_demand_state (project_id, fingerprint, derived_at, generation)
+        SELECT p.id, NULL, NULL, 1 FROM projects p WHERE p.id = NEW.project_id
         ON CONFLICT (project_id) DO UPDATE
             SET fingerprint = NULL, generation = project_demand_state.generation + 1;
     END IF;

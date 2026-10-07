@@ -6,6 +6,7 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.Step
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.pipeline.project.GetProjectStateStep
+import app.mcorg.pipeline.resources.InvalidateDemandSuppliedByStep
 import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -96,17 +97,32 @@ internal data class UpsertProjectProductionStep(val projectId: Int) :
     }
 }
 
-internal data class DeleteProjectProductionStep(val projectId: Int) :
+/**
+ * Deletes one production row. With [invalidateInWorld] set — the farm is supplying — the stored
+ * demand of what it supplied is invalidated first, in the same transaction: before, because the
+ * row that says which item stopped being supplied is about to go (MCO-404); in the same
+ * transaction, so the generation bump and the delete commit together, or a derivation starting in
+ * between would store a plan that still counts this item as supplied (MCO-584).
+ */
+internal data class DeleteProjectProductionStep(val projectId: Int, val invalidateInWorld: Int? = null) :
     Step<Int, AppFailure.DatabaseError, Int> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
-        return DatabaseSteps.update<Int>(
-            sql = SafeSQL.delete("DELETE FROM project_productions WHERE id = ? AND project_id = ?"),
-            parameterSetter = { stmt, productionId ->
-                stmt.setInt(1, productionId)
-                stmt.setInt(2, projectId)
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
+        DatabaseSteps.transaction { connection ->
+            Step<Int, AppFailure.DatabaseError, Int> { productionId ->
+                if (invalidateInWorld != null) {
+                    val invalidated = InvalidateDemandSuppliedByStep(invalidateInWorld, projectId, connection).process(Unit)
+                    if (invalidated is Result.Failure) return@Step invalidated
+                }
+                DatabaseSteps.update<Int>(
+                    sql = SafeSQL.delete("DELETE FROM project_productions WHERE id = ? AND project_id = ?"),
+                    parameterSetter = { stmt, id ->
+                        stmt.setInt(1, id)
+                        stmt.setInt(2, projectId)
+                    },
+                    transactionConnection = connection,
+                ).process(productionId)
             }
-        ).process(input)
-    }
+        }.process(input)
 }
 
 private suspend fun ApplicationCall.isWorldAdmin(worldId: Int): Boolean =
@@ -144,8 +160,9 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
         // A new produced item on an operational farm is new world supply (MCO-404). Editing a
         // rate is not — V1 supply is unbounded (MCO-287), so the rate never reached the plan —
         // but telling the two apart costs a read of what was there before, and the invalidation
-        // is a single DELETE against an action taken by hand.
-        invalidateDemandIfOperational(worldId, projectId)
+        // is one statement against an action taken by hand. After the upsert is safe on its own
+        // transaction: the bump can only come after the change, never before it.
+        if (isOperational(projectId)) invalidateDemandSuppliedBy(worldId, projectId)
         GetResourceProductionStep.run(projectId)
     }
 }
@@ -163,22 +180,18 @@ suspend fun ApplicationCall.handleDeleteProjectProduction() {
             )
         }
     ) {
-        // Before the delete: afterwards the row that says which item stopped being supplied is
-        // gone (MCO-404).
-        invalidateDemandIfOperational(worldId, projectId)
-        DeleteProjectProductionStep(projectId).run(productionId)
+        DeleteProjectProductionStep(projectId, invalidateInWorld = worldId.takeIf { isOperational(projectId) })
+            .run(productionId)
         GetResourceProductionStep.run(projectId)
     }
 }
 
 /**
- * Invalidates stored demand for a production change, but only on a farm that is actually
+ * Whether a production change needs to invalidate stored demand: only on a farm that is actually
  * supplying — a project that is not DONE contributes nothing to anyone's plan
  * (`GetWorldFarmSuppliesStep`), so editing its productions cannot have made a stored plan wrong.
  */
-private suspend fun invalidateDemandIfOperational(worldId: Int, projectId: Int) {
+private suspend fun isOperational(projectId: Int): Boolean {
     val state = GetProjectStateStep.process(projectId)
-    if (state is Result.Success && state.value == ProjectState.DONE) {
-        invalidateDemandSuppliedBy(worldId, projectId)
-    }
+    return state is Result.Success && state.value == ProjectState.DONE
 }
