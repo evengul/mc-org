@@ -38,6 +38,8 @@ class SchematicParseGateTest {
 
     private val parsed: (ByteArray) -> Result<NBTFailure, Litematica> = { Result.success(litematica) }
 
+    private val oneFile = listOf(ByteArray(1))
+
     /** A reader that blocks until interrupted, recording that it was. */
     private class Stuck {
         val started = CountDownLatch(1)
@@ -59,20 +61,20 @@ class SchematicParseGateTest {
     fun `a readable file comes back parsed`() = runBlocking<Unit> {
         val gate = SchematicParseGate(concurrentParses = 1, timeout = 5.seconds, read = parsed)
 
-        val result = gate.parse(ByteArray(1))
+        val result = gate.parse(oneFile)
 
-        assertIs<Result.Success<Litematica>>(result)
-        assertEquals(litematica, result.value)
+        assertIs<Result.Success<List<Litematica>>>(result)
+        assertEquals(listOf(litematica), result.value)
     }
 
     @Test
     fun `an unreadable file is reported as unreadable`() = runBlocking<Unit> {
         val gate = SchematicParseGate(1, 5.seconds, read = { Result.failure(NBTFailure.InvalidStructure) })
 
-        val result = gate.parse(ByteArray(1))
+        val result = gate.parse(oneFile)
 
-        assertIs<Result.Failure<SchematicParseFailure>>(result)
-        assertEquals(SchematicParseFailure.Unreadable, result.error)
+        assertIs<Result.Failure<FileParseFailure>>(result)
+        assertEquals(FileParseFailure(0, SchematicParseFailure.Unreadable), result.error)
     }
 
     @Test
@@ -81,11 +83,11 @@ class SchematicParseGateTest {
         val gate = SchematicParseGate(1, 200.milliseconds, read = stuck.read)
 
         val started = System.nanoTime()
-        val result = gate.parse(ByteArray(1))
+        val result = gate.parse(oneFile)
         val elapsed = (System.nanoTime() - started) / 1_000_000
 
-        assertIs<Result.Failure<SchematicParseFailure>>(result)
-        assertEquals(SchematicParseFailure.TimedOut, result.error)
+        assertIs<Result.Failure<FileParseFailure>>(result)
+        assertEquals(FileParseFailure(0, SchematicParseFailure.TimedOut), result.error)
         // Interrupted, not abandoned: a timeout that let the thread run on would free the request
         // and leave the IO thread and the permit pinned to a parse nobody is waiting for.
         assertTrue(stuck.interrupted.get(), "the parse thread should have been interrupted")
@@ -102,7 +104,7 @@ class SchematicParseGateTest {
         })
 
         // Off runBlocking's one thread, which the latch below blocks.
-        val request = launch(Dispatchers.Default) { gate.parse(ByteArray(1)) }
+        val request = launch(Dispatchers.Default) { gate.parse(oneFile) }
         assertTrue(stuck.started.await(5, TimeUnit.SECONDS), "the parse should have started")
         request.cancel()
         request.join()
@@ -110,8 +112,8 @@ class SchematicParseGateTest {
         assertTrue(stuck.interrupted.get(), "cancelling the caller should interrupt the parse")
         // The gate has one permit, so this would wait out the 60 s timeout if the cancelled parse
         // had kept it.
-        val next = withTimeoutOrNull(5.seconds) { gate.parse(ByteArray(1)) }
-        assertIs<Result.Success<Litematica>>(next, "the cancelled parse should have released its permit")
+        val next = withTimeoutOrNull(5.seconds) { gate.parse(oneFile) }
+        assertIs<Result.Success<List<Litematica>>>(next, "the cancelled parse should have released its permit")
     }
 
     @Test
@@ -126,11 +128,38 @@ class SchematicParseGateTest {
         })
 
         val results = coroutineScope {
-            (1..6).map { async { gate.parse(ByteArray(1)) } }.awaitAll()
+            (1..6).map { async { gate.parse(oneFile) } }.awaitAll()
         }
 
         assertTrue(results.all { it is Result.Success }, "every parse should complete: $results")
         assertEquals(2, peak.get(), "parses should run two at a time, no more and no fewer")
+    }
+
+    @Test
+    fun `one deadline covers every file of an upload`() = runBlocking<Unit> {
+        // An upload may carry several files, and they parse one after another. A timeout per file
+        // would let one request hold its upload in memory for files x timeout.
+        val gate = SchematicParseGate(1, 400.milliseconds, read = {
+            Thread.sleep(150)
+            Result.success(litematica)
+        })
+
+        val result = gate.parse(List(3) { ByteArray(1) })
+
+        assertIs<Result.Failure<FileParseFailure>>(result)
+        assertEquals(FileParseFailure(2, SchematicParseFailure.TimedOut), result.error)
+    }
+
+    @Test
+    fun `a failure says which file of the upload it was`() = runBlocking<Unit> {
+        val gate = SchematicParseGate(1, 5.seconds, read = { bytes ->
+            if (bytes[0] == 1.toByte()) Result.failure(NBTFailure.InvalidStructure) else Result.success(litematica)
+        })
+
+        val result = gate.parse(listOf(byteArrayOf(0), byteArrayOf(1), byteArrayOf(0)))
+
+        assertIs<Result.Failure<FileParseFailure>>(result)
+        assertEquals(FileParseFailure(1, SchematicParseFailure.Unreadable), result.error)
     }
 
     @Test

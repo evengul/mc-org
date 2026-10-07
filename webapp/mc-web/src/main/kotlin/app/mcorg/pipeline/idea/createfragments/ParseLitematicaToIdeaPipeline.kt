@@ -136,20 +136,17 @@ private object ParseLitematicaStep :
     override suspend fun process(
         input: List<Pair<String?, ByteArray>>,
     ): Result<AppFailure, Pair<String?, Litematica>> {
-        val parsed = input.map { (name, bytes) ->
-            // Decompressing and walking an NBT tree is CPU- and allocation-heavy work on
-            // attacker-supplied input, so it goes through the gate: off the call thread (MCO-345),
-            // a bounded number at once and for a bounded time (MCO-426).
-            val compound = SchematicParseGate.shared.parse(bytes)
-            when (compound) {
-                is Result.Failure -> return Result.failure(
-                    AppFailure.customValidationError(
-                        "litematicFile",
-                        compound.error.describe(name ?: "Litematica file"),
-                    )
+        // Decompressing and walking an NBT tree is CPU- and allocation-heavy work on
+        // attacker-supplied input, so it goes through the gate: off the call thread (MCO-345),
+        // a bounded number at once and for a bounded time (MCO-426).
+        val parsed = when (val read = SchematicParseGate.shared.parse(input.map { it.second })) {
+            is Result.Failure -> return Result.failure(
+                AppFailure.customValidationError(
+                    "litematicFile",
+                    read.error.failure.describe(input[read.error.index].first ?: "Litematica file"),
                 )
-                is Result.Success -> compound.value
-            }
+            )
+            is Result.Success -> read.value
         }
 
         val first = parsed.first()

@@ -421,24 +421,22 @@ data class MapSchematicFilesToMaterialsStep(
 
 object ParseSchematicStep : Step<SchematicUpload, AppFailure, List<ParsedSchematic>> {
     override suspend fun process(input: SchematicUpload): Result<AppFailure, List<ParsedSchematic>> {
-        val parsed = input.files.map { file ->
-            // Through the gate, like ParseLitematicaStep: decompression and tree-walking of
-            // attacker-supplied bytes must not stall unrelated requests (MCO-345), nor run
-            // unbounded in number or time (MCO-426).
-            val read = SchematicParseGate.shared.parse(file.content)
-            when (read) {
-                // Named, since with several files "could not read the schematic file" leaves the
-                // user guessing which one to re-export.
-                is Result.Failure -> return Result.failure(
-                    AppFailure.customValidationError(
-                        "schematicFile",
-                        read.error.describe(file.fileName ?: "the schematic file"),
-                    )
+        // Through the gate, like ParseLitematicaStep: decompression and tree-walking of
+        // attacker-supplied bytes must not stall unrelated requests (MCO-345), nor run unbounded
+        // in number or time (MCO-426).
+        return when (val read = SchematicParseGate.shared.parse(input.files.map { it.content })) {
+            // Named, since with several files "could not read the schematic file" leaves the user
+            // guessing which one to re-export.
+            is Result.Failure -> Result.failure(
+                AppFailure.customValidationError(
+                    "schematicFile",
+                    read.error.failure.describe(input.files[read.error.index].fileName ?: "the schematic file"),
                 )
-                is Result.Success -> ParsedSchematic(file.fileName, read.value)
-            }
+            )
+            is Result.Success -> Result.success(
+                input.files.zip(read.value) { file, litematica -> ParsedSchematic(file.fileName, litematica) }
+            )
         }
-        return Result.success(parsed)
     }
 }
 
