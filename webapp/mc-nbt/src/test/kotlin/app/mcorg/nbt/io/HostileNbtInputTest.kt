@@ -2,6 +2,7 @@ package app.mcorg.nbt.io
 
 import app.mcorg.domain.model.minecraft.Litematica
 import app.mcorg.nbt.failure.NBTFailure
+import app.mcorg.nbt.tag.Tag
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.Result
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.ThrowingSupplier
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
+import java.lang.management.ManagementFactory
 import java.time.Duration
 import java.util.zip.GZIPOutputStream
 import kotlin.test.assertEquals
@@ -246,5 +248,82 @@ class HostileNbtInputTest {
         // reading only the 32 blocks its single packed long can actually address.
         val result = parseWithin(bytes, "a 2-billion-block claim")
         assertTrue(result is Result.Success<*>, "a well-formed file should still parse: $result")
+    }
+
+    private val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+
+    /** Heap allocated by the calling thread while [block] runs. */
+    private fun allocatedBy(block: () -> Unit): Long {
+        val before = threads.currentThreadAllocatedBytes
+        block()
+        return threads.currentThreadAllocatedBytes - before
+    }
+
+    @Test
+    fun `a tiny file declaring a large array allocates only what it supplies`() {
+        // checkedLength compares a declared length with the *budget* left, not with the bytes the
+        // stream holds, so an eleven-byte file could claim the whole 16 MB and have it allocated
+        // before the first element was read. One request at a time that is survivable; forty-odd
+        // at once is the 768 MB heap (MCO-426).
+        for ((type, width) in listOf(7 to 1, 11 to 4, 12 to 8)) {
+            val declared = ((NbtLimits.MAX_DECOMPRESSED_BYTES - 16) / width).toInt()
+            val bomb = nbt {
+                writeByte(type)
+                writeUTF("")
+                writeInt(declared)       // and then nothing
+            }
+            assertTrue(bomb.size < 16, "the bomb is supposed to be tiny; it is ${bomb.size} bytes")
+
+            LitematicaReader.readLitematica(bomb)   // class loading is not what is being measured
+            var result: Result<NBTFailure, Litematica>? = null
+            val allocated = allocatedBy { result = LitematicaReader.readLitematica(bomb) }
+
+            assertTrue(result is Result.Failure<*>, "a truncated array should be refused: $result")
+            assertTrue(
+                allocated < 1024 * 1024,
+                "tag $type declaring $declared elements from ${bomb.size} bytes allocated $allocated bytes",
+            )
+        }
+    }
+
+    /** A root compound with [depth] compounds nested inside it, each holding only the next. */
+    private fun nestedCompounds(depth: Int): ByteArray = nbt {
+        writeByte(10)
+        writeUTF("")
+        repeat(depth) {
+            writeByte(10)
+            writeUTF("")
+        }
+        repeat(depth + 1) { writeByte(0) }
+    }
+
+    private fun parse(bytes: ByteArray, maxDepth: Int = Tag.DEFAULT_MAX_DEPTH) =
+        BinaryNbtDeserializer<Any>(CompressionType.NONE, maxDepth).fromBytes(bytes)
+
+    @Test
+    fun `nesting up to the depth cap parses, and one level past it is refused`() {
+        assertTrue(parse(nestedCompounds(Tag.DEFAULT_MAX_DEPTH)) is Result.Success<*>)
+
+        val tooDeep = parse(nestedCompounds(Tag.DEFAULT_MAX_DEPTH + 1))
+        assertTrue(tooDeep is Result.Failure<*>, "one level past the cap should be refused")
+        assertTrue("MaxDepthReached" in tooDeep.toString(), "refused for the wrong reason: $tooDeep")
+    }
+
+    @Test
+    fun `nesting deeper than the stack is a parse failure, not a StackOverflowError`() {
+        // The depth cap is what keeps a real request off the end of the stack. This is the
+        // backstop for when it does not — a smaller -Xss, a deeper caller — and pins that the
+        // Error is turned into a failure rather than escaping a Result-based pipeline, which
+        // catches Exception and so would let it through.
+        //
+        // Parse something shallow first. A StackOverflowError thrown while a class is being
+        // initialised marks that class unusable for the rest of the JVM, and this test should
+        // not be the first to load the failure types every other test here uses.
+        parse(nestedCompounds(8), maxDepth = 4)
+
+        val result = parse(nestedCompounds(200_000), maxDepth = Int.MAX_VALUE)
+
+        assertTrue(result is Result.Failure<*>, "a document deeper than the stack should be refused")
+        assertTrue("stack" in result.toString(), "refused for the wrong reason: $result")
     }
 }

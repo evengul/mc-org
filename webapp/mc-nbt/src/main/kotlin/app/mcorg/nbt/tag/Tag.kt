@@ -5,7 +5,31 @@ sealed interface Tag<T> {
     val id: Byte
 
     companion object {
-        const val DEFAULT_MAX_DEPTH = 512
+        /**
+         * How deeply compounds and lists may nest before the parse is refused.
+         *
+         * The parser recurses once per level, so this is a promise about stack, and it was 512
+         * without a measurement until MCO-426. Measured then, as the deepest nesting that parses on
+         * a fresh thread, worst of compounds vs lists and of JIT-compiled vs interpreted:
+         *
+         * | `-Xss`                                  | deepest that parses |
+         * |-----------------------------------------|---------------------|
+         * | 1 MB (JVM default; prod sets no `-Xss`) | ~1000               |
+         * | 512 kB                                  | ~440                |
+         * | 256 kB                                  | ~165                |
+         *
+         * So 512 was under 2x from overflow on the production stack, before counting the Ktor and
+         * coroutine frames beneath a request. 128 leaves ~8x on 1 MB and still parses on 256 kB.
+         * Real files are nowhere near it: the deepest test fixture, a stocked shulker loader, nests
+         * 11 levels, and each layer of items-in-containers adds only a few.
+         *
+         * Re-measure if the reader's recursion changes shape: nest compounds and lists separately,
+         * one `-Xss` per JVM (a per-thread stack size is only a hint), and under `-Xint` as well.
+         * If the stack is exceeded anyway, [app.mcorg.nbt.io.BinaryNbtDeserializer] turns the Error
+         * into a failure; but an overflow during class initialisation poisons that class for the
+         * JVM's lifetime, which is why the margin matters more than the backstop.
+         */
+        const val DEFAULT_MAX_DEPTH = 128
     }
 }
 

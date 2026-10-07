@@ -39,7 +39,9 @@ util/
 - **Tag hierarchy**: `Tag<T>` sealed interface with `EndTag`, `ByteTag`, `ShortTag`, `IntTag`, `LongTag`, `FloatTag`, `DoubleTag`, `StringTag`, `ListTag`, `CompoundTag`, `ByteListTag`, `IntListTag`, `LongListTag`
 - **CompoundTag** is the main container (Map<String, Tag<*>>)
 - **LitematicaReader** is the entry point for parsing `.litematic` files into `Litematica` domain objects
-- Max depth of 512 to prevent malicious inputs
+- Max nesting depth of 128 (`Tag.DEFAULT_MAX_DEPTH`), measured against the stack, see its KDoc
+- Every declared length is hostile: arrays grow as elements arrive, never allocated from the claim (`NbtLimits`)
+- The parse is blocking and honours thread interruption (`checkInterrupted`); mc-web cancels it with `runInterruptible`
 
 ## Build
 

@@ -70,6 +70,16 @@ object NbtLimits {
     const val MAX_LIST_HEAP_BYTES: Long = 64L * 1024 * 1024
 
     /**
+     * Elements allocated for a declared-length array before any of them has been read; the buffer
+     * doubles from here as the stream proves it holds more (MCO-426).
+     *
+     * Small enough that a file declaring the whole budget and supplying nothing costs at most 64 kB
+     * (for `TAG_Long_Array`), large enough that the packed block states of a real region, the only
+     * big arrays a Litematica file has, reach full size in a dozen doublings.
+     */
+    const val INITIAL_ARRAY_CAPACITY: Int = 8 * 1024
+
+    /**
      * Rough heap cost of one `TAG_List` element of [type], in bytes.
      *
      * Deliberately an estimate, and deliberately on the low side of a 64-bit JVM with compressed
@@ -141,4 +151,19 @@ class BoundedInputStream(
     // Marks would let a caller re-read charged bytes without being charged again, which would
     // defeat the cap. DataInputStream does not need them.
     override fun markSupported(): Boolean = false
+}
+
+/**
+ * Throws if the parsing thread has been interrupted, consuming the flag as [InterruptedException]
+ * does everywhere else.
+ *
+ * The parse is a blocking call, so the coroutine running it cannot cancel it directly: mc-web runs
+ * it under `runInterruptible`, which interrupts the thread when the request is cancelled or times
+ * out, and this is where the parser notices (MCO-426). Called at the head of every loop whose trip
+ * count the file controls, rather than per byte read.
+ */
+internal fun checkInterrupted() {
+    if (Thread.interrupted()) {
+        throw InterruptedException("NBT parse interrupted")
+    }
 }

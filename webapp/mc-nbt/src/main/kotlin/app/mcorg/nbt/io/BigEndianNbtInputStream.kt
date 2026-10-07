@@ -28,6 +28,10 @@ class BigEndianNbtInputStream private constructor(
      * The check is deliberately about *bytes still readable*, not about a fixed element ceiling:
      * a file may only claim what it is prepared to supply, which makes the bound self-scaling and
      * leaves legitimate documents untouched.
+     *
+     * "Readable" here means the decompressed *budget* left, which is all the stream can know before
+     * reading, not the bytes the file actually holds. So this refuses the impossible claim cheaply
+     * but does not make the claimed length safe to allocate; [nextCapacity] is what does that.
      */
     private fun checkedLength(declared: Int, bytesPerElement: Long, what: String): Int {
         if (declared < 0) {
@@ -118,26 +122,59 @@ class BigEndianNbtInputStream private constructor(
     fun readDoubleTag() = tryRead { DoubleTag(readDouble()) }
     fun readStringTag() = tryRead { StringTag(readUTF()) }
 
+    /**
+     * The buffer size for the next stretch of a declared-length array:
+     * [NbtLimits.INITIAL_ARRAY_CAPACITY] to start, then doubling, never past [declared].
+     *
+     * The three array readers grow as elements arrive rather than allocating the declared length up
+     * front (MCO-426). [checkedLength] can only compare the claim with the budget, so allocating it
+     * outright let an eleven-byte file cost 16 MB of heap before its first element turned out to be
+     * missing. Growing keeps the allocation within a small multiple of the bytes genuinely read, and
+     * costs an honest file a handful of copies.
+     */
+    private fun nextCapacity(current: Int, declared: Int): Int =
+        if (current == 0) minOf(declared, NbtLimits.INITIAL_ARRAY_CAPACITY)
+        else minOf(declared.toLong(), current * 2L).toInt()
+
     fun readByteListTag() = tryRead {
-        val byteArray = ByteArray(checkedLength(readInt(), 1, "TAG_Byte_Array"))
-        readFully(byteArray)
-        ByteListTag(byteArray)
+        val length = checkedLength(readInt(), 1, "TAG_Byte_Array")
+        var bytes = ByteArray(nextCapacity(0, length))
+        var filled = 0
+        while (filled < length) {
+            if (filled == bytes.size) {
+                checkInterrupted()
+                bytes = bytes.copyOf(nextCapacity(bytes.size, length))
+            }
+            readFully(bytes, filled, bytes.size - filled)
+            filled = bytes.size
+        }
+        ByteListTag(bytes)
     }
 
     fun readIntListTag() = tryRead {
-        val intArray = IntArray(checkedLength(readInt(), 4, "TAG_Int_Array"))
-        for (i in intArray.indices) {
-            intArray[i] = readInt()
+        val length = checkedLength(readInt(), 4, "TAG_Int_Array")
+        var ints = IntArray(nextCapacity(0, length))
+        for (i in 0 until length) {
+            if (i == ints.size) {
+                checkInterrupted()
+                ints = ints.copyOf(nextCapacity(ints.size, length))
+            }
+            ints[i] = readInt()
         }
-        IntListTag(intArray)
+        IntListTag(ints)
     }
 
     fun readLongListTag() = tryRead {
-        val longArray = LongArray(checkedLength(readInt(), 8, "TAG_Long_Array"))
-        for (i in longArray.indices) {
-            longArray[i] = readLong()
+        val length = checkedLength(readInt(), 8, "TAG_Long_Array")
+        var longs = LongArray(nextCapacity(0, length))
+        for (i in 0 until length) {
+            if (i == longs.size) {
+                checkInterrupted()
+                longs = longs.copyOf(nextCapacity(longs.size, length))
+            }
+            longs[i] = readLong()
         }
-        LongListTag(longArray)
+        LongListTag(longs)
     }
 
     fun readUnknownListTag(maxDepth: Int) = tryRead {
@@ -159,6 +196,7 @@ class BigEndianNbtInputStream private constructor(
         chargeListHeap(length, type, "TAG_List of tag type $type")
 
         repeat(length) {
+            checkInterrupted()
             val newDepth = decrementMaxDepth(maxDepth)
             if (newDepth is Result.Failure) {
                 throw IllegalStateException("Max depth reached when reading unknown list tag")
@@ -182,6 +220,7 @@ class BigEndianNbtInputStream private constructor(
         val compoundTag = CompoundTag()
 
         while (true) {
+            checkInterrupted()
             // Bail out once the compound is clearly not recoverable, rather than reading the rest
             // of a hostile document to build a list nobody will read. Without this an unknown tag
             // id — three wire bytes — accumulated one failure per occurrence for the whole 16 MB
@@ -236,6 +275,10 @@ class BigEndianNbtInputStream private constructor(
     fun <T> tryRead(block: () -> Tag<T>): Result<BinaryParseFailure, Tag<T>> {
         return try {
             Result.success(block())
+        } catch (e: InterruptedException) {
+            // Not a malformed document: the caller asked the parse to stop, and folding that into a
+            // ReadError would let the enclosing compound carry on reading.
+            throw e
         } catch (e: Exception) {
             Result.failure(BinaryParseFailure.ReadError(e.message ?: "Could not read tag"))
         }
