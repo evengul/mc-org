@@ -10,6 +10,7 @@ import app.mcorg.presentation.utils.getIdeaId
 import app.mcorg.presentation.utils.getUser
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.createRouteScopedPlugin
+import io.ktor.server.application.isHandled
 import io.ktor.server.response.respond
 
 /**
@@ -25,6 +26,7 @@ import io.ktor.server.response.respond
  */
 val IdeaVisibilityPlugin = createRouteScopedPlugin("IdeaVisibilityPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val ideaId = call.getIdeaId()
         val user = call.getUser()
 

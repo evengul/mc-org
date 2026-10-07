@@ -20,7 +20,15 @@ import app.mcorg.presentation.utils.setTaskId
 import app.mcorg.presentation.utils.setWorldId
 import app.mcorg.presentation.utils.setWorldMemberId
 import com.github.benmanes.caffeine.cache.Cache
+import io.ktor.server.application.isHandled
 import io.ktor.server.application.createRouteScopedPlugin
+
+/*
+ * A plugin that reads an id an earlier plugin put on the call returns first when the call is
+ * already answered. Ktor's `isHandled` guard skips the route handler after a refusal, but not
+ * the sibling `onCall` interceptors, so without it a 404 for an unknown world went on to throw
+ * `No instance for key` from the next plugin (see [IdeaCommentAuthorPlugin]).
+ */
 
 val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
     onCall { call ->
@@ -47,6 +55,7 @@ val WorldParamPlugin = createRouteScopedPlugin("WorldParamPlugin") {
 
 val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val worldId = call.getWorldId()
         val projectId = call.parameters["projectId"]?.toIntOrNull()
         if (projectId == null) {
@@ -72,6 +81,7 @@ val ProjectParamPlugin = createRouteScopedPlugin("ParamPlugin") {
 
 val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val projectId = call.getProjectId()
         val taskId = call.parameters["taskId"]?.toIntOrNull()
         if (taskId == null) {
@@ -97,6 +107,7 @@ val ActionTaskParamPlugin = createRouteScopedPlugin("TaskParamPlugin") {
 
 val ResourceGatheringIdParamPlugin = createRouteScopedPlugin("ResourceGatheringIdParamPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val projectId = call.getProjectId()
         val resourceGatheringId = call.parameters["resourceGatheringId"]?.toIntOrNull()
         if (resourceGatheringId == null) {
@@ -145,6 +156,7 @@ val InviteParamPlugin = createRouteScopedPlugin("InviteParamPlugin") {
 
 val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val worldId = call.getWorldId()
         val memberId = call.parameters["memberId"]?.toIntOrNull()
         if (memberId == null) {
@@ -170,6 +182,7 @@ val WorldMemberParamPlugin = createRouteScopedPlugin("MemberParamPlugin") {
 
 val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductionItemParamPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val projectId = call.getProjectId()
         val itemId = call.parameters["productionId"]?.toIntOrNull()
         if (itemId == null) {
@@ -195,6 +208,7 @@ val ProjectProductionItemParamPlugin = createRouteScopedPlugin("ProjectProductio
 
 val ProjectDependencyItemPlugin = createRouteScopedPlugin("ProjectDependencyItemPlugin") {
     onCall { call ->
+        if (call.isHandled) return@onCall
         val projectId = call.getProjectId()
         val dependencyId = call.parameters["dependencyId"]?.toIntOrNull()
         if (dependencyId == null) {

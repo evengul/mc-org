@@ -36,6 +36,7 @@ val AdminPlugin = createRouteScopedPlugin("AdminPlugin") {
 
 val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
     onCall {
+        if (it.isHandled) return@onCall
         val user = it.getUser()
         val worldId = it.getWorldId()
 
@@ -56,6 +57,7 @@ val WorldAdminPlugin = createRouteScopedPlugin("WorldAdminPlugin") {
  */
 val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
     onCall {
+        if (it.isHandled) return@onCall
         val user = it.getUser()
         val worldId = it.getWorldId()
 
@@ -68,6 +70,7 @@ val WorldParticipantPlugin = createRouteScopedPlugin("WorldParticipantPlugin") {
 
 val WorldOwnerPlugin = createRouteScopedPlugin("WorldOwnerPlugin") {
     onCall {
+        if (it.isHandled) return@onCall
         val user = it.getUser()
         val worldId = it.getWorldId()
 
