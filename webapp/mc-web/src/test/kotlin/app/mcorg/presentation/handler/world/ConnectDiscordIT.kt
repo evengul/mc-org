@@ -43,6 +43,7 @@ import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.AfterEach
@@ -144,7 +145,18 @@ class ConnectDiscordIT : WithUser() {
         connect(worldId, channelId, compact = false)
 
         assertEquals(1, activeSubscriptionCount(worldId))
-        assertTrue(!eventFiltersFor(worldId).single().contains("*"), eventFiltersFor(worldId).single())
+        val filter = Json.parseToJsonElement(eventFiltersFor(worldId).single()).jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(
+            listOf(
+                "project_created",
+                "project_status_changed",
+                "project_resources_complete",
+                "project_unblocked",
+                "resource_milestone_reached",
+            ),
+            filter,
+            "Reconnecting must replace the wildcard with the types seam-discord renders",
+        )
 
         WebhookFanoutConsumer().handle(
             ProjectCreated(worldId, user.id, Instant.now(), 1, "Iron Farm", ProjectType.REDSTONE)
@@ -160,9 +172,8 @@ class ConnectDiscordIT : WithUser() {
         val old = createSubscription(worldId, "$discordBase/seam-events/$channelId", channelId = channelId)
         deactivate(old)
 
-        val response = connect(worldId, channelId, compact = false)
+        connect(worldId, channelId, compact = false)
 
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
         assertEquals(2, subscriptionsFor(worldId).size)
         assertEquals(1, activeSubscriptionCount(worldId))
     }
@@ -295,13 +306,16 @@ class ConnectDiscordIT : WithUser() {
         ) as Result.Success).value
     }
 
-    private suspend fun ApplicationTestBuilder.connect(worldId: Int, channelId: String, compact: Boolean) =
-        client.post("/worlds/$worldId/settings/discord") {
+    /** Connects through the route and fails the test on anything but 200, so a broken connect reads as one. */
+    private suspend fun ApplicationTestBuilder.connect(worldId: Int, channelId: String, compact: Boolean) {
+        val response = client.post("/worlds/$worldId/settings/discord") {
             addAuthCookie(this, user)
             contentType(ContentType.Application.FormUrlEncoded)
             val form = listOf("channel_id" to channelId) + if (compact) listOf("compact" to "true") else emptyList()
             setBody(form.formUrlEncode())
         }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+    }
 
     private fun deactivate(subscriptionId: Int) {
         Database.getConnection().use { conn ->
