@@ -63,14 +63,15 @@ object NbtLimits {
      * through `TAG_List` of `TAG_Byte` — one reference per wire byte, a ratio of about 24:1, which
      * survives. It is the 80:1 case it does not mention that is fatal. Both are now charged here.
      *
-     * Compound entries are charged here too (MCO-426). They were not, and a compound of 1.9 M
-     * uniquely named empty children, a 4.2 MB gzip, held 336 MB of heap from one request.
+     * Compound entries are charged as well, for the same reason (MCO-426): uncharged, a compound
+     * of 1.9 M uniquely named empty children, a 4.2 MB gzip, holds 336 MB of heap.
      *
-     * 128 MB, with mc-web letting two parses run at once, keeps parsing to a third of the 768 MB
-     * heap in the worst case. Real files are charged about 40 bytes per byte of gzip (Dig_Sort III:
-     * 26 kB on disk, ~1 MB charged, ~1.2 MB measured), so a file needs ~3 MB of compressed
-     * container and tile-entity data before this refuses it. Packed block states are arrays and
-     * not charged here, so the size of a build alone does not count against it.
+     * The charge runs 15-30% under the heap a tree actually retains, so 128 MB means up to ~165 MB
+     * held. mc-web lets two parses run at once: ~330 MB plus their arrays and uploads, under half
+     * of the 768 MB heap in the worst case. Real files are charged about 40 bytes per byte of gzip
+     * (Dig_Sort III: 26 kB on disk, ~1 MB charged, ~1.2 MB retained), so a file needs ~3 MB of
+     * compressed container and tile-entity data before this refuses it. Packed block states are
+     * arrays and not charged here, so the size of a build alone does not count against it.
      */
     const val MAX_TREE_HEAP_BYTES: Long = 128L * 1024 * 1024
 

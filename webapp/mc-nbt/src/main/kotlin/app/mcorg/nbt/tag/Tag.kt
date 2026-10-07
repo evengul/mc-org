@@ -8,9 +8,9 @@ sealed interface Tag<T> {
         /**
          * How deeply compounds and lists may nest before the parse is refused.
          *
-         * The parser recurses once per level, so this is a promise about stack, and it was 512
-         * without a measurement until MCO-426. Measured then, as the deepest nesting that parses on
-         * a fresh thread, worst of compounds vs lists and of JIT-compiled vs interpreted:
+         * The parser recurses once per level, so this is a promise about stack (MCO-426). The
+         * deepest nesting that parses on a fresh thread, worst of compounds vs lists and of
+         * JIT-compiled vs interpreted:
          *
          * | `-Xss`                                  | deepest that parses |
          * |-----------------------------------------|---------------------|
@@ -18,8 +18,8 @@ sealed interface Tag<T> {
          * | 512 kB                                  | ~440                |
          * | 256 kB                                  | ~165                |
          *
-         * So 512 was under 2x from overflow on the production stack, before counting the Ktor and
-         * coroutine frames beneath a request. 128 leaves ~8x on 1 MB and still parses on 256 kB.
+         * 128 leaves ~8x on the production stack, room for the Ktor and coroutine frames beneath a
+         * request, and still parses on 256 kB.
          * Real files are nowhere near it: the deepest test fixture, a stocked shulker loader, nests
          * 11 levels, and each layer of items-in-containers adds only a few.
          *

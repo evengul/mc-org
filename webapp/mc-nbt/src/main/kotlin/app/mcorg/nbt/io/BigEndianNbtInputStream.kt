@@ -3,6 +3,7 @@ package app.mcorg.nbt.io
 import app.mcorg.pipeline.Result
 import app.mcorg.nbt.tag.*
 import java.io.DataInputStream
+import java.io.EOFException
 import java.io.InputStream
 
 /**
@@ -145,11 +146,11 @@ class BigEndianNbtInputStream private constructor(
      * The buffer size for the next stretch of a declared-length array:
      * [NbtLimits.INITIAL_ARRAY_CAPACITY] to start, then doubling, never past [declared].
      *
-     * The three array readers grow as elements arrive rather than allocating the declared length up
+     * The array readers grow as elements arrive rather than allocating the declared length up
      * front (MCO-426). [checkedLength] can only compare the claim with the budget, so allocating it
-     * outright let an eleven-byte file cost 16 MB of heap before its first element turned out to be
-     * missing. Growing keeps the allocation within a small multiple of the bytes genuinely read, and
-     * costs an honest file a handful of copies.
+     * outright would let an eleven-byte file cost 16 MB of heap before its first element turned out
+     * to be missing. Growing keeps the allocation within a small multiple of the bytes genuinely
+     * read, and costs an honest file a handful of copies.
      */
     private fun nextCapacity(current: Int, declared: Int): Int =
         if (current == 0) minOf(declared, NbtLimits.INITIAL_ARRAY_CAPACITY)
@@ -157,15 +158,11 @@ class BigEndianNbtInputStream private constructor(
 
     fun readByteListTag() = tryRead {
         val length = checkedLength(readInt(), 1, "TAG_Byte_Array")
-        var bytes = ByteArray(nextCapacity(0, length))
-        var filled = 0
-        while (filled < length) {
-            if (filled == bytes.size) {
-                checkInterrupted()
-                bytes = bytes.copyOf(nextCapacity(bytes.size, length))
-            }
-            readFully(bytes, filled, bytes.size - filled)
-            filled = bytes.size
+        // readNBytes buffers in chunks as it reads, which is the same bound [nextCapacity] gives
+        // the int and long readers: never the declared length before the bytes are there.
+        val bytes = readNBytes(length)
+        if (bytes.size < length) {
+            throw EOFException("TAG_Byte_Array declared $length bytes, but the input held ${bytes.size}")
         }
         ByteListTag(bytes)
     }
@@ -269,8 +266,9 @@ class BigEndianNbtInputStream private constructor(
                 }
             }
 
-            // Fatal rather than accumulated: the document is too big, and carrying on reading it
-            // is the thing being prevented.
+            // Returned at once rather than accumulated, since the document is too big to keep
+            // reading. An enclosing compound records it like any child failure and reads one more
+            // entry, whose charge then refuses as well, so each level stops after one read.
             chargeCompoundEntry(id.toByte())?.let { return Result.failure(it) }
 
             val decrementedMaxDepth = when (val result = decrementMaxDepth(maxDepth)) {
