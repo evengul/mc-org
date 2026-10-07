@@ -87,8 +87,6 @@ internal sealed interface FailureResponse {
  * generic error so a user can name something we can search for (`Monitoring.kt`).
  */
 internal fun AppFailure.toFailureResponse(requestUri: String, reference: String?): FailureResponse {
-    fun referenced(message: String) = reference?.let { "$message (reference: $it)" } ?: message
-
     return when (this) {
         // Normal control flow. The user typed something wrong, or is not signed in yet.
         is AppFailure.ValidationError -> FailureResponse.ValidationMessages(errors)
@@ -131,12 +129,20 @@ internal fun AppFailure.toFailureResponse(requestUri: String, reference: String?
         is AppFailure.FileError,
         is AppFailure.IllegalConfigurationError -> FailureResponse.Alert(
             id = "generic-error",
-            title = "An error occurred",
-            message = referenced("An unexpected error occurred. Please try again later."),
+            title = UNEXPECTED_ERROR_TITLE,
+            message = unexpectedErrorMessage(reference),
             status = HttpStatusCode.InternalServerError,
             volume = FailureVolume.ERROR,
         )
     }
+}
+
+internal const val UNEXPECTED_ERROR_TITLE = "An error occurred"
+
+/** Shared with the uncaught-exception boundary in `Routing.kt`, which has no [AppFailure]. */
+internal fun unexpectedErrorMessage(reference: String?): String {
+    val message = "An unexpected error occurred. Please try again later."
+    return reference?.let { "$message (reference: $it)" } ?: message
 }
 
 /**

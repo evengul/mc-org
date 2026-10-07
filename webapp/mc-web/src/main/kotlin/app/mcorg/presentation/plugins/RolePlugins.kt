@@ -15,6 +15,8 @@ import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.consts.ISSUER
 import app.mcorg.presentation.handler.respondRefusal
+import app.mcorg.presentation.templated.error.BANNED_MESSAGE
+import app.mcorg.presentation.templated.error.BANNED_TITLE
 import app.mcorg.presentation.templated.error.bannedPage
 import app.mcorg.presentation.utils.getIdeaCommentId
 import app.mcorg.presentation.utils.getIdeaId
@@ -91,7 +93,7 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
         val cached = CacheManager.bannedUsers.getIfPresent(userId)
         if (cached != null) {
             if (cached) {
-                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
+                it.respondBanned()
             }
             return@onUnansweredCall
         }
@@ -106,9 +108,21 @@ val BannedPlugin = createRouteScopedPlugin("BannedPlugin") {
         if (result is Result.Success) {
             CacheManager.bannedUsers.put(userId, result.value)
             if (result.value) {
-                it.respondHtml(bannedPage(), HttpStatusCode.Forbidden)
+                it.respondBanned()
             }
         }
+    }
+}
+
+/**
+ * The suspended page on a page load, and the same words as an alert under HTMX: htmx swaps no
+ * error response into its target (`noSwap`, `Layout.kt`), so a whole page there shows nothing.
+ */
+private suspend fun ApplicationCall.respondBanned() {
+    if (request.headers["HX-Request"] == "true") {
+        respondRefusal(HttpStatusCode.Forbidden, BANNED_TITLE, BANNED_MESSAGE, alertId = "banned-error")
+    } else {
+        respondHtml(bannedPage(), HttpStatusCode.Forbidden)
     }
 }
 
