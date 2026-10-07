@@ -423,7 +423,7 @@ class ImportIdeaReviewIT : WithUser() {
     }
 
     @Test
-    fun `an idea with several runtime modes brings them all, the highest-yield one running`() = testApplication {
+    fun `an idea with several runtime modes brings them all, each with its own rates`() = testApplication {
         setupRoutes()
         val client = createClient { followRedirects = false }
 
@@ -436,30 +436,27 @@ class ImportIdeaReviewIT : WithUser() {
         assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
         val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
 
-        // MCO-413: the project used to keep one mode's rates and forget the rest, so flipping the
-        // farm's filter meant re-typing numbers the design already had.
-        assertEquals(
-            listOf("Skeletons only" to false, "Everything on" to true),
-            readModes(projectId),
-            "900/h across three items beats the skeletons-only mode's 700, so it starts running",
-        )
+        // MCO-413: the project used to keep one mode's rates and forget the rest. Every mode now
+        // follows the import, and none is singled out as running (MCO-588).
+        assertEquals(listOf("Skeletons only", "Everything on"), readModes(projectId))
+        assertEquals(listOf("minecraft:bone" to 700), readModeProductions(projectId, "Skeletons only"))
         assertEquals(
             listOf(
                 "minecraft:blaze_powder" to 0,
                 "minecraft:blaze_rod" to 400,
                 "minecraft:bone" to 500,
             ),
-            readActiveProductions(projectId),
+            readModeProductions(projectId, "Everything on"),
         )
         assertEquals(
-            listOf("minecraft:bone" to 700),
-            readModeProductions(projectId, "Skeletons only"),
-            "the mode not running keeps its own rates, ready to switch to",
+            listOf("minecraft:blaze_powder", "minecraft:blaze_rod", "minecraft:bone"),
+            readSuppliedItems(projectId),
+            "once Done the farm supplies what every mode makes, bone once although both modes make it",
         )
     }
 
     @Test
-    fun `the review states the starting mode and offers the others`() = testApplication {
+    fun `the review lists the runtime modes as information, with nothing to choose`() = testApplication {
         setupRoutes()
 
         val body = client.get("/ideas/$multiModeIdeaId/import/review?worldId=$worldId") {
@@ -467,13 +464,13 @@ class ImportIdeaReviewIT : WithUser() {
         }.bodyAsText()
 
         assertContains(body, "Runtime modes · 2")
-        assertContains(body, "By default it starts running <strong>Everything on</strong>")
-        assertContains(body, "name=\"runtimeMode\" value=\"Skeletons only\"")
-        assertContains(body, "Bone · 700/hr", message = "each option says what it makes")
+        assertContains(body, "Once it is Done, the farm supplies what every mode makes.")
+        assertContains(body, "Bone · 700/hr", message = "each mode says what it makes")
+        assertFalse(body.contains("runtimeMode"), "no starting-mode field rides the form any more")
     }
 
     @Test
-    fun `a design with one way to run it asks nothing about modes on review`() = testApplication {
+    fun `a design with one way to run it says nothing about modes on review`() = testApplication {
         setupRoutes()
 
         val body = client.get("/ideas/$ideaId/import/review?worldId=$worldId") {
@@ -481,24 +478,6 @@ class ImportIdeaReviewIT : WithUser() {
         }.bodyAsText()
 
         assertFalse(body.contains("Runtime modes"))
-    }
-
-    @Test
-    fun `the starting mode picked on review is the one that runs`() = testApplication {
-        setupRoutes()
-        val client = createClient { followRedirects = false }
-
-        val response = client.post("/ideas/$multiModeIdeaId/import") {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("worldId=$worldId&runtimeMode=Skeletons+only&" + materials("minecraft:oak_planks" to 10))
-        }
-
-        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
-        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
-
-        assertEquals(listOf("Skeletons only" to true, "Everything on" to false), readModes(projectId))
-        assertEquals(listOf("minecraft:bone" to 700), readActiveProductions(projectId))
     }
 
     @Test
@@ -515,8 +494,8 @@ class ImportIdeaReviewIT : WithUser() {
         assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
         val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
 
-        assertEquals(emptyList(), readModes(projectId), "nothing to switch between, so nothing to show")
-        assertEquals(listOf("minecraft:iron_ingot" to 620), readActiveProductions(projectId))
+        assertEquals(emptyList(), readModes(projectId), "one way to run it, so no modes to list")
+        assertEquals(listOf("minecraft:iron_ingot" to 620), readProductions(projectId))
     }
 
     @Test
@@ -1138,30 +1117,30 @@ class ImportIdeaReviewIT : WithUser() {
         ).process(requirements)
     }
 
-    private fun readModes(projectId: Int): List<Pair<String, Boolean>> = runBlocking {
-        val result = DatabaseSteps.query<Int, List<Pair<String, Boolean>>>(
+    private fun readModes(projectId: Int): List<String> = runBlocking {
+        val result = DatabaseSteps.query<Int, List<String>>(
             sql = SafeSQL.select(
-                "SELECT name, active FROM project_production_modes WHERE project_id = ? ORDER BY position"
+                "SELECT name FROM project_production_modes WHERE project_id = ? ORDER BY position"
             ),
             parameterSetter = { stmt, id -> stmt.setInt(1, id) },
             resultMapper = { rs ->
-                val rows = mutableListOf<Pair<String, Boolean>>()
-                while (rs.next()) rows.add(rs.getString("name") to rs.getBoolean("active"))
+                val rows = mutableListOf<String>()
+                while (rs.next()) rows.add(rs.getString("name"))
                 rows
             }
         ).process(projectId)
         (result as Result.Success).value
     }
 
-    private fun readActiveProductions(projectId: Int): List<Pair<String, Int>> = runBlocking {
-        val result = DatabaseSteps.query<Int, List<Pair<String, Int>>>(
+    private fun readSuppliedItems(projectId: Int): List<String> = runBlocking {
+        val result = DatabaseSteps.query<Int, List<String>>(
             sql = SafeSQL.select(
-                "SELECT item_id, rate_per_hour FROM active_project_productions WHERE project_id = ? ORDER BY item_id"
+                "SELECT item_id FROM project_supplied_items WHERE project_id = ? ORDER BY item_id"
             ),
             parameterSetter = { stmt, id -> stmt.setInt(1, id) },
             resultMapper = { rs ->
-                val rows = mutableListOf<Pair<String, Int>>()
-                while (rs.next()) rows.add(rs.getString("item_id") to rs.getInt("rate_per_hour"))
+                val rows = mutableListOf<String>()
+                while (rs.next()) rows.add(rs.getString("item_id"))
                 rows
             }
         ).process(projectId)

@@ -23,7 +23,6 @@ import app.mcorg.pipeline.project.handleRecordExistingFarm
 import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
-import app.mcorg.pipeline.project.resources.handleSwitchProductionMode
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
 import app.mcorg.pipeline.resources.handleAdoptAllMeasurements
 import app.mcorg.pipeline.resources.handleAdoptMeasurement
@@ -277,9 +276,6 @@ class WorldHandler {
                             }
                             post {
                                 call.handleUpsertProjectProduction()
-                            }
-                            post("/active-mode") {
-                                call.handleSwitchProductionMode()
                             }
                             route("/{productionId}") {
                                 install(ProjectProductionItemParamPlugin)

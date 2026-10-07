@@ -1,19 +1,17 @@
 package app.mcorg.presentation.handler.project
 
-import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.model.resources.ResourceQuantity
 import app.mcorg.domain.model.resources.ResourceSource
-import app.mcorg.domain.model.user.Role
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
+import app.mcorg.pipeline.project.commonsteps.GetFarmSupplyEdgesStep
 import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
-import app.mcorg.pipeline.project.resources.handleSwitchProductionMode
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
 import app.mcorg.pipeline.resources.GetWorldFarmSuppliesStep
 import app.mcorg.pipeline.resources.WorldFarmSuppliesInput
@@ -53,7 +51,8 @@ import kotlin.test.assertTrue
 
 /**
  * Runtime production modes on a project (MCO-413): a farm built from a design with several ways to
- * run it carries all of them, one active, and only the active one supplies.
+ * run it carries all of them, and once it is Done every one of them supplies (MCO-588) — Seam does
+ * not track which lever is pulled in game.
  *
  * The farm here is the tree farm that motivated the issue, cut down to two modes: replant it with
  * oak or with cherry and nothing about the build changes, only what it makes. A hand-recorded farm
@@ -78,6 +77,7 @@ class ProductionModesIT : WithUser() {
     private var bambooFarmId: Int = 0
     private var oakConsumerId: Int = 0
     private var cherryConsumerId: Int = 0
+    private var stickConsumerId: Int = 0
     private var unrelatedId: Int = 0
 
     @BeforeAll
@@ -100,6 +100,7 @@ class ProductionModesIT : WithUser() {
         bambooFarmId = createProject("Bamboo Farm")
         oakConsumerId = createProject("Oak Cabin")
         cherryConsumerId = createProject("Cherry Pavilion")
+        stickConsumerId = createProject("Fence Line")
         unrelatedId = createProject("Flower Garden")
 
         oakModeId = insertMode(treeFarmId, "Oak Mode", position = 0)
@@ -112,34 +113,55 @@ class ProductionModesIT : WithUser() {
 
         insertDemand(oakConsumerId, oakLog)
         insertDemand(cherryConsumerId, cherryLog)
+        insertDemand(stickConsumerId, stick)
         insertDemand(unrelatedId, poppy)
     }
 
     @BeforeEach
     fun reset() {
-        setActiveMode(treeFarmId, oakModeId)
         setProjectState(treeFarmId, "DONE")
         setProjectState(bambooFarmId, "DONE")
-        listOf(oakConsumerId, cherryConsumerId, unrelatedId).forEach(::stampFingerprint)
     }
 
     // ---- supply -----------------------------------------------------------------------------
 
     @Test
-    fun `only the active mode supplies the world`() {
+    fun `every mode of a Done farm supplies the world`() {
         val supplied = suppliedItems()
 
-        assertTrue(oakLog.id in supplied, "Oak Mode is active")
-        assertFalse(cherryLog.id in supplied, "Cherry Mode is not, so cherry logs are not on offer")
+        // Oak and Cherry at once: a plan wanting oak and one wanting cherry are both fed, as they
+        // are in game by running one mode for a while and then the other.
+        assertTrue(oakLog.id in supplied)
+        assertTrue(cherryLog.id in supplied)
+        assertTrue(stick.id in supplied)
         assertTrue(bamboo.id in supplied, "a hand-recorded farm with no modes supplies its one list")
     }
 
     @Test
-    fun `the project list counts what the farm makes now, not every mode's rows`() {
+    fun `a farm that is not Done supplies nothing from any mode`() {
+        setProjectState(treeFarmId, "ACTIVE")
+
+        val supplied = suppliedItems()
+
+        assertFalse(oakLog.id in supplied)
+        assertFalse(cherryLog.id in supplied)
+    }
+
+    @Test
+    fun `the project list counts each item the farm makes once, however many modes make it`() {
         val item = runBlocking { GetProjectListItemStep.process(treeFarmId) }
 
-        // Oak Mode makes two items; the two modes together hold four rows.
-        assertEquals(2, (item as Result.Success).value.producesCount)
+        // Oak Log, Cherry Log and Stick; both modes make sticks, so the two modes hold four rows.
+        assertEquals(3, (item as Result.Success).value.producesCount)
+    }
+
+    @Test
+    fun `an item two modes make is one roadmap edge, not one per mode`() {
+        val edges = runBlocking { GetFarmSupplyEdgesStep(worldId).process(Unit) }
+
+        val stickEdges = (edges as Result.Success).value
+            .filter { it.consumerId == stickConsumerId && it.producerId == treeFarmId }
+        assertEquals(1, stickEdges.size, stickEdges.toString())
     }
 
     @Test
@@ -159,46 +181,35 @@ class ProductionModesIT : WithUser() {
             ).process(Unit)
         }
 
-        // Otherwise the tree farm's switch would quietly turn the bamboo farm's row on and off.
+        // Otherwise an edit to the tree farm's Oak Mode could reach the bamboo farm's supply.
         assertIs<Result.Failure<*>>(result)
     }
 
-    // ---- switching --------------------------------------------------------------------------
+    // ---- editing a farm with modes ----------------------------------------------------------
 
     @Test
-    fun `switching the active mode changes what the farm supplies, with nothing re-typed`() = testApplication {
+    fun `a rate edit names its mode and lands in that mode alone`() = testApplication {
         setupRoutes()
 
-        val response = switchTo(cherryModeId)
+        val response = postProduction(treeFarmId, "itemId=${stick.id}&ratePerHour=950&modeId=$cherryModeId")
 
         assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        val supplied = suppliedItems()
-        assertTrue(cherryLog.id in supplied)
-        assertFalse(oakLog.id in supplied)
-        assertEquals(71_700, rateOf(cherryModeId, cherryLog), "the mode's own rate, as the design recorded it")
+        assertEquals(950, rateOf(cherryModeId, stick))
+        assertEquals(900, rateOf(oakModeId, stick), "the other mode keeps its own stick rate")
+        assertEquals(0, modeLessRowCount(treeFarmId), "a farm with modes never grows a mode-less list beside them")
+        setRate(cherryModeId, stick, 1_100)
     }
 
     @Test
-    fun `a switch invalidates the plans that gathered what the old mode made and what the new one makes`() = testApplication {
+    fun `a write to a farm with modes that names no mode is refused`() = testApplication {
         setupRoutes()
 
-        switchTo(cherryModeId)
+        val response = postProduction(treeFarmId, "itemId=${poppy.id}&ratePerHour=10")
 
-        assertFalse(hasFingerprint(oakConsumerId), "oak logs stopped being supplied")
-        assertFalse(hasFingerprint(cherryConsumerId), "cherry logs started being supplied")
-        assertTrue(hasFingerprint(unrelatedId), "poppies have nothing to do with the tree farm")
-    }
-
-    @Test
-    fun `switching a farm that is not running invalidates nothing`() = testApplication {
-        setupRoutes()
-        setProjectState(treeFarmId, "ACTIVE")
-
-        val response = switchTo(cherryModeId)
-
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        assertTrue(hasFingerprint(oakConsumerId), "a farm that is not DONE supplies nothing either way")
-        assertTrue(hasFingerprint(cherryConsumerId))
+        // There is no running mode to fall back on, and a mode-less row beside the modes would
+        // break the one rule no constraint can check.
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(0, modeLessRowCount(treeFarmId))
     }
 
     @Test
@@ -207,107 +218,51 @@ class ProductionModesIT : WithUser() {
         val otherFarm = createProject("Someone Else's Farm")
         val foreignMode = insertMode(otherFarm, "Foreign Mode", position = 0)
 
-        val response = switchTo(foreignMode)
+        val response = postProduction(treeFarmId, "itemId=${poppy.id}&ratePerHour=10&modeId=$foreignMode")
 
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
-        assertEquals(oakModeId, activeModeOf(treeFarmId), "and the active mode did not move")
+        assertEquals(null, rateOf(foreignMode, poppy))
     }
 
     @Test
-    fun `a world member who is not an admin can switch`() = testApplication {
-        setupRoutes()
-        val member = createExtraUser()
-        addWorldMember(member.id, worldId, Role.MEMBER, "member-${member.id}")
-
-        val response = client.post("/worlds/$worldId/projects/$treeFarmId/productions/active-mode") {
-            addAuthCookie(this, member)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("modeId=$cherryModeId")
-        }
-
-        // Inside a project, members do what admins do; admin is kept for the world-level things.
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        assertEquals(cherryModeId, activeModeOf(treeFarmId))
-        assertContains(response.bodyAsText(), "mode-ledger")
-    }
-
-    @Test
-    fun `someone outside the world cannot switch`() = testApplication {
-        setupRoutes()
-        val stranger = createExtraUser()
-
-        val response = client.post("/worlds/$worldId/projects/$treeFarmId/productions/active-mode") {
-            addAuthCookie(this, stranger)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("modeId=$cherryModeId")
-        }
-
-        assertEquals(HttpStatusCode.Forbidden, response.status)
-        assertEquals(oakModeId, activeModeOf(treeFarmId))
-    }
-
-    // ---- editing a farm with modes ----------------------------------------------------------
-
-    @Test
-    fun `a rate edit on a farm with modes lands in the active mode`() = testApplication {
+    fun `a farm without modes refuses a write that names one`() = testApplication {
         setupRoutes()
 
-        val response = client.post("/worlds/$worldId/projects/$treeFarmId/productions") {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("itemId=${stick.id}&ratePerHour=950")
-        }
+        val response = postProduction(bambooFarmId, "itemId=${poppy.id}&ratePerHour=10&modeId=$oakModeId")
 
-        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
-        assertEquals(950, rateOf(oakModeId, stick))
-        assertEquals(1_100, rateOf(cherryModeId, stick), "the other mode keeps its own stick rate")
-        assertEquals(0, modeLessRowCount(treeFarmId), "a farm with modes never grows a mode-less list beside them")
-        setRate(oakModeId, stick, 900)
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(null, rateOf(oakModeId, poppy))
     }
 
     @Test
-    fun `the panel lists every mode with what it makes, and edits only the running one`() = testApplication {
+    fun `the panel lists every mode with its own editable rates, and none as running`() = testApplication {
         setupRoutes()
 
         val body = client.get("/worlds/$worldId/projects/$treeFarmId/productions/panel") {
             addAuthCookie(this)
         }.bodyAsText()
 
-        // Frame 1a: the ledger says what each mode makes, so a player can see Cherry is possible
-        // before switching; the rate rows below belong to the running mode alone.
         assertContains(body, "Modes · 2")
-        assertContains(body, "RUNNING")
-        // Cherry's row is the switch: it posts Cherry's id and reads "Cherry … Switch".
-        assertContains(body, "{&quot;modeId&quot;:&quot;$cherryModeId&quot;}")
-        assertContains(body, "mode-ledger__action\">Switch")
-        assertContains(body, "Cherry Log 71,700 · Stick 1,100 /hr")
-        assertContains(body, "Makes in Oak Mode")
-        assertContains(body, "${oakLog.name} rate per hour")
-        assertFalse(body.contains("${cherryLog.name} rate per hour"), "a mode not running has no rate rows to edit")
+        assertContains(body, "${oakLog.name} rate per hour in Oak Mode")
+        assertContains(body, "${cherryLog.name} rate per hour in Cherry Mode")
+        // Each rate edit carries its own mode, so it cannot land in the other.
+        assertContains(body, "modeId:&quot;$cherryModeId&quot;")
+        // The add form asks which mode an item belongs to.
+        assertContains(body, "id=\"production-panel-mode\"")
+        assertFalse(body.contains("RUNNING"), "no mode is marked as the running one")
+        assertFalse(body.contains("active-mode"), "and there is nothing to switch")
     }
 
     @Test
-    fun `switching a running farm says what changed for other plans and offers the way back`() = testApplication {
+    fun `the chip names an item two modes make once, and says how many modes the farm has`() = testApplication {
         setupRoutes()
 
-        val body = switchTo(cherryModeId).bodyAsText()
+        val body = postProduction(treeFarmId, "itemId=${stick.id}&ratePerHour=900&modeId=$oakModeId").bodyAsText()
+        val chip = body.substringAfter("hx-swap-oob")
 
-        assertContains(body, "Now running Cherry Mode.")
-        assertContains(body, "count Cherry Log and Stick from this farm; Oak Log no longer comes from it.")
-        assertContains(body, "Switch back to Oak Mode")
-        // The chip re-renders out of band with the running mode as its tag.
-        assertContains(body, "hx-swap-oob")
-        assertContains(body, "badge--neutral\">Cherry Mode")
-    }
-
-    @Test
-    fun `switching a farm that is not running changes nobody's plan, so says nothing`() = testApplication {
-        setupRoutes()
-        setProjectState(treeFarmId, "ACTIVE")
-
-        val body = switchTo(cherryModeId).bodyAsText()
-
-        assertFalse(body.contains("Now running"), "a farm that is not Done supplies nothing either way")
+        // Cherry Log, Oak Log, Stick: three items, not four rows.
+        assertContains(chip, "+2 more")
+        assertContains(chip, "2 modes")
     }
 
     // ---- routing — mirrors WorldHandler ---------------------------------------------------
@@ -324,18 +279,17 @@ class ProductionModesIT : WithUser() {
                     route("/productions") {
                         get("/panel") { call.handleGetProductionsPanel() }
                         post { call.handleUpsertProjectProduction() }
-                        post("/active-mode") { call.handleSwitchProductionMode() }
                     }
                 }
             }
         }
     }
 
-    private suspend fun ApplicationTestBuilder.switchTo(modeId: Int) =
-        client.post("/worlds/$worldId/projects/$treeFarmId/productions/active-mode") {
+    private suspend fun ApplicationTestBuilder.postProduction(projectId: Int, body: String) =
+        client.post("/worlds/$worldId/projects/$projectId/productions") {
             addAuthCookie(this)
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("modeId=$modeId")
+            setBody(body)
         }
 
     // ---- fixtures -------------------------------------------------------------------------
@@ -376,26 +330,6 @@ class ProductionModesIT : WithUser() {
                 stmt.setString(2, name)
                 stmt.setInt(3, position)
             }
-        ).process(Unit)
-        (result as Result.Success).value
-    }
-
-    private fun setActiveMode(projectId: Int, modeId: Int) = runBlocking {
-        DatabaseSteps.update<Unit>(
-            sql = SafeSQL.update("UPDATE project_production_modes SET active = FALSE WHERE project_id = ?"),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
-        ).process(Unit)
-        DatabaseSteps.update<Unit>(
-            sql = SafeSQL.update("UPDATE project_production_modes SET active = TRUE WHERE id = ?"),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, modeId) }
-        ).process(Unit)
-    }
-
-    private fun activeModeOf(projectId: Int): Int? = runBlocking {
-        val result = DatabaseSteps.query<Unit, Int?>(
-            sql = SafeSQL.select("SELECT id FROM project_production_modes WHERE project_id = ? AND active"),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
-            resultMapper = { rs -> if (rs.next()) rs.getInt("id") else null }
         ).process(Unit)
         (result as Result.Success).value
     }
@@ -469,40 +403,5 @@ class ProductionModesIT : WithUser() {
                 stmt.setString(3, item.name)
             }
         ).process(Unit)
-    }
-
-    private fun stampFingerprint(projectId: Int) = runBlocking {
-        DatabaseSteps.update<Unit>(
-            sql = SafeSQL.insert(
-                "INSERT INTO project_demand_state (project_id, fingerprint, derived_at) VALUES (?, 'fp-test', now()) " +
-                    "ON CONFLICT (project_id) DO UPDATE SET fingerprint = EXCLUDED.fingerprint"
-            ),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
-        ).process(Unit)
-    }
-
-    private fun hasFingerprint(projectId: Int): Boolean = runBlocking {
-        val result = DatabaseSteps.query<Unit, Boolean>(
-            sql = SafeSQL.select("SELECT 1 FROM project_demand_state WHERE project_id = ? AND fingerprint IS NOT NULL"),
-            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
-            resultMapper = { rs -> rs.next() }
-        ).process(Unit)
-        (result as Result.Success).value
-    }
-
-    private fun addWorldMember(userId: Int, worldId: Int, role: Role, displayName: String) = runBlocking {
-        DatabaseSteps.update<Unit>(
-            SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
-            parameterSetter = { stmt, _ ->
-                stmt.setInt(1, userId)
-                stmt.setInt(2, worldId)
-                stmt.setString(3, displayName)
-                stmt.setInt(4, role.level)
-            }
-        ).process(Unit)
-        CacheManager.onMemberAdded(userId, worldId)
-        CacheManager.worldMemberRole.asMap().keys
-            .filter { it.startsWith("$userId:$worldId:") }
-            .forEach { CacheManager.worldMemberRole.invalidate(it) }
     }
 }

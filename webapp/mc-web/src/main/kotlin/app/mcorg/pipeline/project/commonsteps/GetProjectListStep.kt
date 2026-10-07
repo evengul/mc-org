@@ -24,7 +24,7 @@ data class GetProjectListStep(val worldId: Int) : Step<Unit, AppFailure.Database
                   COALESCE(SUM(rgp.collected), 0)                          AS resources_gathered,
                   COUNT(DISTINCT rg.id)                                    AS item_count,
                   (
-                    SELECT COUNT(*) FROM active_project_productions pp
+                    SELECT COUNT(*) FROM project_supplied_items pp
                     WHERE pp.project_id = p.id
                   ) AS produces_count,
                   (

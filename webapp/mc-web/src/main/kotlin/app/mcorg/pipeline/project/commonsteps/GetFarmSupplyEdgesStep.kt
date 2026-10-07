@@ -108,7 +108,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   -- must keep reading the same edge set (MCO-318) — it just is not blocking.
                   EXISTS (
                       SELECT 1
-                      FROM active_project_productions op_prod
+                      FROM project_supplied_items op_prod
                       JOIN projects op ON op.id = op_prod.project_id
                       WHERE op_prod.item_id = d.item_id
                         AND op.world_id = pc.world_id
@@ -117,7 +117,7 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   )              AS superseded
                 FROM project_demand d
                 JOIN projects pc            ON pc.id = d.project_id
-                JOIN active_project_productions pp ON pp.item_id = d.item_id
+                JOIN project_supplied_items pp ON pp.item_id = d.item_id
                 JOIN projects prod          ON prod.id = pp.project_id
                 WHERE pc.world_id = ?
                   AND prod.world_id = ?

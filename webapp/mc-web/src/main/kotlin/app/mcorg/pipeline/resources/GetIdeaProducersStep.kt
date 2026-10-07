@@ -36,10 +36,9 @@ data class IdeaProducerInput(
  * ## MAX over modes
  *
  * An idea can describe several ways of running the same farm (V2_57_0), so a rate is picked per
- * item as the best any mode achieves. That mixes modes in principle — the fastest mode for bones
- * need not be the fastest for blaze rods — and does not in practice: every idea in the bank has
- * exactly one mode. MCO-413 is where the project records which mode it is actually run in; until
- * then, "how fast can this design make this" is the only question that can honestly be answered.
+ * item as the best any mode achieves. That mixes modes — the fastest mode for bones need not be the
+ * fastest for blaze rods — and that is the honest answer: a built farm supplies what every one of
+ * its modes makes (MCO-588), so "how fast can this design make this" is the best mode's rate.
  * `MAX` skips NULLs, so an item returns null only when no mode ever measured it.
  */
 object GetIdeaProducersStep : Step<IdeaProducerInput, AppFailure, List<IdeaProducer>> {

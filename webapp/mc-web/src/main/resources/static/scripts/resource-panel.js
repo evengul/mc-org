@@ -279,11 +279,16 @@
             var addUrl = results.dataset.productionAddUrl;
             if (!itemId || !addUrl) return;
             var rateInput = document.getElementById('production-panel-rate');
+            // Only a farm with runtime modes renders the picker; the server requires it there and
+            // refuses it anywhere else (MCO-413).
+            var modeSelect = document.getElementById('production-panel-mode');
+            var values = { itemId: itemId, ratePerHour: (rateInput && rateInput.value) || '0' };
+            if (modeSelect) values.modeId = modeSelect.value;
 
             htmx.ajax('POST', addUrl, {
                 target: '#resource-panel-content',
                 swap: 'innerHTML',
-                values: { itemId: itemId, ratePerHour: (rateInput && rateInput.value) || '0' }
+                values: values
             });
         }, true); // capture phase — see variant search above
     }
