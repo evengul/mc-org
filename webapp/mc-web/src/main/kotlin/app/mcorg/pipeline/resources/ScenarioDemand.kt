@@ -8,7 +8,6 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
@@ -89,7 +88,7 @@ object ScenarioDemand {
 
         // Off the call thread: a derivation is ~0.65 s of planner work, a numbered order asks for
         // one per step, and production has a single call thread for every request (MCO-551).
-        val generated = withContext(Dispatchers.Default) {
+        val generated = withContext(PlannerDispatcher) {
             GenerateGatheringPlanStep.process(GatheringPlanInput(projectId, worldId, assumed))
         }
         val plan = when (val r = generated) {

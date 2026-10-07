@@ -116,18 +116,39 @@ object GetWorldVersionStep : Step<Int, AppFailure.DatabaseError, String?> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, String?> = query.process(input)
 }
 
+/**
+ * Moves the world to [MinecraftVersion] and, when that is a change, drops every stored plan in it
+ * (MCO-578): a different version can change every recipe and loot table a plan was derived from.
+ *
+ * One statement, so the two cannot come apart. If the drop could fail on its own, the world would
+ * be on the new version with every plan still marked current for the old one — and the roadmap
+ * never compares the fingerprint that would notice. Only `project_demand_state` goes; the rows
+ * stay readable until the next roadmap load re-derives them. The `IS DISTINCT FROM` guard makes
+ * re-saving the current version a no-op rather than a world-wide re-derivation.
+ */
 data class UpdateWorldVersionStep(val worldId: Int) : Step<MinecraftVersion, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: MinecraftVersion): Result<AppFailure.DatabaseError, Int> {
-        return DatabaseSteps.update<MinecraftVersion>(
-            SafeSQL.update("""
-                UPDATE world
-                SET version = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
+        return DatabaseSteps.query<MinecraftVersion, Unit>(
+            SafeSQL.with("""
+                WITH changed AS (
+                    UPDATE world
+                    SET version = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND version IS DISTINCT FROM ?
+                    RETURNING id
+                ), dropped AS (
+                    DELETE FROM project_demand_state s
+                    USING projects p, changed c
+                    WHERE p.id = s.project_id AND p.world_id = c.id
+                    RETURNING s.project_id
+                )
+                SELECT (SELECT count(*) FROM dropped) AS dropped
             """),
             parameterSetter = { statement, version ->
                 statement.setString(1, version.toString())
                 statement.setInt(2, worldId)
-            }
+                statement.setString(3, version.toString())
+            },
+            resultMapper = { },
         ).process(input).map { worldId }
     }
 }
