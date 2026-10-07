@@ -175,6 +175,19 @@ dialog#resource-panel::backdrop {
     color: var(--text-primary);
 }
 
+/* Decorative: always beside the source's name, so colour carries nothing the text doesn't. */
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot--set {
+    background: var(--green);
+}
+
 /* "Replace item" section (MCO-246) — suggestions chips + free-text search */
 .resource-panel__variant {
     display: flex;

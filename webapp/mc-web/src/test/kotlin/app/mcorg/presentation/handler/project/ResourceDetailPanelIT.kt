@@ -120,6 +120,7 @@ class ResourceDetailPanelIT : WithUser() {
         // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
         val body = response.bodyAsText()
         assertFalse(body.contains("plan-row-$rgId"))
+        assertContains(body, "Manual gather")
     }
 
     @Test
@@ -220,6 +221,7 @@ class ResourceDetailPanelIT : WithUser() {
         // Nothing in the table row depends on the source, so the response carries no row (MCO-187).
         val body = response.bodyAsText()
         assertFalse(body.contains("plan-row-$rgId"))
+        assertContains(body, "No source selected")
     }
 
     // -------------------------------------------------------------------------
