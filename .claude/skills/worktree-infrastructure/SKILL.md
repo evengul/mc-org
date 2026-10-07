@@ -98,23 +98,26 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   the script to pick up a world added later.
 - **Migration number collisions are orthogonal to DB isolation.** If two branches
   each add `V{n}__*.sql` with the same `{n}`, Flyway errors on merge (out-of-order
-  / checksum). Fix: renumber the later-merged migration to the next free number. No
-  DB-branching scheme prevents this — it's a git conflict, not a data one.
+  / checksum). Fix: renumber the later-merged migration to the next free number, then
+  bring the database you are on up to date — `migrate-locally.sh` in the main checkout,
+  and in a worktree the bullet below. No DB-branching scheme prevents this — it's a git
+  conflict, not a data one.
 - **A renumbered migration leaves the worktree's own database behind.** The branch
   already recorded the old number (say `2.72.0`) with your SQL, so master's real
   `2.72.0` is never applied and your renamed file looks new. Run
-  `bash webapp/scripts/worktree-db.sh --refresh`: it deletes this worktree's `wt/*`
-  branch and provisions it again — re-fork from `master`, migrate in order, re-seed the
-  demo user. **The branch's data is lost**, fixture worlds included, so rebuild those
-  afterwards. Restart a running app: the branch's host changes and `local.env` is
-  rewritten. (MCO-413 undid its migration by hand the first time, which is why the
-  flag exists.)
+  `bash webapp/scripts/worktree-db.sh --refresh` from inside the worktree: it resets this
+  worktree's `wt/*` branch to `master`'s latest state (`neonctl branches reset --parent`),
+  then migrates in order and re-seeds the demo user. **The branch's data is lost**,
+  fixture worlds included, so rebuild those afterwards. The branch keeps its host, so
+  `local.env` stays right; a running app reconnects through its pool. It refuses a path
+  argument, so it can only ever reset the worktree you are in. (MCO-413 undid its
+  migration by hand the first time, which is why the flag exists.)
 
 **Scripts:**
 
 - `webapp/scripts/worktree-db.sh` — fork Neon branch + point `local.env` at it + migrate
-- `webapp/scripts/worktree-db.sh --refresh` — delete this worktree's Neon branch first, so
-  it is re-forked from production and provisioned from scratch (data lost; see the
+- `webapp/scripts/worktree-db.sh --refresh` — reset this worktree's Neon branch to
+  production's latest state, then provision it as usual (data lost; see the
   renumbered-migration caveat above)
 - `webapp/scripts/worktree-db-cleanup.sh` — delete the current worktree's branch
 - `webapp/scripts/worktree-db-cleanup.sh --prune` — delete all orphaned `wt/*` branches

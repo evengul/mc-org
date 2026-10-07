@@ -17,12 +17,13 @@
 # Teardown happens via the ExitWorktree hook, or manually:
 #   bash webapp/scripts/worktree-db-cleanup.sh
 #
-# To start the worktree's database over from production:
+# To start the worktree's database over from production, run from inside the worktree:
 #   bash webapp/scripts/worktree-db.sh --refresh
-# deletes this worktree's own Neon branch first, so the rest of the script re-forks it from
-# master, migrates it and re-seeds the demo user. Everything written to the old branch is
-# lost — that is the point. The case it exists for: a migration this branch already applied
-# had to be renumbered after master took its number, and Flyway now refuses the database.
+# resets this worktree's own Neon branch to master's latest state (`neonctl branches reset
+# --parent`), then migrates it and re-seeds the demo user as usual. Everything written to the
+# branch is lost — that is the point. The branch, its endpoint and its host stay, so local.env
+# keeps pointing at the right place. The case it exists for: a migration this branch already
+# applied had to be renumbered after master took its number, and Flyway now refuses the database.
 
 set -euo pipefail
 
@@ -43,9 +44,21 @@ for arg in "$@"; do
       echo "worktree-db: unknown option '$arg' (only --refresh)." >&2
       exit 2
       ;;
-    *) TARGET_DIR="$arg" ;;
+    *)
+      if [ -n "$TARGET_DIR" ]; then
+        echo "worktree-db: one worktree path at most (got '$TARGET_DIR' and '$arg')." >&2
+        exit 2
+      fi
+      TARGET_DIR="$arg"
+      ;;
   esac
 done
+# --refresh destroys data, so it acts only on the worktree you are standing in. A path argument
+# that resolves to a sibling would reset someone else's fixtures (the MCO-518 shape).
+if [ "$REFRESH" = 1 ] && [ -n "$TARGET_DIR" ]; then
+  echo "worktree-db: --refresh takes no path; run it from inside the worktree to refresh." >&2
+  exit 2
+fi
 
 # --- Resolve the worktree root ---------------------------------------------
 # Prefer an explicit path arg, then the hook's stdin `cwd`, then $PWD.
@@ -64,26 +77,37 @@ WORKTREE_ROOT="$(git -C "$TARGET_DIR" rev-parse --show-toplevel)"
 MAIN_REPO="$(git -C "$TARGET_DIR" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
 GIT_BRANCH="$(git -C "$WORKTREE_ROOT" branch --show-current)"
 
+# Both guards exit 0 for the hook, which calls this best-effort on every EnterWorktree. An explicit
+# --refresh that did nothing must not look like one that worked, so it exits non-zero instead.
 if [ -z "$GIT_BRANCH" ]; then
   echo "worktree-db: not on a named branch — skipping." >&2
-  exit 0
+  exit "$REFRESH"
 fi
 if [ "$WORKTREE_ROOT" = "$MAIN_REPO" ]; then
   echo "worktree-db: refusing to isolate the main checkout ($MAIN_REPO)." >&2
   echo "worktree-db: run this from a git worktree, not the primary working tree." >&2
-  exit 0
+  exit "$REFRESH"
 fi
 
 NEON_BRANCH="wt/${GIT_BRANCH}"
 ENV_FILE="$WORKTREE_ROOT/webapp/local.env"
 
-# --- Refresh: drop this worktree's branch so it is re-forked below ----------
+# --- Refresh: reset this worktree's branch to master's latest state --------
 # Only ever the branch named for this worktree's git branch: the main-checkout guard above
 # has already exited, so NEON_BRANCH is always wt/<this branch>, never master.
+#
+# A reset rather than delete-and-recreate: it keeps the branch, its endpoint and its host, so
+# there is no window with no database, local.env stays right, and a branch with children of its
+# own does not block it. A branch that does not exist yet is simply forked below.
 if [ "$REFRESH" = 1 ]; then
-  echo "worktree-db: --refresh: deleting Neon branch '${NEON_BRANCH}'; its data goes with it..."
-  if ! neonctl branches delete "$NEON_BRANCH" --project-id "$NEON_PROJECT_ID" --force >/dev/null 2>&1; then
-    echo "worktree-db: no branch '${NEON_BRANCH}' to delete; forking it fresh." >&2
+  if neonctl branches get "$NEON_BRANCH" --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1; then
+    echo "worktree-db: --refresh: resetting '${NEON_BRANCH}' to the latest '${NEON_PARENT}'; its data goes with it..."
+    if ! RESET_ERR="$(neonctl branches reset "$NEON_BRANCH" --parent --project-id "$NEON_PROJECT_ID" 2>&1 >/dev/null)"; then
+      echo "worktree-db: reset failed, nothing changed: ${RESET_ERR}" >&2
+      exit 1
+    fi
+  else
+    echo "worktree-db: --refresh: no branch '${NEON_BRANCH}' yet; forking it fresh."
   fi
 fi
 
@@ -94,12 +118,6 @@ if ! neonctl branches create \
       --name "$NEON_BRANCH" \
       --parent "$NEON_PARENT" \
       --output json >/dev/null 2>&1; then
-  # After a refresh, "already exists" would mean the delete did not happen, and reusing the
-  # branch would quietly hand back the very database the refresh was asked to replace.
-  if [ "$REFRESH" = 1 ]; then
-    echo "worktree-db: could not re-create '${NEON_BRANCH}' after deleting it — not reusing anything." >&2
-    exit 1
-  fi
   echo "worktree-db: branch may already exist; reusing it." >&2
 fi
 
@@ -305,6 +323,11 @@ if [ "$BUILD_OK" = 1 ] && [ "$MIGRATE_OK" = 1 ] && [ "$SEED_OK" = 1 ]; then
   echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."
 else
   echo "worktree-db: FINISHED WITH PROBLEMS — build=$BUILD_OK migrate=$MIGRATE_OK seed=$SEED_OK" >&2
+  if [ "$REFRESH" = 1 ] && [ "$MIGRATE_OK" = 0 ]; then
+    # The reset already happened, so the database is master's schema without this branch's
+    # migrations — not the old database, and not a finished refresh either.
+    echo "worktree-db: the branch WAS reset to '${NEON_PARENT}', but this branch's migrations did not run." >&2
+  fi
   echo "worktree-db: branch '${NEON_BRANCH}' exists and local.env points at it; re-run this script after fixing the build." >&2
   exit 1
 fi
