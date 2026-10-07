@@ -618,7 +618,11 @@ fun FlowContent.gatheringPlanSections(
         // is labelled with a farm exactly when that section says the farm comes first (MCO-542).
         farmScaleSection(
             farmScale, farmSuggestions, farmScaleThreshold, project.worldId, project.id, isWorldAdmin,
-            farmDismissals, suppressed, PlannedFarmAnswers.of(plan, farmScale, pendingFarms),
+            farmDismissals, suppressed,
+            PlannedFarmAnswers.of(
+                plan, farmScale, pendingFarms,
+                shownOnDesigns = farmSuggestions.flatMapTo(mutableSetOf()) { it.itemIds },
+            ),
         )
 
         groupOrder.forEach { group ->
@@ -811,16 +815,17 @@ private fun FlowContent.farmScaleSection(
                 +"%,d".format(threshold)
             }
             // Counted apart because they are different news: a design is a decision still to
-            // take, a farm project is one already taken. A line both could answer counts once,
-            // for the farm, which is where the fold renders it.
+            // take, a farm project is one already taken. The two never share a line — a line on
+            // a design row is left out of the fold (PlannedFarmAnswers).
             val byFarms = demands.count { it.itemId in answeredByFarms }
-            val byDesigns = demands.count { it.itemId in answered && it.itemId !in answeredByFarms }
+            val byDesigns = demands.count { it.itemId in answered }
             when {
                 demands.isEmpty() && suggestions.isEmpty() -> +"."
                 suggestions.isEmpty() && planned.isEmpty() -> +" — each is a candidate for its own farm project."
                 planned.isEmpty() -> +" — your designs cover $byDesigns of them."
                 suggestions.isEmpty() -> +" — farm projects in this world cover $byFarms of them."
-                else -> +" — farm projects in this world cover $byFarms of them; your designs cover $byDesigns."
+                // Designs first, in the order the panel shows them.
+                else -> +" — your designs cover $byDesigns of them; farm projects in this world cover $byFarms."
             }
         }
 
@@ -890,7 +895,9 @@ private fun FlowContent.plannedFarmAnswers(worldId: Int, projectId: Int, planned
     details("plan-farm-scale__planned") {
         summary {
             span("btn btn--ghost btn--sm plan-farm-scale__planned-toggle") {
-                span("plan-farm-scale__planned-toggle--closed") { +"$lines answered by farms in this world ▾" }
+                span("plan-farm-scale__planned-toggle--closed") {
+                    +"$lines answered by ${if (planned.size == 1) "a farm project" else "farm projects"} ▾"
+                }
                 span("plan-farm-scale__planned-toggle--open") { +"Hide answered ▴" }
             }
         }
@@ -900,7 +907,7 @@ private fun FlowContent.plannedFarmAnswers(worldId: Int, projectId: Int, planned
                     p("plan-farm-scale__planned-head") {
                         +"Solved when "
                         a(classes = "plan-farm-scale__planned-project") {
-                            href = "/worlds/$worldId/projects/${farm.projectId}"
+                            href = Link.Worlds.world(worldId).project(farm.projectId).to
                             +farm.projectName
                         }
                         +" is done"
@@ -943,7 +950,7 @@ private fun FlowContent.farmScaleDemandLine(
     /** Why this line is here, when it is not the obvious reading — a knock-on (MCO-542). */
     note: String? = null,
 ) {
-    div("plan-farm-scale__item") {
+    div(if (note == null) "plan-farm-scale__item" else "plan-farm-scale__item plan-farm-scale__item--noted") {
         span("plan-farm-scale__quantity") { +"%,d".format(quantity) }
         span("plan-farm-scale__name") { +itemName }
         rateLabel?.let { label -> span("plan-farm-scale__rate") { +label } }

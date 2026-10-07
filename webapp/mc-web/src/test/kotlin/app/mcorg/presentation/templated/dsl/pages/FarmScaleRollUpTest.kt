@@ -283,7 +283,7 @@ class FarmScaleRollUpTest {
         )
 
         assertContains(html, """<details class="plan-farm-scale__planned">""")
-        assertContains(html, "1 answered by farms in this world")
+        assertContains(html, "1 answered by a farm project ▾")
     }
 
     @Test
@@ -316,7 +316,7 @@ class FarmScaleRollUpTest {
             )
         )
 
-        assertContains(html, "farm projects in this world cover 1 of them; your designs cover 1.")
+        assertContains(html, "your designs cover 1 of them; farm projects in this world cover 1.")
         assertFalse(html.contains("No design yet"), "every line is answered by something")
     }
 
@@ -336,6 +336,35 @@ class FarmScaleRollUpTest {
         assertContains(html, "32,949")
         assertContains(html, "only feeds Iron Ingot, which this farm makes")
         assertFalse(html.contains("No design yet"), "the ore line is answered")
+    }
+
+    @Test
+    fun `a line a design row already shows is not repeated in the farm fold`() {
+        // A design for Iron Block removes the ore as its knock-on, and so does the iron farm.
+        // Designs only skip what a farm *makes*, so both claim the ore; it is printed once, on
+        // the row with the checkbox, and counted once.
+        val blockDesign = FarmSuggestion(
+            ideaId = 4,
+            ideaName = "Iron Block Farm",
+            produces = listOf(CoveredDemand("minecraft:iron_block", "Block of Iron", 3_661)),
+            alsoRemoves = listOf(CoveredDemand(deepslateIronOre.id, deepslateIronOre.name, 32_949)),
+        )
+
+        val html = rollUpOf(
+            render(
+                plan(
+                    node(ironIngot, 32_949, PlanNodeStatus.RESOLVED, requires = listOf(PlanRequirement(deepslateIronOre.id, 1))),
+                    node(deepslateIronOre, 32_949),
+                ),
+                pendingFarms = listOf(farm(9, "3.8k 8 Pod Iron Farm", ironIngot, 32_949)),
+                farmSuggestions = listOf(blockDesign),
+            )
+        )
+
+        // Once, in the design's "Also removes" sentence.
+        assertTrue(html.split("32,949").size - 1 == 1, "the ore is printed once: $html")
+        assertFalse(html.contains("plan-farm-scale__planned"), "nothing left for the farm fold")
+        assertContains(html, "your designs cover 1 of them.")
     }
 
     @Test

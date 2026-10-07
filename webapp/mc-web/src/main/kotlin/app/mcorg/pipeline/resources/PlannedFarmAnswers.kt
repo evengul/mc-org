@@ -48,6 +48,10 @@ fun List<PlannedFarmAnswer>.answeredIds(): Set<String> = flatMapTo(mutableSetOf(
  * The roll-up lists each item once. A farm that makes a line outright claims it before another
  * farm's knock-on does; otherwise the first farm in [farms]' order (by name, as the
  * Prerequisites section lists them) wins. The Prerequisites section still names every producer.
+ *
+ * A line a design row already prints is left to the design. Designs skip what a planned farm
+ * *makes*, but not what it knocks on: an Iron Block design and an iron farm both remove the ore
+ * under them. The design row carries the checkbox, so that is where the line stays.
  */
 object PlannedFarmAnswers {
 
@@ -55,15 +59,21 @@ object PlannedFarmAnswers {
         plan: GatheringPlan,
         demands: List<FarmScaleDemand>,
         farms: List<PendingFarmSupply>,
+        /** Every item a design row on the same panel already prints. */
+        shownOnDesigns: Set<String> = emptySet(),
     ): List<PlannedFarmAnswer> {
         if (demands.isEmpty() || farms.isEmpty()) return emptyList()
 
         val demandById = demands.associateBy { it.itemId }
-        val claimed = mutableSetOf<String>()
+        val claimed = shownOnDesigns.toMutableSet()
 
         val direct = farms.associateWith { farm ->
             farm.items.map { it.itemId }
-                .filter { id -> plan.nodes[id]?.let { it.status != PlanNodeStatus.SUPPLIED } == true }
+                // The same nodes a design can match (FarmSuggestions.matchableDemand): supplied
+                // work is no one's to answer, and a tag is not an item.
+                .filter { id ->
+                    plan.nodes[id]?.status.let { it != null && it != PlanNodeStatus.SUPPLIED && it != PlanNodeStatus.OPEN_TAG }
+                }
                 .toSet()
         }
 
@@ -79,12 +89,13 @@ object PlannedFarmAnswers {
         val knockOns = farms.associateWith { farm ->
             val made = direct.getValue(farm)
             if (made.isEmpty()) return@associateWith emptyList()
+            val ingredients = made.associateWith { ingredientsOf(plan, it) }
             FarmSuggestions.coveredBy(plan, made)
                 .filter { it !in made }
                 .mapNotNull { demandById[it] }
                 .filter { claimed.add(it.itemId) }
                 .sortedByDescending { it.quantity }
-                .map { demand -> KnockOnDemand(demand, feedsOf(plan, demand.itemId, made)) }
+                .map { demand -> KnockOnDemand(demand, feedsOf(plan, demand.itemId, ingredients)) }
         }
 
         return farms.mapNotNull { farm ->
@@ -95,10 +106,11 @@ object PlannedFarmAnswers {
         }
     }
 
-    /** The names of the items in [made] whose ingredient chain reaches [itemId]. */
-    private fun feedsOf(plan: GatheringPlan, itemId: String, made: Set<String>): List<String> =
-        made
-            .filter { itemId in ingredientsOf(plan, it) }
+    /** The names of the made items whose ingredient chain reaches [itemId]. */
+    private fun feedsOf(plan: GatheringPlan, itemId: String, ingredients: Map<String, Set<String>>): List<String> =
+        ingredients
+            .filterValues { itemId in it }
+            .keys
             .mapNotNull { plan.nodes[it]?.item?.name }
             .sorted()
 

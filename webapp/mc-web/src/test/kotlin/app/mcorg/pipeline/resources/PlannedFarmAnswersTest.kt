@@ -168,6 +168,23 @@ class PlannedFarmAnswersTest {
     }
 
     @Test
+    fun `a line a design row already shows is left to the design`() {
+        val plan = plan(
+            node(ironIngot, 32_949, PlanNodeStatus.RESOLVED, listOf(PlanRequirement(deepslateIronOre.id, 1))),
+            node(deepslateIronOre, 32_949),
+        )
+
+        val answers = PlannedFarmAnswers.of(
+            plan,
+            listOf(demand(deepslateIronOre, 32_949)),
+            listOf(farm(9, "Iron Farm", ironIngot to 32_949)),
+            shownOnDesigns = setOf(deepslateIronOre.id),
+        )
+
+        assertTrue(answers.isEmpty(), "the panel prints each line once: $answers")
+    }
+
+    @Test
     fun `answeredIds covers both what is made and what is knocked on`() {
         val plan = plan(
             node(ironIngot, 32_949, PlanNodeStatus.RESOLVED, listOf(PlanRequirement(deepslateIronOre.id, 1))),
