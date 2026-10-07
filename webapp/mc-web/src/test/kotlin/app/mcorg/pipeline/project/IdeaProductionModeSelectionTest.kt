@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.project
 
+import app.mcorg.domain.model.idea.IdeaModeKind
 import app.mcorg.domain.model.idea.IdeaProductionMode
 import app.mcorg.domain.model.idea.bestRateFor
 import app.mcorg.domain.model.idea.produces
@@ -130,6 +131,69 @@ class IdeaProductionModeSelectionTest {
         )
 
         assertEquals(mapOf("minecraft:ice" to 500), ratesForImport(modes))
+    }
+
+    // ---- MCO-413: runtime modes follow the import ----------------------------------------------
+
+    @Test
+    fun `every runtime mode follows the import, the one ratesForImport would pick running`() {
+        val modes = runtimeModesForImport(fortressFarm)
+
+        assertEquals(fortressFarm.map { it.name }, modes.map { it.name })
+        assertEquals(listOf("Everything, fast"), modes.filter { it.active }.map { it.name })
+        assertEquals(
+            ratesForImport(fortressFarm),
+            modes.single { it.active }.rates,
+            "the running mode's rates are the ones a flat import used to keep, so supply is unchanged on import",
+        )
+    }
+
+    @Test
+    fun `the starting mode chosen on the review runs instead of the highest-output one`() {
+        val modes = runtimeModesForImport(fortressFarm, startingModeName = "Skeletons only, slow")
+
+        assertEquals(listOf("Skeletons only, slow"), modes.filter { it.active }.map { it.name })
+        assertEquals(fortressFarm.size, modes.size, "choosing what runs drops none of the others")
+    }
+
+    @Test
+    fun `a starting mode that no longer exists falls back to the highest-output one`() {
+        val modes = runtimeModesForImport(fortressFarm, startingModeName = "Renamed since review")
+
+        assertEquals(listOf("Everything, fast"), modes.filter { it.active }.map { it.name })
+    }
+
+    @Test
+    fun `a design with one way to run it brings no modes`() {
+        // The common case stays free: a single mode is the implicit one, and the project keeps the
+        // mode-less list it has always had.
+        assertEquals(emptyList(), runtimeModesForImport(listOf(mode("Default", 0, "minecraft:cobblestone" to 12_000))))
+        assertEquals(emptyList(), runtimeModesForImport(emptyList()))
+    }
+
+    @Test
+    fun `a design with build-time variants brings no modes, its chosen variant is flattened as before`() {
+        // Flat modes cannot say which runtime rates belong to which build (MCO-463's named limit),
+        // so a design mixing the kinds imports exactly as it did.
+        val mixed = listOf(
+            mode("1 module", 0, "minecraft:cobblestone" to 231_000).copy(kind = IdeaModeKind.BUILD_TIME),
+            mode("Max speed", 1, "minecraft:cobblestone" to 300_000),
+            mode("Quiet", 2, "minecraft:cobblestone" to 100_000),
+        )
+
+        assertEquals(emptyList(), runtimeModesForImport(mixed))
+    }
+
+    @Test
+    fun `an unmeasured runtime rate follows as zero, like the flat import`() {
+        val modes = runtimeModesForImport(
+            listOf(
+                mode("Measured", 0, "minecraft:ice" to 500),
+                mode("Unmeasured", 1, "minecraft:packed_ice" to null),
+            )
+        )
+
+        assertEquals(mapOf("minecraft:packed_ice" to 0), modes.single { it.name == "Unmeasured" }.rates)
     }
 
     @Test

@@ -136,7 +136,7 @@ data class GetUnfinishedProductionsStep(val worldId: Int) :
             sql = SafeSQL.select(
                 """
                 SELECT pp.project_id, pp.item_id
-                FROM project_productions pp
+                FROM active_project_productions pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.world_id = ?
                   AND p.state <> ?

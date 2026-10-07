@@ -53,7 +53,7 @@ val GetWorldFarmSuppliesStep = DatabaseSteps.query<WorldFarmSuppliesInput, List<
                     pp.item_id,
                     p.id AS project_id,
                     p.name AS project_name
-                FROM project_productions pp
+                FROM active_project_productions pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.world_id = ?
                   AND p.state = ?
@@ -81,7 +81,7 @@ val GetAssumedFarmSuppliesStep = DatabaseSteps.query<AssumedFarmSuppliesInput, L
                     pp.item_id,
                     p.id AS project_id,
                     p.name AS project_name
-                FROM project_productions pp
+                FROM active_project_productions pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.id = ANY(?)
                   AND p.id <> ?

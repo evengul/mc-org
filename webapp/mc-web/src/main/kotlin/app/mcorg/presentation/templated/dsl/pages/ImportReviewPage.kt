@@ -6,6 +6,8 @@ import app.mcorg.pipeline.project.ImportWarning
 import app.mcorg.pipeline.project.ImportWarningKind
 import app.mcorg.pipeline.project.ImportWarnings
 import app.mcorg.pipeline.project.ImportWizardStep
+import app.mcorg.pipeline.project.ImportedRuntimeMode
+import app.mcorg.pipeline.project.RUNTIME_MODE_PARAM
 import app.mcorg.pipeline.project.ResolvedRegion
 import app.mcorg.pipeline.project.ReviewedMaterial
 import app.mcorg.pipeline.project.ReviewedMaterialsCodec
@@ -28,7 +30,9 @@ import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.main
 import kotlinx.html.p
+import kotlinx.html.radioInput
 import kotlinx.html.span
+import kotlinx.html.strong
 import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
@@ -100,6 +104,8 @@ fun importReviewPage(
     chosenBuildTimeMode: String? = null,
     /** The review URL for another variant — see `reviewHrefFor`. */
     reviewHref: (String) -> String = { "" },
+    /** The ways the built farm can be run, when there are several (MCO-413). */
+    runtimeModes: List<ImportedRuntimeMode> = emptyList(),
 ): String = pageShell(
     pageTitle = "Seam — review import",
     user = user,
@@ -158,6 +164,8 @@ fun importReviewPage(
                 alreadyBuiltControl(offerAlreadyBuilt)
 
                 materialsSection(requirements, emptySet(), placedCounts, regions, containerCounts, warnings)
+
+                runtimeModeChoice(runtimeModes)
 
                 div("import-review__actions") {
                     button(classes = "btn btn--primary") {
@@ -565,6 +573,48 @@ private fun FlowContent.buildTimeChoice(
                     a(classes = "import-review__build-time-option") {
                         href = reviewHref(mode)
                         +mode
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Which runtime mode the farm starts in (MCO-413, frame 1a's import review).
+ *
+ * A stated default rather than a question: runtime modes change what the farm makes, not what it
+ * costs, so nothing on this page depends on the answer and it never blocks the import. It sits
+ * after the materials for that reason. Radios, unlike [buildTimeChoice]'s links, because no other
+ * part of the page is derived from the choice — it rides the form to the POST and nothing else.
+ *
+ * Renders nothing below two modes, which is every design with one way to run it.
+ */
+private fun FlowContent.runtimeModeChoice(modes: List<ImportedRuntimeMode>) {
+    val default = modes.firstOrNull { it.active } ?: return
+    div("import-review__runtime-modes") {
+        span("section-label") { +"Runtime modes · ${modes.size}" }
+        p("import-review__runtime-lead") {
+            +"Starts running "
+            strong { +default.name }
+            +", the mode that makes the most. Anyone in the world can switch later from Produces."
+        }
+        details("import-review__runtime-change") {
+            summary { +"Change starting mode" }
+            div("mode-ledger__rows") {
+                modes.forEach { mode ->
+                    label("mode-ledger__row import-review__runtime-option") {
+                        radioInput {
+                            name = RUNTIME_MODE_PARAM
+                            value = mode.name
+                            checked = mode.active
+                        }
+                        span("mode-ledger__text") {
+                            span("mode-ledger__name") { +mode.name }
+                            span("mode-ledger__makes") {
+                                +makesLine(mode.production.map { (item, rate) -> item.name to rate })
+                            }
+                        }
                     }
                 }
             }

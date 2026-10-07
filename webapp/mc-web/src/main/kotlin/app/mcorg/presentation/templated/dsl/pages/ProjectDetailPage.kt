@@ -78,7 +78,7 @@ fun projectDetailPage(
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
     measurements: Map<String, MeasuredStock> = emptyMap(),
-    productions: List<ProjectProduction> = emptyList(),
+    productions: ProductionsView = ProductionsView(emptyList()),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
     drillCandidateCounts: Map<String, Int> = emptyMap(),
@@ -130,7 +130,7 @@ fun projectDetailPage(
                     div("project-detail__meta") {
                         projectStateField(project, isWorldAdmin)
                         projectLocationField(project, isWorldAdmin)
-                        projectProductionsField(project, productions, isWorldAdmin)
+                        projectProductionsField(project, productions)
                         projectImportedFromIdea(project, user)
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)

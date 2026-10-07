@@ -1,6 +1,8 @@
 package app.mcorg.presentation.handler.project
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.minecraft.ServerData
 import app.mcorg.domain.model.resources.ResourceQuantity
@@ -201,6 +203,59 @@ class ProjectProductionIT : WithUser() {
     }
 
     @Test
+    fun `a world member who is not an admin can add a production, and gets the editor to do it`() = testApplication {
+        setupRoutes()
+        val member = createExtraUser()
+        addWorldMember(member.id, worldId, Role.MEMBER, "member-${member.id}")
+
+        val panel = client.get("/worlds/$worldId/projects/$projectId/productions/panel") {
+            addAuthCookie(this, member)
+        }.bodyAsText()
+        val response = client.post("/worlds/$worldId/projects/$projectId/productions") {
+            addAuthCookie(this, member)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("itemId=${ironIngot.id}&ratePerHour=400")
+        }
+
+        // Inside a project, members do what admins do; admin is kept for the world-level things.
+        // The panel used to hide its controls from members, so the route's openness was moot.
+        assertContains(panel, "Add produced item")
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertContains(response.bodyAsText(), "production-row__rate")
+        assertEquals(listOf(ironIngot.id to 400), readProductions(projectId))
+        cleanupProductions(projectId)
+    }
+
+    @Test
+    fun `a world member who is not an admin can delete a production`() = testApplication {
+        setupRoutes()
+        val member = createExtraUser()
+        addWorldMember(member.id, worldId, Role.MEMBER, "member-${member.id}")
+        val productionId = insertProduction(projectId, ironIngot.id, ironIngot.name, 400)
+
+        val response = client.delete("/worlds/$worldId/projects/$projectId/productions/$productionId") {
+            addAuthCookie(this, member)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(emptyList(), readProductions(projectId))
+    }
+
+    @Test
+    fun `DELETE of a production that is already gone returns 404`() = testApplication {
+        setupRoutes()
+        val productionId = insertProduction(projectId, ironIngot.id, ironIngot.name, 400)
+        val url = "/worlds/$worldId/projects/$projectId/productions/$productionId"
+
+        assertEquals(HttpStatusCode.OK, client.delete(url) { addAuthCookie(this) }.status)
+        val again = client.delete(url) { addAuthCookie(this) }
+
+        // The param plugin caches "this production exists"; a delete that left the entry behind
+        // answered the second request as if there were still something to remove.
+        assertEquals(HttpStatusCode.NotFound, again.status)
+    }
+
+    @Test
     fun `DELETE with another project's production id returns 404`() = testApplication {
         setupRoutes()
         val foreignProductionId = insertProduction(siblingProjectId, poppy.id, poppy.name, 10)
@@ -294,6 +349,22 @@ class ProjectProductionIT : WithUser() {
             }
         ).process(projectId)
         (result as Result.Success).value
+    }
+
+    private fun addWorldMember(userId: Int, worldId: Int, role: Role, displayName: String) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, userId)
+                stmt.setInt(2, worldId)
+                stmt.setString(3, displayName)
+                stmt.setInt(4, role.level)
+            }
+        ).process(Unit)
+        CacheManager.onMemberAdded(userId, worldId)
+        CacheManager.worldMemberRole.asMap().keys
+            .filter { it.startsWith("$userId:$worldId:") }
+            .forEach { CacheManager.worldMemberRole.invalidate(it) }
     }
 
     private fun cleanupProductions(projectId: Int) = runBlocking {

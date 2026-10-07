@@ -1,8 +1,9 @@
 package app.mcorg.pipeline.project.resources
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.project.ProjectProduction
-import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.project.ProjectProductionMode
 import app.mcorg.pipeline.Step
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.pipeline.project.GetProjectStateStep
@@ -14,13 +15,13 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.ValidationSteps
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.failure.ValidationFailure
-import app.mcorg.pipeline.world.ValidateWorldMemberRole
 import app.mcorg.presentation.handler.handlePipeline
+import app.mcorg.presentation.templated.dsl.pages.ModeSwitch
+import app.mcorg.presentation.templated.dsl.pages.ProductionsView
 import app.mcorg.presentation.templated.dsl.pages.productionsFieldFragment
 import app.mcorg.presentation.templated.dsl.pages.productionsPanelFragment
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getProjectProductionItemId
-import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
@@ -35,8 +36,8 @@ data class ProjectProductionInput(
 )
 
 /**
- * MCO-297 — the production editor endpoints. POST is an upsert on (project_id, item_id)
- * (unique constraint from V2_50_0): adding an item that is already produced updates its
+ * MCO-297 — the production editor endpoints. POST is an upsert on the item within the list the
+ * project supplies from (V2_72_0's partial indexes; see [UpsertProjectProductionStep]): adding an item that is already produced updates its
  * rate instead of duplicating the row, so inline rate edits and the add form share one
  * endpoint. Rate is optional and display-only under unbounded-supply V1; 0 means "unknown".
  */
@@ -76,25 +77,109 @@ internal data class ValidateProjectProductionInputStep(val validItems: List<Item
     }
 }
 
+/**
+ * Writes one produced item into the list the project supplies from: its active mode when it has
+ * modes (MCO-413), its one mode-less list otherwise. A rate edit on the tree farm while it runs oak
+ * is a statement about oak mode, and must not grow a mode-less row beside the modes.
+ *
+ * Two statements rather than one because the conflict target differs: each list's items are unique
+ * through its own partial index (V2_72_0), and ON CONFLICT has to name the one it means.
+ */
 internal data class UpsertProjectProductionStep(val projectId: Int) :
     Step<ProjectProductionInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: ProjectProductionInput): Result<AppFailure.DatabaseError, Int> {
-        return DatabaseSteps.update<ProjectProductionInput>(
-            sql = SafeSQL.insert("""
-                INSERT INTO project_productions (project_id, item_id, name, rate_per_hour)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT (project_id, item_id)
-                DO UPDATE SET rate_per_hour = EXCLUDED.rate_per_hour, name = EXCLUDED.name, updated_at = NOW()
-                RETURNING id
-            """),
-            parameterSetter = { stmt, production ->
-                stmt.setInt(1, projectId)
-                stmt.setString(2, production.itemId)
-                stmt.setString(3, production.name)
-                stmt.setInt(4, production.ratePerHour)
-            }
-        ).process(input)
+        val modes = GetProjectProductionModesStep.process(projectId)
+        if (modes is Result.Failure) return modes
+        val activeModeId = modes.getOrNull()!!.firstOrNull { it.active }?.id
+
+        return if (activeModeId == null) {
+            DatabaseSteps.update<ProjectProductionInput>(
+                sql = SafeSQL.insert("""
+                    INSERT INTO project_productions (project_id, item_id, name, rate_per_hour)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT (project_id, item_id) WHERE mode_id IS NULL
+                    DO UPDATE SET rate_per_hour = EXCLUDED.rate_per_hour, name = EXCLUDED.name, updated_at = NOW()
+                    RETURNING id
+                """),
+                parameterSetter = { stmt, production ->
+                    stmt.setInt(1, projectId)
+                    stmt.setString(2, production.itemId)
+                    stmt.setString(3, production.name)
+                    stmt.setInt(4, production.ratePerHour)
+                }
+            ).process(input)
+        } else {
+            DatabaseSteps.update<ProjectProductionInput>(
+                sql = SafeSQL.insert("""
+                    INSERT INTO project_productions (project_id, mode_id, item_id, name, rate_per_hour)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (mode_id, item_id) WHERE mode_id IS NOT NULL
+                    DO UPDATE SET rate_per_hour = EXCLUDED.rate_per_hour, name = EXCLUDED.name, updated_at = NOW()
+                    RETURNING id
+                """),
+                parameterSetter = { stmt, production ->
+                    stmt.setInt(1, projectId)
+                    stmt.setInt(2, activeModeId)
+                    stmt.setString(3, production.itemId)
+                    stmt.setString(4, production.name)
+                    stmt.setInt(5, production.ratePerHour)
+                }
+            ).process(input)
+        }
     }
+}
+
+/** Parses `modeId` and checks it is one of this project's own modes. */
+internal data class ValidateProductionModeStep(val projectId: Int) :
+    Step<Parameters, AppFailure, Int> {
+    override suspend fun process(input: Parameters): Result<AppFailure, Int> {
+        val modeId = input["modeId"]?.toIntOrNull()
+            ?: return Result.failure(
+                AppFailure.ValidationError(listOf(ValidationFailure.InvalidFormat("modeId", "must be a mode id")))
+            )
+        val modes = GetProjectProductionModesStep.process(projectId)
+        if (modes is Result.Failure) return modes
+        val own = modes.getOrNull()!!
+        return if (own.any { it.id == modeId }) {
+            Result.success(modeId)
+        } else {
+            Result.failure(
+                AppFailure.ValidationError(listOf(ValidationFailure.InvalidValue("modeId", own.map { it.id.toString() })))
+            )
+        }
+    }
+}
+
+/**
+ * Makes the given mode the project's one active mode.
+ *
+ * Two statements in one transaction rather than a single `SET active = (id = ?)`: the one-active
+ * rule is a partial unique index, and Postgres checks a non-deferrable index row by row, so a single
+ * UPDATE that reaches the new mode before the old one fails on a state that would never commit.
+ */
+internal data class SwitchProductionModeStep(val projectId: Int) :
+    Step<Int, AppFailure.DatabaseError, Int> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
+        DatabaseSteps.transaction { connection ->
+            object : Step<Int, AppFailure.DatabaseError, Int> {
+                override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+                    val cleared = DatabaseSteps.update<Int>(
+                        sql = SafeSQL.update("UPDATE project_production_modes SET active = FALSE WHERE project_id = ? AND active"),
+                        parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) },
+                        connection,
+                    ).process(input)
+                    if (cleared is Result.Failure) return cleared
+                    return DatabaseSteps.update<Int>(
+                        sql = SafeSQL.update("UPDATE project_production_modes SET active = TRUE WHERE id = ? AND project_id = ?"),
+                        parameterSetter = { stmt, modeId ->
+                            stmt.setInt(1, modeId)
+                            stmt.setInt(2, projectId)
+                        },
+                        connection,
+                    ).process(input)
+                }
+            }
+        }.process(input)
 }
 
 /**
@@ -125,19 +210,56 @@ internal data class DeleteProjectProductionStep(val projectId: Int, val invalida
         }.process(input)
 }
 
-private suspend fun ApplicationCall.isWorldAdmin(worldId: Int): Boolean =
-    ValidateWorldMemberRole<Unit>(getUser(), Role.ADMIN, worldId).process(Unit) is Result.Success
+/** Everything the production panel and chip draw for one project. */
+internal object GetProductionsViewStep : Step<Int, AppFailure.DatabaseError, ProductionsView> {
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ProductionsView> =
+        GetResourceProductionStep.process(input).flatMap { productions ->
+            GetProjectProductionModesStep.process(input).flatMap { modes ->
+                if (modes.isEmpty()) {
+                    Result.success(ProductionsView(productions))
+                } else {
+                    GetModeProductionsStep.process(input).map { all -> ProductionsView(productions, modes, all) }
+                }
+            }
+        }
+}
+
+/** The panel and the chip, re-rendered together after any write. */
+private fun ProductionsView.panelAndChip(worldId: Int, projectId: Int): String =
+    productionsPanelFragment(worldId, projectId, this) + productionsFieldFragment(worldId, projectId, this)
 
 suspend fun ApplicationCall.handleGetProductionsPanel() {
     val worldId = getWorldId()
     val projectId = getProjectId()
-    val isAdmin = isWorldAdmin(worldId)
     handlePipeline(
-        onSuccess = { productions: List<ProjectProduction> ->
-            respondHtml(productionsPanelFragment(worldId, projectId, productions, isAdmin))
-        }
+        onSuccess = { view: ProductionsView -> respondHtml(productionsPanelFragment(worldId, projectId, view)) }
     ) {
-        GetResourceProductionStep.run(projectId)
+        GetProductionsViewStep.run(projectId)
+    }
+}
+
+/**
+ * Switches which runtime mode a farm runs in (MCO-413). The rates were copied from the design at
+ * import, so nothing is re-typed: the switch only changes which of them supply.
+ *
+ * The response carries what it switched *from*, so the panel can say what changed for other plans
+ * and offer the way back (frame 1a's note).
+ */
+suspend fun ApplicationCall.handleSwitchProductionMode() {
+    val parameters = receiveParameters()
+    val worldId = getWorldId()
+    val projectId = getProjectId()
+    handlePipeline(
+        onSuccess = { view: ProductionsView -> respondHtml(view.panelAndChip(worldId, projectId)) }
+    ) {
+        val modeId = ValidateProductionModeStep(projectId).run(parameters)
+        val before = GetProjectProductionModesStep.run(projectId).firstOrNull { it.active }
+        SwitchProductionModeStep(projectId).run(modeId)
+        // Once, after the switch, covers both directions: invalidation reads every mode's items, so
+        // the plans that gathered what the old mode made are caught alongside the new mode's.
+        val isDone = GetProjectStateStep.run(projectId) == ProjectState.DONE
+        if (isDone) invalidateDemandSuppliedBy(worldId, projectId)
+        GetProductionsViewStep.run(projectId).copy(switched = before?.let { ModeSwitch(it, isDone) })
     }
 }
 
@@ -145,15 +267,9 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
     val parameters = receiveParameters()
     val worldId = getWorldId()
     val projectId = getProjectId()
-    val isAdmin = isWorldAdmin(worldId)
     val validItems = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
     handlePipeline(
-        onSuccess = { productions: List<ProjectProduction> ->
-            respondHtml(
-                productionsPanelFragment(worldId, projectId, productions, isAdmin) +
-                    productionsFieldFragment(worldId, projectId, productions, isAdmin)
-            )
-        }
+        onSuccess = { view: ProductionsView -> respondHtml(view.panelAndChip(worldId, projectId)) }
     ) {
         val input = ValidateProjectProductionInputStep(validItems).run(parameters)
         UpsertProjectProductionStep(projectId).run(input)
@@ -163,7 +279,7 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
         // is one statement against an action taken by hand. After the upsert is safe on its own
         // transaction: the bump can only come after the change, never before it.
         if (isOperational(projectId)) invalidateDemandSuppliedBy(worldId, projectId)
-        GetResourceProductionStep.run(projectId)
+        GetProductionsViewStep.run(projectId)
     }
 }
 
@@ -171,18 +287,13 @@ suspend fun ApplicationCall.handleDeleteProjectProduction() {
     val worldId = getWorldId()
     val projectId = getProjectId()
     val productionId = getProjectProductionItemId()
-    val isAdmin = isWorldAdmin(worldId)
     handlePipeline(
-        onSuccess = { productions: List<ProjectProduction> ->
-            respondHtml(
-                productionsPanelFragment(worldId, projectId, productions, isAdmin) +
-                    productionsFieldFragment(worldId, projectId, productions, isAdmin)
-            )
-        }
+        onSuccess = { view: ProductionsView -> respondHtml(view.panelAndChip(worldId, projectId)) }
     ) {
         DeleteProjectProductionStep(projectId, invalidateInWorld = worldId.takeIf { isOperational(projectId) })
             .run(productionId)
-        GetResourceProductionStep.run(projectId)
+        CacheManager.onProjectProductionItemDeleted(productionId, projectId)
+        GetProductionsViewStep.run(projectId)
     }
 }
 

@@ -25,7 +25,8 @@ import app.mcorg.pipeline.resources.buildCandidateCounts
 import app.mcorg.pipeline.resources.buildNodeIngredients
 import app.mcorg.pipeline.resources.drillTreeFor
 import app.mcorg.pipeline.resources.getGraphForWorld
-import app.mcorg.pipeline.project.resources.GetResourceProductionStep
+import app.mcorg.pipeline.project.resources.GetProductionsViewStep
+import app.mcorg.presentation.templated.dsl.pages.ProductionsView
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.task.SearchTasksInput
@@ -61,7 +62,7 @@ suspend fun ApplicationCall.handleGetProject() {
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 
-    val productions = GetResourceProductionStep.process(projectId).getOrNull() ?: emptyList()
+    val productions = GetProductionsViewStep.process(projectId).getOrNull() ?: ProductionsView(emptyList())
 
     val tasks = when (val result = SearchTasksStep(projectId).process(SearchTasksInput(completionStatus = "ALL"))) {
         is Result.Success -> result.value
