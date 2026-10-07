@@ -7,16 +7,15 @@ import app.mcorg.pipeline.Step
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.idea.commonsteps.GetItemsInVersionRangeStep
+import app.mcorg.pipeline.project.LitematicParts
 import app.mcorg.pipeline.project.ReceiveSchematicStep
+import app.mcorg.pipeline.project.readLitematicParts
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.plugins.MAX_SCHEMATIC_UPLOAD_BYTES
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.content.MultiPartData
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveMultipart
-import io.ktor.utils.io.readRemaining
 import kotlinx.html.ButtonType
 import kotlinx.html.button
 import kotlinx.html.hiddenInput
@@ -25,7 +24,6 @@ import kotlinx.html.li
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.html.stream.createHTML
-import kotlinx.io.readByteArray
 
 /**
  * Parses uploaded `.litematic` files into material rows for the create form.
@@ -97,47 +95,23 @@ suspend fun ApplicationCall.handleParseLitematica() {
  */
 private object GetContentStep : Step<MultiPartData, AppFailure, List<Pair<String?, ByteArray>>> {
     override suspend fun process(input: MultiPartData): Result<AppFailure, List<Pair<String?, ByteArray>>> {
-        val files = mutableListOf<Pair<String?, ByteArray>>()
-        var tooMany = false
-        var tooLarge = false
-        // One budget for the whole upload rather than one per file — see ReceiveSchematicStep.
-        // The Content-Length plugin on this route bounds the honest case ahead of this (MCO-345).
-        var remaining = MAX_SCHEMATIC_UPLOAD_BYTES
-
-        input.forEachPart { part ->
-            if (part is PartData.FileItem && part.originalFileName?.endsWith(".litematic") == true) {
-                if (files.size >= ReceiveSchematicStep.MAX_FILES) {
-                    tooMany = true
-                } else {
-                    // One byte past what is left of the budget, so an oversized body is detected
-                    // without ever being held in full.
-                    val bytes = part.provider().readRemaining(remaining + 1).readByteArray()
-                    if (bytes.size > remaining) {
-                        tooLarge = true
-                    } else {
-                        remaining -= bytes.size
-                        files.add(part.originalFileName to bytes)
-                    }
-                }
-                part.release()
-            } else {
-                part.release()
-            }
-        }
-
-        return when {
-            tooLarge -> Result.failure(
+        val files = when (val read = input.readLitematicParts()) {
+            LitematicParts.TooLarge -> return Result.failure(
                 AppFailure.customValidationError(
                     "litematicFile",
                     "That file is too large. Schematics must be under ${MAX_SCHEMATIC_UPLOAD_BYTES / (1024 * 1024)} MB.",
                 )
             )
-            tooMany -> Result.failure(
+            LitematicParts.TooMany -> return Result.failure(
                 AppFailure.customValidationError(
                     "litematicFile",
                     "Import at most ${ReceiveSchematicStep.MAX_FILES} files at once",
                 )
             )
+            is LitematicParts.Read -> read.files.map { it.fileName to it.content }
+        }
+
+        return when {
             files.isEmpty() -> Result.failure(
                 AppFailure.customValidationError("litematicFile", "Litematica file not provided")
             )
