@@ -857,6 +857,18 @@
     flex-wrap: wrap;
 }
 
+/* The row's buttons sit at its right edge at every width. Without this the body is only as wide
+   as its text, so on a wide screen they hug the question mid-row. */
+.plan-attention .callout__body {
+    flex: 1;
+}
+
+/* And at their own height: a flex row stretches its items, which made Choose and ⇄ blocks as
+   tall as a three-line question on a phone. */
+.plan-attention .callout {
+    align-items: flex-start;
+}
+
 .plan-attention__question {
     font-family: var(--font-body);
     font-size: var(--text-sm);

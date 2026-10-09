@@ -119,6 +119,15 @@
     margin-bottom: var(--space-2);
 }
 
+/* The question a tag picker asks, set like `.plan-attention__question` so the same words read
+   the same in the drill and in Needs attention. */
+.picker__question {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0 0 var(--space-2);
+}
+
 /* One selectable option row */
 .picker-opt {
     display: flex;

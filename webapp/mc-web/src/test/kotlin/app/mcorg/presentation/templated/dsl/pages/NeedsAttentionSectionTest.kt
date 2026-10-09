@@ -14,6 +14,7 @@ import app.mcorg.engine.plan.PlanTarget
 import org.junit.jupiter.api.Test
 import java.time.ZonedDateTime
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -205,6 +206,56 @@ class NeedsAttentionSectionTest {
         assertContains(html, "Which should the plan use in recipes?")
         assertFalse(html.contains("open tag"), "PlanNodeStatus vocabulary must not reach the page")
         assertFalse(html.contains("Pick a variant"), "the row states a question, not an instruction")
+    }
+
+    /**
+     * Even, on MCO-504: "Should the top question stay open? Reduce one click per row? Makes it
+     * easier to know that this is what you should do."
+     *
+     * The top question decides the most material, so its options are on the page from the start
+     * and the rest wait behind Choose. Answering re-renders the list (origin=list), which opens
+     * the next one — so working down the section is one click per question.
+     */
+    @Test
+    fun `the top question's options are open on arrival, and only the top one's`() {
+        val html = render(plan(question(coals, 2), question(planks, 110_824)))
+
+        // The slot's first child, if it has one: where the loader sits.
+        fun loaderIn(slug: String): String {
+            val match = Regex("""id="picker-$slug"[^>]*>\s*(<div[^>]*>)?""").find(html)
+                ?: error("no picker slot for $slug")
+            return match.groupValues[1]
+        }
+
+        val top = loaderIn("-minecraft-planks")
+        assertContains(top, "hx-trigger=\"load\"")
+        assertContains(top, "sources?node=%23minecraft%3Aplanks&amp;origin=list")
+        assertFalse(loaderIn("-minecraft-coals").contains("hx-get"), "only the top question opens itself")
+
+        // An open picker needs no button to open it; the other row keeps its own.
+        assertEquals(1, Regex(""">Choose</button>""").findAll(html).count())
+    }
+
+    /**
+     * htmx 4 runs with `implicitInheritance` (Layout.kt), so an element inherits its ancestors'
+     * hx-get *and* hx-trigger. A slot that keeps `hx-trigger="load"` while its response lands
+     * inside it hands that trigger to everything in the response: each picker option re-ran the
+     * slot's GET into its own target, `#project-content`, and replaced the page with a picker.
+     * The bulk slot did the same since htmx 4 (MCO-545): its "Answer these N" button re-ran the
+     * bulk GET on arrival and replaced the plan with the bulk control. Measured in the browser,
+     * MCO-504. Whatever loads on arrival has to replace itself.
+     */
+    @Test
+    fun `whatever loads on arrival replaces itself, so what it brings cannot inherit the trigger`() {
+        val tail = (1..12).map { question(tag("filler_$it", "Filler $it"), 1_000L) }
+        val html = render(plan(question(planks, 110_824), *tail.toTypedArray()))
+
+        val loaders = Regex("""<[a-z]+ [^>]*hx-trigger="load"[^>]*>""").findAll(html).map { it.value }.toList()
+        assertEquals(2, loaders.size, "the top question's picker and the bulk control: $loaders")
+        for (loader in loaders) {
+            assertContains(loader, "hx-swap=\"outerHTML\"")
+            assertContains(loader, "hx-target=\"this\"")
+        }
     }
 
     /**

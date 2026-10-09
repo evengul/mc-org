@@ -26,6 +26,7 @@ import app.mcorg.pipeline.resources.FarmSuggestionChoices
 import app.mcorg.pipeline.resources.RecommendationReason
 import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.loadOnArrival
 import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -1419,7 +1420,7 @@ private fun FlowContent.needsAttentionList(
         id = "plan-attention"
         p("plan-attention__lead") { +attentionLead(questions, leadCount) }
         div("resource-list") {
-            lead.forEach { openTagActivityRow(project.worldId, project.id, it) }
+            lead.forEachIndexed { i, question -> openTagActivityRow(project.worldId, project.id, question, open = i == 0) }
         }
         if (rest.isNotEmpty()) {
             // MCO-507: "answer the remaining N with the recommended pick", loaded on demand.
@@ -1431,15 +1432,8 @@ private fun FlowContent.needsAttentionList(
             // One request, on a section that only exists when there is a tail to fold.
             //
             // Empty response when there is nothing to offer (fewer than two folded questions, or
-            // no graph), so the slot just stays empty.
-            div("plan-attention__bulk-slot") {
-                id = BULK_ANSWER_SLOT_ID
-                attributes["hx-get"] =
-                    "/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk"
-                attributes["hx-trigger"] = "load"
-                attributes["hx-target"] = "this"
-                attributes["hx-swap"] = "innerHTML"
-            }
+            // no graph), so the placeholder is replaced by nothing.
+            loadOnArrival("/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk")
             details("plan-attention__rest") {
                 summary {
                     span("btn btn--ghost btn--sm plan-attention__toggle") {
@@ -1551,16 +1545,14 @@ private fun leadingQuestionCount(questionsByQuantityDesc: List<Activity>): Int {
 }
 
 /**
- * "25 variant choices — these 1 decide 96% of the material behind them."
+ * The line above the questions: "25 questions to answer — the first decides 96% of the material
+ * behind them."
  *
  * The percentage is the point: it is what tells you that answering the top question is most of
  * the work, and that the twenty below it are detail. Stated only when something is actually
  * folded away, and only when the quantities can support the claim.
- */
-/**
- * The line above the questions.
  *
- * It carries the "provisional" warning that used to live in the Next up widget (MCO-482, moved
+ * It also carries the "provisional" warning that used to live in the Next up widget (MCO-482, moved
  * by MCO-504). Next up is now suppressed entirely while a question is open, so this is the only
  * place that can say why the plan below is not yet final — and it is the right place, because it
  * is where the questions are.
@@ -1587,19 +1579,6 @@ private fun attentionLead(questions: List<Activity>, leadCount: Int): String {
         provisional
 }
 
-/**
- * What a variant question is asking, in one sentence.
- *
- * One constant, because the question must read identically wherever it is asked. It is asked in
- * one place today (MCO-504 withdrew the Next up copy), and a constant is what keeps a second
- * surface from inventing its own wording the next time one is added.
- *
- * "Recipes" is the load-bearing word: these blocks are interchangeable *to a crafting recipe*,
- * which is not deducible from a list of block names. Neither "variant" nor "open tag" appears —
- * the reader is choosing a material, not a variant, and "open tag" was ours.
- */
-private const val VARIANT_QUESTION = "Which should the plan use in recipes?"
-
 /** Show questions until they cover this share of the material the whole section decides. */
 private const val ATTENTION_COVERAGE = 0.9
 
@@ -1609,10 +1588,20 @@ private const val MAX_LEADING_QUESTIONS = 5
 /** A remainder smaller than this is not worth hiding behind a toggle. */
 private const val MIN_FOLDED = 3
 
-/** OPEN_TAG row: amber callout, indicates variant pick needed. */
-private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity) {
+/**
+ * OPEN_TAG row: amber callout, indicates variant pick needed.
+ *
+ * [open] loads the picker with the page instead of behind Choose. The caller passes it for the
+ * top question only (MCO-504): that is the one deciding the most material, so having its options
+ * already showing is what says "this is what to do now" — the job Next up did for questions
+ * before it was withdrawn from them. Lazy, like the bulk slot, so the options are ranked by the
+ * endpoint that applies the pick rather than by a second copy of the ranking here.
+ */
+private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activity: Activity, open: Boolean = false) {
     val encodedItemId = URLEncoder.encode(activity.item.id, StandardCharsets.UTF_8)
     val pickerSlotId = "picker-${activity.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
+    val pickerUrl =
+        "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId/sources?node=$encodedItemId&origin=list"
     div("callout callout--warning") {
         id = "plan-activity-${activity.item.id.replace(":", "-")}"
         span("callout__icon") { +"!" }
@@ -1632,19 +1621,26 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
             div("plan-attention__question") { +VARIANT_QUESTION }
         }
         // Resolve inline: drops the tag-member picker below this row; a pick re-renders the
-        // List lens (origin=list) so the resolved tag leaves "Needs attention".
-        button(classes = "btn btn--primary btn--sm") {
-            type = ButtonType.button
-            attributes["hx-get"] =
-                "/worlds/$worldId/projects/$projectId/plan/chain/$encodedItemId/sources?node=$encodedItemId&origin=list"
-            attributes["hx-target"] = "#$pickerSlotId"
-            attributes["hx-swap"] = "innerHTML"
-            +"Choose"
+        // List lens (origin=list) so the resolved tag leaves "Needs attention", and the
+        // question that is now on top opens in its place.
+        // Secondary, not primary: the open question above is the one to act on, and a solid
+        // lapis button on the row below it would pull the eye away from it.
+        if (!open) {
+            button(classes = "btn btn--secondary btn--sm") {
+                type = ButtonType.button
+                attributes["hx-get"] = pickerUrl
+                attributes["hx-target"] = "#$pickerSlotId"
+                attributes["hx-swap"] = "innerHTML"
+                +"Choose"
+            }
         }
         // ⇄ still opens the full drill to explore/re-pin the whole chain.
         drillButton(worldId, projectId, encodedItemId)
     }
-    div("chain-node__picker") { id = pickerSlotId }
+    div("chain-node__picker") {
+        id = pickerSlotId
+        if (open) loadOnArrival(pickerUrl)
+    }
 }
 
 /**

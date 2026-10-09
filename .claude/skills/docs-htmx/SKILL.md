@@ -61,7 +61,12 @@ that config holds in place:
   silences `HX-Retarget`/`HX-Reswap` on an error. Out-of-band swaps and partials still run, which is
   how every error reaches the screen: see **Error responses** below.
 - **Inheritance is implicit** via `implicitInheritance: true`, until containers that rely on it get
-  `hx-target:inherited`.
+  `hx-target:inherited`. It covers `hx-get` and `hx-trigger` too, so **an element that loads on
+  arrival must replace itself** (`hx-swap="outerHTML"`), never fill itself. Content swapped into an
+  element carrying `hx-get` + `hx-trigger="load"` inherits both: every control in it re-fires that
+  GET on arrival, into its *own* `hx-target`. On the project page that replaced `#project-content`
+  with a picker, and the bulk-answer slot did the same (MCO-504, measured in the browser). See
+  **Dynamic content load on page load** below.
 - **Gone:** `hx-target-error`, `hx-ext`, `hx-params`, `hx-history`. No history
   snapshot is kept in the browser: Back re-requests the pushed URL, so an `hx-push-url` must be a
   real page.
@@ -198,11 +203,17 @@ respondHtml(createHTML().li {
 
 ### Dynamic content load on page load
 
+The placeholder replaces itself. `FlowContent.loadOnArrival(url)` in `presentation/hx.kt` is the
+helper; a slot that has to stay (an id something else targets) wraps it rather than carrying the
+request. Written out:
+
 ```kotlin
 div {
-    id = "task-list"
+    id = "task-list"                   // the response's own root carries the id from here on
     hxGet("/worlds/$worldId/projects/$projectId/tasks")
     hxTrigger("load")
+    hxTarget("this")
+    hxSwap("outerHTML")                // not innerHTML: what lands would inherit the load trigger
     +"Loading tasks..."
 }
 ```

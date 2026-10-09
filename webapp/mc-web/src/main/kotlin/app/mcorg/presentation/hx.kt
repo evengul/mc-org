@@ -1,6 +1,8 @@
 package app.mcorg.presentation
 
+import kotlinx.html.FlowContent
 import kotlinx.html.HTMLTag
+import kotlinx.html.div
 
 fun HTMLTag.hxGet(value: String) {
     attributes += "hx-get" to value
@@ -86,4 +88,23 @@ fun HTMLTag.hxOnSuccess(script: String) {
 
 fun HTMLTag.hxInclude(value: String) {
     attributes += "hx-include" to value
+}
+
+/**
+ * A placeholder that fetches [url] with the page and is replaced by the response.
+ *
+ * It replaces *itself* (outerHTML) rather than filling a slot that keeps the request on it,
+ * because htmx 4 runs here with `implicitInheritance` (`Layout.kt`): an element inherits its
+ * ancestors' hx-get and hx-trigger. Content left inside an element carrying `hx-trigger="load"`
+ * inherits both, so every control in the response fires that GET again on arrival, into its own
+ * target. On the project page that replaced the whole plan with a picker, and with the bulk-answer
+ * control (MCO-504). A slot that has to stay wraps this placeholder; it never carries the request.
+ */
+fun FlowContent.loadOnArrival(url: String) {
+    div {
+        hxGet(url)
+        hxTrigger("load")
+        hxTarget("this")
+        hxSwap("outerHTML")
+    }
 }

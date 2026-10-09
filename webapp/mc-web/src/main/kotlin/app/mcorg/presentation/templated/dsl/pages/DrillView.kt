@@ -142,8 +142,8 @@ private fun DIV.renderTargetTree(
                 val nodeSource = node.source
                 val chipLabel = when {
                     nodeSource != null -> nodeSource.getName()
-                    node.status == PlanNodeStatus.OPEN_TAG -> "Pick variant"
-                    else -> "Pick source"
+                    node.status == PlanNodeStatus.OPEN_TAG -> "Choose material"
+                    else -> "Choose source"
                 }
                 button(classes = "chip") {
                     type = ButtonType.button
@@ -227,9 +227,22 @@ fun drillNotFoundFragment(project: Project, reason: String): String = createHTML
 }
 
 /**
+ * What a variant question is asking, in one sentence.
+ *
+ * One constant, because the question must read identically wherever it is asked: the Needs
+ * attention row, and the heading of the picker every other entry point opens (MCO-504).
+ *
+ * "Recipes" is the load-bearing word: these blocks are interchangeable *to a crafting recipe*,
+ * which is not deducible from a list of block names. Neither "variant" nor "open tag" appears —
+ * the reader is choosing a material, not a variant, and "open tag" was ours.
+ */
+internal const val VARIANT_QUESTION = "Which should the plan use in recipes?"
+
+/**
  * Picker fragment for one node — source selector or tag-member selector.
  *
- * Rendered into `#picker-{nodeSlug}` via innerHTML swap.
+ * Rendered into `#picker-{nodeSlug}`: as its contents when a Choose or ⇄ chip opens it, or in
+ * place of the `loadOnArrival` placeholder there for the top Needs attention question.
  *
  * For source nodes (multi-source items): shows all candidate sources sorted by getName(),
  * capped at [PICKER_MAX_OPTIONS] with a note when truncated. Each option POSTs to the
@@ -248,9 +261,6 @@ fun drillNotFoundFragment(project: Project, reason: String): String = createHTML
  * @param activeSourceKey  the currently active source override key, if any
  * @param activeMemberId  the currently active tag-member override id, if any
  */
-/** One picker is open at a time, so a fixed id is enough for the options to include it. */
-private const val WORLD_WOOD_INPUT_ID = "picker-world-wood"
-
 fun nodePickerFragment(
     worldId: Int,
     projectId: Int,
@@ -284,6 +294,9 @@ fun nodePickerFragment(
     val clearUrl = "$baseUrl/override?node=$encodedNodeId$originQuery"
     val sourcesUrl = "$baseUrl/sources?node=$encodedNodeId$originQuery"
     val pickerSlotId = "picker-${node.item.id.replace(Regex("[^a-zA-Z0-9]"), "-")}"
+    // Per picker, not one fixed id: Needs attention opens its top question on arrival, so a
+    // second Choose puts two pickers on the page, and `hx-include` takes the first match.
+    val worldWoodInputId = "$pickerSlotId-world-wood"
     val isTag = node.status == PlanNodeStatus.OPEN_TAG && node.item is MinecraftTag
     val q = query?.trim().orEmpty()
 
@@ -298,7 +311,11 @@ fun nodePickerFragment(
             val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
-            span("section-label picker__label") { +"Pick a variant" }
+            // Opened from a Needs attention row (origin=list), the row directly above has just
+            // asked this; everywhere else the picker is the first thing to ask it.
+            // A sentence, so it is set like the row's question rather than as an all-caps
+            // section label, which is for short noun headings.
+            if (origin != "list") p("picker__question") { +VARIANT_QUESTION }
             if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
             // MCO-487: answering "which tree" here answers it for `#planks`, `#wooden_slabs` and
@@ -308,9 +325,9 @@ fun nodePickerFragment(
             // wood, so it answers two of the three and correctly leaves the last asking.
             if (offerWorldWood) {
                 label("picker__world-wood") {
-                    htmlFor = WORLD_WOOD_INPUT_ID
+                    htmlFor = worldWoodInputId
                     input(type = InputType.checkBox, name = "setWorldWood") {
-                        id = WORLD_WOOD_INPUT_ID
+                        id = worldWoodInputId
                         value = "true"
                         checked = true
                     }
@@ -319,7 +336,7 @@ fun nodePickerFragment(
             }
 
             if (displayed.isEmpty()) {
-                p("picker__empty") { +(if (q.isEmpty()) "No variants available." else "No variants match \"$q\".") }
+                p("picker__empty") { +(if (q.isEmpty()) "Nothing to choose from." else "Nothing matches \"$q\".") }
             } else {
                 div("stack--xs") {
                     for (rm in displayed) {
@@ -329,7 +346,7 @@ fun nodePickerFragment(
                             attributes["hx-vals"] = """{"node":"${node.item.id}","memberItemId":"${rm.member.id}"$originJson}"""
                             // An unchecked box submits nothing, so the server sees the opt-out
                             // as an absent parameter rather than needing a second value.
-                            if (offerWorldWood) attributes["hx-include"] = "#$WORLD_WOOD_INPUT_ID"
+                            if (offerWorldWood) attributes["hx-include"] = "#$worldWoodInputId"
                             attributes["hx-target"] = "#project-content"
                             attributes["hx-swap"] = "outerHTML"
                             span("picker-opt__name") { +rm.member.name }
