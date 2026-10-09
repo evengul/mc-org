@@ -37,8 +37,22 @@ class ProjectSupplyTest {
         sourceType = sourceType,
     )
 
-    private fun farm(itemId: String, projectId: Int = 2, projectName: String = "Iron Farm") =
-        FarmSupplyRow(itemId = itemId, projectId = projectId, projectName = projectName)
+    private fun farm(
+        itemId: String,
+        projectId: Int = 2,
+        projectName: String = "Iron Farm",
+        ratePerHour: Int = 0,
+        assumed: Boolean = false,
+    ) = FarmSupplyRow(
+        itemId = itemId,
+        projectId = projectId,
+        projectName = projectName,
+        ratePerHour = ratePerHour,
+        assumed = assumed,
+    )
+
+    private fun suppliedBy(farms: List<FarmSupplyRow>, itemId: String = "minecraft:iron_ingot"): String =
+        assertIs<SupplySource.Farm>(ProjectSupply.fold(listOf(item(itemId)), farms)[itemId]).label
 
     @Test
     fun `an operational project's production supplies the whole world`() {
@@ -112,18 +126,55 @@ class ProjectSupplyTest {
     }
 
     @Test
-    fun `several producers of one item reduce to a single deterministic farm`() {
-        // GetWorldFarmSuppliesStep orders by project name precisely so this pick is stable; two
-        // renders of the same plan must not disagree about which farm is named.
+    fun `of several producers of one item, the fastest supplies it`() {
+        // MCO-603: the plan names the farm that finishes soonest. It used to name the first by
+        // project name, so Bartering setup out-ranked a dedicated farm twice its speed.
         val farms = listOf(
-            farm("minecraft:iron_ingot", projectId = 2, projectName = "Alpha Farm"),
-            farm("minecraft:iron_ingot", projectId = 3, projectName = "Beta Farm"),
+            farm("minecraft:iron_ingot", projectId = 2, projectName = "Alpha Farm", ratePerHour = 400),
+            farm("minecraft:iron_ingot", projectId = 3, projectName = "Beta Farm", ratePerHour = 3_800),
         )
 
-        repeat(3) {
-            val supply = ProjectSupply.fold(listOf(item("minecraft:iron_ingot")), farms)["minecraft:iron_ingot"]
-            assertEquals("Alpha Farm", assertIs<SupplySource.Farm>(supply).label)
-        }
+        assertEquals("Beta Farm", suppliedBy(farms))
+    }
+
+    @Test
+    fun `an unmeasured rate loses to any measured one`() {
+        // An import writes an unmeasured rate as 0. Read as a number it would simply be the
+        // slowest, which is the right answer: a farm nobody timed is not a reason to skip one
+        // somebody did.
+        val farms = listOf(
+            farm("minecraft:iron_ingot", projectId = 2, projectName = "Alpha Farm", ratePerHour = 0),
+            farm("minecraft:iron_ingot", projectId = 3, projectName = "Beta Farm", ratePerHour = 1),
+        )
+
+        assertEquals("Beta Farm", suppliedBy(farms))
+    }
+
+    @Test
+    fun `producers at the same rate reduce to a single deterministic farm, the first by name`() {
+        // GetWorldFarmSuppliesStep orders by project name precisely so this pick is stable; two
+        // renders of the same plan must not disagree about which farm is named. The tie keeps the
+        // query's order rather than re-sorting in Kotlin, so it follows the database's collation —
+        // the same one the roadmap's edge query compares names with.
+        val farms = listOf(
+            farm("minecraft:ender_pearl", projectId = 2, projectName = "Bartering setup", ratePerHour = 1_000),
+            farm("minecraft:ender_pearl", projectId = 3, projectName = "Ender ender", ratePerHour = 1_000),
+        )
+
+        repeat(3) { assertEquals("Bartering setup", suppliedBy(farms, "minecraft:ender_pearl")) }
+    }
+
+    @Test
+    fun `a running farm keeps an item an assumed farm would make faster`() {
+        // The roadmap's "promised" split derives a plan as if unbuilt farms were finished. An item a
+        // running farm already makes is supplied either way, so it must keep the running farm's
+        // name; otherwise the split would count it as promised by a farm nobody has built.
+        val farms = listOf(
+            farm("minecraft:iron_ingot", projectId = 2, projectName = "Iron Farm", ratePerHour = 400),
+            farm("minecraft:iron_ingot", projectId = 3, projectName = "Big Iron Farm", ratePerHour = 3_800, assumed = true),
+        )
+
+        assertEquals("Iron Farm", suppliedBy(farms))
     }
 
     @Test

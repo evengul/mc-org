@@ -134,6 +134,54 @@ class WorldRoadmapIT : WithUser() {
     }
 
     /**
+     * MCO-603 — two operational farms making one item. The plan names one of them, the fastest
+     * (`ProjectSupply.fold`); the roadmap drew both, each with the full quantity, so Forever world
+     * listed Ender ender as feeding 6 Ender Pearl that the plan said came from Bartering setup.
+     */
+    @Test
+    fun `of two operational farms making one item, only the faster one supplies it`() {
+        val worldId = createWorld("Two Running Producers World")
+        val consumer = createProject(worldId, "Storage System")
+        val slow = createProject(worldId, "Alpha Iron Farm")
+        val fast = createProject(worldId, "Beta Iron Farm")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(slow, "minecraft:iron_ingot", "Iron Ingot", ratePerHour = 400)
+        createProduction(fast, "minecraft:iron_ingot", "Iron Ingot", ratePerHour = 3_800)
+        runBlocking { UpdateProjectStageStep(slow).process(ProjectStage.COMPLETED) }
+        runBlocking { UpdateProjectStageStep(fast).process(ProjectStage.COMPLETED) }
+
+        val roadmap = roadmapOf(worldId)
+
+        assertNotNull(roadmap.edge(consumer, fast))
+        assertNull(roadmap.edge(consumer, slow), "the slower farm is not drawn supplying what the faster one does")
+
+        deleteWorld(worldId)
+    }
+
+    @Test
+    fun `of two operational farms at the same rate, the first by name supplies it`() {
+        // The tie-break the plan uses, so the two pages name the same farm.
+        val worldId = createWorld("Tied Producers World")
+        val consumer = createProject(worldId, "Storage System")
+        val ender = createProject(worldId, "Ender ender")
+        val barter = createProject(worldId, "Bartering setup")
+        createRequirement(consumer, "minecraft:ender_pearl", "Ender Pearl")
+        createDemand(consumer, "minecraft:ender_pearl", "Ender Pearl", 6)
+        createProduction(ender, "minecraft:ender_pearl", "Ender Pearl", ratePerHour = 1_000)
+        createProduction(barter, "minecraft:ender_pearl", "Ender Pearl", ratePerHour = 1_000)
+        runBlocking { UpdateProjectStageStep(ender).process(ProjectStage.COMPLETED) }
+        runBlocking { UpdateProjectStageStep(barter).process(ProjectStage.COMPLETED) }
+
+        val roadmap = roadmapOf(worldId)
+
+        assertNotNull(roadmap.edge(consumer, barter))
+        assertNull(roadmap.edge(consumer, ender))
+
+        deleteWorld(worldId)
+    }
+
+    /**
      * The other half of MCO-466: coverage is per item, so an unfinished farm still blocks for
      * whatever nothing operational makes. Without this the fix would silently unblock a world.
      */
@@ -686,15 +734,16 @@ class WorldRoadmapIT : WithUser() {
         ).process(Unit)
     }
 
-    private fun createProduction(projectId: Int, itemId: String, name: String) = runBlocking {
+    private fun createProduction(projectId: Int, itemId: String, name: String, ratePerHour: Int = 0) = runBlocking {
         DatabaseSteps.update<Unit>(
             SafeSQL.insert(
-                "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, 0)"
+                "INSERT INTO project_productions (project_id, item_id, name, rate_per_hour) VALUES (?, ?, ?, ?)"
             ),
             parameterSetter = { stmt, _ ->
                 stmt.setInt(1, projectId)
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
+                stmt.setInt(4, ratePerHour)
             }
         ).process(Unit)
     }
