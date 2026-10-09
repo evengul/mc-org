@@ -73,6 +73,8 @@ data class RoadmapGraphView(
     val byHandNow: Long = 0,
     /** Projects with anything collected or any task done — "building" rather than "planned". */
     val started: Set<Int> = emptySet(),
+    /** Projects that make something — the TO BUILD rows that can be gathered instead (MCO-574). */
+    val farms: Set<Int> = emptySet(),
     val producerRows: List<ProducerRow>,
     val unchained: List<UnchainedRow>,
     /** The final projects drawn as panels, largest demand first (MCO-563). */
@@ -520,7 +522,7 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
-                    if (canEdit) ariaCell("rmg-tobuild__action") { gatherInsteadForm(view.roadmap.worldId, row) }
+                    if (canEdit) ariaCell("rmg-tobuild__action") { if (row.projectId in view.farms) gatherInsteadForm(view.roadmap.worldId, row) }
                 }
                 // Both lines when both are true: a farm in an unanswered loop can still wait on a farm
                 // outside it, and the indent alone does not say for what.
@@ -679,7 +681,7 @@ private fun FlowContent.groupedToBuild(
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
-                    if (canEdit) ariaCell("rmg-tobuild__action") { gatherInsteadForm(view.roadmap.worldId, row) }
+                    if (canEdit) ariaCell("rmg-tobuild__action") { if (row.projectId in view.farms) gatherInsteadForm(view.roadmap.worldId, row) }
                 }
                 if (row.unsettled) {
                     ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-0$band") {

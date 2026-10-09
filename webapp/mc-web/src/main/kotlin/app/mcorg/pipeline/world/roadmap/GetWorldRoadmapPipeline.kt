@@ -83,6 +83,9 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val toBuild = RoadmapToBuild.of(roadmap, terminals, started)
     val producing = columnProducers.isNotEmpty()
 
+    // Whatever makes something; the rows of TO BUILD that are not farms have nothing to gather instead.
+    val farms = GetFarmIdsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+
     // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
     val stoppedFarms = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
 
@@ -187,6 +190,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         chainLeftAfter = chainLeftAfter,
         byHandNow = graphData.values.sumOf { it.byHand },
         started = started,
+        farms = farms,
         stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })

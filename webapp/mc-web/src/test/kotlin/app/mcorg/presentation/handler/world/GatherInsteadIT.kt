@@ -180,6 +180,23 @@ class GatherInsteadIT : WithUser() {
         deleteWorld(w.id)
     }
 
+    /** A build ordered by hand before a final project is a TO BUILD row too, and the handler refuses it. */
+    @Test
+    fun `a row that makes nothing is not offered the action`() = testApplication {
+        setupRoutes()
+        val w = world("Perimeter World")
+        val perimeter = createProject(w.id, "Dig Perimeter")
+        declareOrdering(before = perimeter, then = w.storage)
+
+        val table = page(w.id).substringAfter("id=\"roadmap-to-build\"").substringBefore("rmg-section rmg-graph")
+
+        assertContains(table, "Dig Perimeter", message = "it is work upstream of a final project")
+        assertContains(table, "Gather instead of building Iron Farm")
+        assertFalse(table.contains("Gather instead of building Dig Perimeter"), "not a farm, so nothing to gather instead")
+
+        deleteWorld(w.id)
+    }
+
     // ---- what it refuses -----------------------------------------------------------------------
 
     @Test
@@ -356,6 +373,18 @@ class GatherInsteadIT : WithUser() {
                 stmt.setInt(1, projectId)
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
+            }
+        ).process(Unit)
+    }
+
+    private fun declareOrdering(before: Int, then: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO project_dependencies (project_id, depends_on_project_id, declared_by) VALUES (?, ?, 'IDEA_IMPORT')"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, then)
+                stmt.setInt(2, before)
             }
         ).process(Unit)
     }

@@ -106,3 +106,29 @@ data class GetStartedProjectsStep(val worldId: Int) : Step<Unit, AppFailure.Data
             },
         ).process(Unit)
 }
+
+/**
+ * Every project in [worldId] that makes something, whatever its state — what the roadmap calls a
+ * farm. A TO BUILD row can be any unfinished project upstream of a final project, a build ordered
+ * by hand included, and only a farm can be gathered instead (MCO-574).
+ */
+data class GetFarmIdsStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, Set<Int>> {
+
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Set<Int>> =
+        DatabaseSteps.query<Unit, Set<Int>>(
+            sql = SafeSQL.select(
+                """
+                SELECT DISTINCT s.project_id
+                FROM project_supplied_items s
+                JOIN projects p ON p.id = s.project_id
+                WHERE p.world_id = ?
+                """.trimIndent()
+            ),
+            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
+            resultMapper = { rs ->
+                buildSet {
+                    while (rs.next()) add(rs.getInt("project_id"))
+                }
+            },
+        ).process(Unit)
+}
