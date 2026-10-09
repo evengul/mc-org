@@ -115,6 +115,31 @@ class RoadmapHandListSplitIT : WithUser() {
             deleteWorld(worldId)
         }
 
+    /** MCO-574: gathering the cobblestone instead moves its 80 from promised to yours either way. */
+    @Test
+    fun `a farm gathered instead promises nothing, so its share is yours either way`() = testApplication {
+        setupRoutes()
+        val (worldId, _) = world("Gathered Instead World")
+        val cobble = projectNamed(worldId, "Cobble Farm")
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                SafeSQL.insert("INSERT INTO project_gather_instead (project_id) VALUES (?)"),
+                parameterSetter = { stmt, _ -> stmt.setInt(1, cobble) }
+            ).process(Unit)
+        }
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val panel = body.substringAfter("FINAL PROJECT · 1 OF 1").substringBefore("</a>")
+        assertContains(panel, "by hand now")
+        assertContains(panel, ">100<", message = "the hand list itself does not move: it was always gathered by hand")
+        assertFalse(panel.contains("promised"), "nothing left to build promises anything")
+        assertFalse(body.contains("% of it is promised"))
+        assertContains(body.substringAfter("GATHERING INSTEAD · 1"), "Cobble Farm")
+
+        deleteWorld(worldId)
+    }
+
     @Test
     fun `a stopped farm costs what its running again would take off the hand list`() = testApplication {
         setupRoutes()
@@ -187,6 +212,17 @@ class RoadmapHandListSplitIT : WithUser() {
             }
         ).process(Unit)
         (result as Result.Success).value
+    }
+
+    private fun projectNamed(worldId: Int, name: String): Int = runBlocking {
+        DatabaseSteps.query<Unit, Int>(
+            sql = SafeSQL.select("SELECT id FROM projects WHERE world_id = ? AND name = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, worldId)
+                stmt.setString(2, name)
+            },
+            resultMapper = { it.next(); it.getInt("id") }
+        ).process(Unit).getOrNull()!!
     }
 
     private fun gather(projectId: Int, item: Item, required: Int) = runBlocking {

@@ -87,6 +87,14 @@ import app.mcorg.pipeline.failure.AppFailure
  * rows, because the record of what it made survives. Like CANCELLED and ARCHIVED it is dropped
  * here rather than drawn as a producer that is not running: an unfinished producer *blocks*, and
  * nobody is waiting on a farm that will not be restarted.
+ *
+ * ## Nor is a farm gathered instead (MCO-574)
+ *
+ * `gather instead ▸` takes a farm still to build out of the plan without cancelling it. It is
+ * dropped from both ends: it promises nothing to its consumers, and it waits on nothing either —
+ * a farm nobody is building now is not a reason for another farm to come first. A subtraction,
+ * like `roadmap_cycle_order`, and here for the same reason: the roadmap and the project page's
+ * prerequisite line both read this step.
  */
 data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.DatabaseError, List<ProjectResourceEdge>> {
     override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, List<ProjectResourceEdge>> {
@@ -129,6 +137,11 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                       SELECT 1 FROM roadmap_cycle_order rco
                       WHERE rco.consumer_project_id = d.project_id
                         AND rco.producer_project_id = pp.project_id
+                  )
+                  -- A farm the world gathers by hand for now is out of the plan at both ends.
+                  AND NOT EXISTS (
+                      SELECT 1 FROM project_gather_instead g
+                      WHERE g.project_id IN (d.project_id, pp.project_id)
                   )
                   -- An explicitly solved requirement already produces an edge via
                   -- GetProjectEdgesStep; deriving a second one would double-count it.

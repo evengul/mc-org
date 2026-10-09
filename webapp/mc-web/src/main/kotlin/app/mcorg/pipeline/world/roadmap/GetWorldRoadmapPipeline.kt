@@ -83,6 +83,9 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
     val toBuild = RoadmapToBuild.of(roadmap, terminals, started)
     val producing = columnProducers.isNotEmpty()
 
+    // Whatever makes something; the rows of TO BUILD that are not farms have nothing to gather instead.
+    val farms = GetFarmIdsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
+
     // Decommissioned farms have no edges, so nothing above would ever mention them (MCO-541).
     val stoppedFarms = GetStoppedFarmsStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
 
@@ -187,6 +190,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         chainLeftAfter = chainLeftAfter,
         byHandNow = graphData.values.sumOf { it.byHand },
         started = started,
+        farms = farms,
         stopped = stopped,
         producerRows = allProducers
             .sortedWith(compareByDescending<RoadmapGraphLayout.Producer> { it.items }.thenBy { it.name })
@@ -223,8 +227,10 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         // Every one of them, not just the first: the design was drawn against a world with
         // exactly one such farm, and silently hiding the second would be the same class of bug
         // the design set out to fix.
+        // Built, with no edge, *and* nothing declared — a farm whose output nothing needs right now
+        // also has no edge, and saying it declares no productions would be false.
         dataGaps = isolated
-            .filter { it.state == ProjectState.DONE }
+            .filter { it.state == ProjectState.DONE && it.projectId !in farms }
             .map {
                 RoadmapGraphView.DataGap(
                     projectId = it.projectId,

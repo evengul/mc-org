@@ -147,7 +147,9 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
                     p.stage,
                     p.state,
                     COUNT(t.id)                                AS tasks_total,
-                    COUNT(t.id) FILTER (WHERE t.completed)     AS tasks_completed
+                    COUNT(t.id) FILTER (WHERE t.completed)     AS tasks_completed,
+                    EXISTS (SELECT 1 FROM project_gather_instead g WHERE g.project_id = p.id)
+                                                               AS gathering_instead
                 FROM projects p
                 LEFT JOIN action_task t ON t.project_id = p.id
                 WHERE p.world_id = ?
@@ -197,11 +199,19 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
 
     private fun buildRoadmap(
         worldName: String,
-        projects: List<ProjectRecord>,
-        edges: List<ProjectResourceEdge>,
+        allProjects: List<ProjectRecord>,
+        allEdges: List<ProjectResourceEdge>,
         resolvedOrders: List<RoadmapCycleOrder>,
         farmScaleThreshold: Int,
     ): Roadmap {
+        // A farm gathered instead is out of the plan (MCO-574). GetFarmSupplyEdgesStep has already
+        // dropped its supply edges; a hand-declared ordering naming it goes too, and the node with
+        // them. Left in, a farm with demand of its own and nothing consuming from it is exactly
+        // what a final project looks like, and it would get a panel.
+        val (outOfPlan, projects) = allProjects.partition { it.gatheringInstead }
+        val outOfPlanIds = outOfPlan.mapTo(mutableSetOf()) { it.id }
+        val edges = allEdges.filterNot { it.consumerId in outOfPlanIds || it.producerId in outOfPlanIds }
+
         // Detect loops and set one edge aside per loop, so the page never renders two projects
         // each claiming to block the other (MCO-460).
         val cycles = RoadmapCycles.detect(edges, farmScaleThreshold)
@@ -226,15 +236,7 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
         val nodes = projects.map { project ->
             val dependencies = incoming[project.id].orEmpty()
             val blocking = dependencies.filter { it.isBlocking }
-
-            RoadmapNode(
-                projectId = project.id,
-                projectName = project.name,
-                projectType = project.type,
-                stage = project.stage,
-                state = project.state,
-                tasksTotal = project.tasksTotal,
-                tasksCompleted = project.tasksCompleted,
+            project.toNode(
                 isBlocked = blocking.isNotEmpty(),
                 blockingProjectIds = blocking.map { it.producerId }.distinct(),
                 dependentProjectIds = outgoing[project.id].orEmpty().map { it.consumerId }.distinct(),
@@ -270,8 +272,30 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
             layers = layerGroups,
             cycles = cycles.filter { it.needsAnAnswer },
             resolvedOrders = resolvedOrders,
+            gatheringInstead = outOfPlan.map {
+                it.toNode(isBlocked = false, blockingProjectIds = emptyList(), dependentProjectIds = emptyList(), layer = 0)
+            },
         )
     }
+
+    private fun ProjectRecord.toNode(
+        isBlocked: Boolean,
+        blockingProjectIds: List<Int>,
+        dependentProjectIds: List<Int>,
+        layer: Int,
+    ) = RoadmapNode(
+        projectId = id,
+        projectName = name,
+        projectType = type,
+        stage = stage,
+        state = state,
+        tasksTotal = tasksTotal,
+        tasksCompleted = tasksCompleted,
+        isBlocked = isBlocked,
+        blockingProjectIds = blockingProjectIds,
+        dependentProjectIds = dependentProjectIds,
+        layer = layer,
+    )
 
     /**
      * Layer depth per project: 0 for projects that depend on nothing, otherwise
@@ -332,6 +356,7 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
                     state = ProjectState.valueOf(getString("state")),
                     tasksTotal = getInt("tasks_total"),
                     tasksCompleted = getInt("tasks_completed"),
+                    gatheringInstead = getBoolean("gathering_instead"),
                 )
             )
         }
@@ -345,5 +370,6 @@ data class GetWorldRoadMapStep(val worldId: Int) : Step<Unit, AppFailure, Roadma
         val state: ProjectState,
         val tasksTotal: Int,
         val tasksCompleted: Int,
+        val gatheringInstead: Boolean,
     )
 }

@@ -9,7 +9,9 @@ import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.project.handleGetDetailContent
+import app.mcorg.pipeline.world.roadmap.handleClearGatherInstead
 import app.mcorg.pipeline.world.roadmap.handleClearRoadmapCycleOrder
+import app.mcorg.pipeline.world.roadmap.handleGatherInstead
 import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.pipeline.world.roadmap.handleSaveRoadmapCycleOrder
 import app.mcorg.pipeline.world.roadmap.ordering.handleAddManualOrdering
@@ -163,6 +165,17 @@ class WorldHandler {
                     }
                     post("/clear") {
                         call.handleClearRoadmapCycleOrder()
+                    }
+                }
+                // Take a farm still to build out of the plan, and put it back (MCO-574). Admin-only
+                // for the same reason: it changes the roadmap everyone in the world opens.
+                route("/roadmap/gather-instead") {
+                    install(WorldAdminPlugin)
+                    post {
+                        call.handleGatherInstead()
+                    }
+                    post("/clear") {
+                        call.handleClearGatherInstead()
                     }
                 }
                 // The manual ordering editor (MCO-302). Admin-only for the reason above it:
