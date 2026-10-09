@@ -57,6 +57,7 @@ import kotlin.system.exitProcess
  * look harmless over the whole graph while moving the plan someone is actually building. And
  * `tags projects=<ids>` for the open questions in a real plan and what each is worth, with
  * `assume=<share>` to see which of them MCO-410's threshold would answer for the user.
+ * `prices` prints every item's price and source, sorted, for diffing a change before and after.
  *
  * **No mode has a second model in it.** `sweep` was given that shape first (MCO-520) so it would
  * survive the scorer's deletion; the rest followed when the scorer actually went, and the default
@@ -107,6 +108,7 @@ private suspend fun run(args: List<String>): Int {
     var picksOf: String? = null
     var activities = false
     var tags = false
+    var prices = false
     var assumeShare = 0.0
     var customValues: List<Double>? = null
     val overrides = mutableListOf<Pair<String, Double>>()
@@ -126,6 +128,7 @@ private suspend fun run(args: List<String>): Int {
             arg == "why" -> why = true
             arg == "activities" -> activities = true
             arg == "tags" -> tags = true
+            arg == "prices" -> prices = true
             arg.startsWith("assume=") -> assumeShare = arg.substringAfter('=').toDoubleOrNull() ?: 0.0
             arg.startsWith("demands=") ->
                 demandSpread = arg.substringAfter('=').split(',').mapNotNull { it.trim().toLongOrNull() }
@@ -157,7 +160,7 @@ private suspend fun run(args: List<String>): Int {
     // and with that model deleted there is no second opinion left to diff against — so the
     // default becomes the one question that never needed one: what does this cost, and what is
     // the price made of. DEFAULT_WHY was already the item set written for exactly that.
-    if (!grain && !why && !activities && !sweep && !tags && picksOf == null) why = true
+    if (!grain && !why && !activities && !sweep && !tags && !prices && picksOf == null) why = true
 
     // `set=chest:30 set=trade:8` — try a table by hand without editing and reinstalling the
     // engine, which is the loop this whole calibration is made of.
@@ -200,6 +203,24 @@ private suspend fun run(args: List<String>): Int {
         "Model: %d items relaxed in %.0f ms, %d passes, converged=%s — build once per (graph, supplied)"
             .format(relaxedItems, relaxMillis, model.passesUsed, model.converged)
     )
+
+    // `prices`: every item's price and the source behind it, one tab-separated line each and
+    // sorted, so two runs diff with `diff`. The tool for "what did this change move" when a
+    // change reaches past the handful of items `why` was asked about (MCO-564). Redirect it to a
+    // file before and after the change; the counts of moved and newly unreachable items are the
+    // numbers a cost change's PR has to state.
+    if (prices) {
+        graph.getAllItems()
+            .map { it.item }
+            .filter { it !is MinecraftTag }
+            .sortedBy { it.id }
+            .forEach { item ->
+                val total = model.cost[item.id] ?: UnitCostModel.UNREACHABLE
+                val shown = if (total >= UnitCostModel.UNREACHABLE) "unreachable" else "%.4f".format(total)
+                println("${item.id}\t$shown\t${model.best(item)?.getKey() ?: "-"}")
+            }
+        return 0
+    }
 
     val subjects = graph.getAllItems()
         .map { it.item }
@@ -273,8 +294,16 @@ private suspend fun run(args: List<String>): Int {
             } ?: 1.0
 
             println("$pad${item.id.substringAfter(':')}  ${fmt(total)}  via ${source.getMethodLabel()}  ${source.filename}")
-            val factorNote = if (kotlin.math.abs(factor - 1.0) < 0.001) ""
-            else "  x %.4g (how hard this one is to reach)".format(factor)
+            val trip = model.effortTable.tripOf(source)
+            val factorNote = when {
+                // A mob reached by a trip: the two halves rather than the one multiplier they fold
+                // into, because each half is a separate claim to argue with (MCO-564).
+                trip != null -> "  x %.4g (the fight)  +  a %.3g min trip shared by %.4g kills".format(
+                    trip.fight, trip.tripMinutes, trip.perTrip,
+                )
+                kotlin.math.abs(factor - 1.0) < 0.001 -> ""
+                else -> "  x %.4g (how hard this one is to reach)".format(factor)
+            }
             val yieldNote = if (kotlin.math.abs(out - 1.0) < 0.001) "" else "  / %.4g per attempt".format(out)
             println("$pad  the action: %.4g min$factorNote$yieldNote  =  %s".format(bareAction, fmt(perAttempt / out)))
 

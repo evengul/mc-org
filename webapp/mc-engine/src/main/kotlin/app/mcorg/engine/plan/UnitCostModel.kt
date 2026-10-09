@@ -436,8 +436,9 @@ class UnitCostModel(
         // shipped scorer gates on exactly this (`hasConstructiveSibling`), and the first run of
         // this model without the gate proved why: acacia_log came out at 25.7 minutes and lost
         // to a chest. The gate is not scaffolding around a weak score — it is a fact about the
-        // graph, and it survives the change of model.
-        if (isSelfBlockLoot(item, source) && hasConstructiveSibling(item)) {
+        // graph, and it survives the change of model. A pot is the exception that needs no
+        // sibling: the plant beside it always has its own loot table ([isPottedPlant]).
+        if (isSelfBlockLoot(item, source) && (hasConstructiveSibling(item) || isPottedPlant(source))) {
             val own = c[item.id] ?: UNREACHABLE
             return if (own >= UNREACHABLE) UNREACHABLE else own + boundEffort.of(source)
         }
@@ -662,11 +663,36 @@ class EffortTable(
                 BLOCK_FINDING[stem]
                     ?: structureFindFactor(stem).takeIf { "minecraft:$stem" in craftableBlocks }
                     ?: 1.0
-            source.sourceType == SourceType.LootTypes.ENTITY -> ENTITY_FINDING[stem] ?: 1.0
+            source.sourceType == SourceType.LootTypes.ENTITY -> when (val hunt = ENTITY_FINDING[stem]) {
+                null -> 1.0
+                is Encounter -> hunt.fight
+                // Expressed back as a multiplier on the action so every caller — and every
+                // diagnostic line — still reads one factor. The trip is in minutes and divided
+                // by the action here, so sweeping the kill does not resize the journey.
+                is Trip -> hunt.fight + hunt.tripMinutes / (hunt.perTrip * of(source.sourceType))
+            }
             source.sourceType == SourceType.LootTypes.GIFT -> GIFT_FINDING[stem] ?: 1.0
             else -> 1.0
         }
     }
+
+    /**
+     * A mob's price taken apart: the fight, and the trip it shares with the other kills made on
+     * it. Null for anything that is not a mob reached by a trip.
+     *
+     * [findFactor] folds both into one multiplier, which is what the arithmetic needs and what
+     * hides the argument — "x 2.55" says nothing a player can check, while "a fight of 2 plus a
+     * nine-minute trip shared by 32 kills" says three things they can.
+     */
+    fun tripOf(source: SourceNode): TripShare? {
+        if (!perSource || source.sourceType != SourceType.LootTypes.ENTITY) return null
+        val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
+        val hunt = ENTITY_FINDING[stem] as? Trip ?: return null
+        return TripShare(fight = hunt.fight, tripMinutes = hunt.tripMinutes, perTrip = hunt.perTrip)
+    }
+
+    /** See [tripOf]. `fight` is a multiple of the action; the trip is in minutes. */
+    data class TripShare(val fight: Double, val tripMinutes: Double, val perTrip: Double)
 
     /** A copy that knows which blocks can be made — see [craftableBlocks]. */
     fun withCraftableBlocks(blocks: Set<String>): EffortTable =
@@ -729,10 +755,18 @@ class EffortTable(
                 .minOfOrNull { set ->
                     val perVisit = StructureDensity.blocksPerVisit(blockId, set)
                         ?.toDouble() ?: DEFAULT_BLOCKS_PER_VISIT
-                    StructureDensity.densityRatio(set) * (STRUCTURE_ACCESS[set] ?: 1.0) *
-                        VILLAGE_TRIP / perVisit
+                    structureTrips(set) * VILLAGE_TRIP / perVisit
                 }
         }
+
+        /**
+         * One visit to a structure, in village trips: how rare it is times how hard it is to
+         * reach. The single definition of "a trip there", shared by the blocks a structure
+         * holds and the mobs that live in it (MCO-564), so a fortress costs the same journey
+         * whether you came for its nether bricks or its blazes.
+         */
+        private fun structureTrips(set: String): Double =
+            StructureDensity.densityRatio(set) * (STRUCTURE_ACCESS[set] ?: 1.0)
 
         /**
          * How many 3-second block swings a trip to a village is worth. Five minutes, which
@@ -742,6 +776,13 @@ class EffortTable(
          * priced as a multiple of "go and find a village".
          */
         private const val VILLAGE_TRIP = 100.0
+
+        /**
+         * The same trip in minutes, for the mob side. Block loot counts its trip in swings
+         * because a swing is all the action is; a kill is a fight worth pricing in its own
+         * right, so a mob's trip is added to it in minutes rather than multiplied into it.
+         */
+        private const val VILLAGE_TRIP_MINUTES = 5.0
 
         /**
          * How many of a block one visit yields, when the templates do not say (MCO-513).
@@ -787,10 +828,13 @@ class EffortTable(
             // The map comes from a shipwreck, so the treasure costs the shipwreck too.
             put("buried_treasures", 3.0)
             // Nether: a portal's worth of obsidian, then a hostile dimension.
-            for (s in listOf("nether_complexes", "nether_fossils")) put(s, 4.0)
+            for (s in listOf("nether_complexes", "nether_fossils")) put(s, NETHER_TRIPS)
             // The End: the dragon, then a void crossing to the outer islands.
             put("end_cities", 20.0)
         }
+
+        /** Getting into the Nether, in village trips. Shared with the mobs that live there. */
+        private const val NETHER_TRIPS = 4.0
 
         /**
          * Minutes of searching per block mined, expressed as a multiple of the 3-second swing.
@@ -820,6 +864,15 @@ class EffortTable(
             )) put(ore, 6.0)                                                             // ~18 s
             // Not scarce, but a diamond pickaxe and a slow break, at a lava pool you made.
             put("obsidian", 4.0)                                                         // ~12 s
+
+            // Not terrain at all, and the one block here whose "finding" is a fight (MCO-564). A
+            // wither rose is *placed* where a Wither kills a mob, so breaking the block is how
+            // it is collected — but the block only exists because you summoned a Wither: three
+            // wither-skeleton skulls at ~2.5% a kill, around three and a half hours of fortress
+            // at `ENTITY_FINDING`'s price, divided over the twenty-odd mobs it kills before you
+            // kill it. No loot table records the mechanic, so it was priced as the swing alone,
+            // three seconds a rose. A trapped-Wither farm is far cheaper per rose, and is a farm.
+            put("wither_rose", 200.0)                                                    // ~10 min
         }
 
         /**
@@ -833,37 +886,82 @@ class EffortTable(
          *
          * Passive animals are the baseline: they are what the type's number was written for.
          *
+         * ## A kill is a fight, and reaching the mob is a trip (MCO-564)
+         *
+         * This table used to hold one multiplier per mob and charge it on **every kill**, so
+         * every prismarine shard paid for its own journey to an ocean monument: ten minutes a
+         * shard, fourteen hours for the 85 a modest build needs. Reaching a monument is one trip;
+         * once there, the guardians keep coming. Block loot already priced a structure that way —
+         * one visit divided over what the visit yields — and the mob side now does the same:
+         *
+         * ```
+         * minutes per kill = action * fight  +  trip minutes / kills per trip
+         * ```
+         *
+         * - **fight** is how much more than a cow in a field one kill is, *once you are there*:
+         *   a zombie fights back, a ghast floats over lava.
+         * - **trip** is the journey, in village trips, and for a mob that lives in a structure it
+         *   is the *same* number its blocks pay ([structureTrips]) — density from the jar, access
+         *   from [STRUCTURE_ACCESS]. A fortress is one errand whether you came for its nether
+         *   bricks or its blazes. *(This said the two scales "do not decompose into a common
+         *   base" until MCO-564. They did not while the trip was charged per kill; split out of
+         *   the kill, they do.)*
+         * - **kills per trip** is the curated half, and every entry is a claim a player can call
+         *   wrong: three elder guardians to a monument, a dozen shulkers to an End city. For a
+         *   mob that respawns it is a sitting's worth, not a limit.
+         *
+         * Like [DEFAULT_BLOCKS_PER_VISIT], this does not see demand: one shard still pays a
+         * thirty-second of the trip, which understates a plan that needs exactly one. That is
+         * the amortised-setup question MCO-490 measured and left to the assembled plan.
+         *
          * ## The tiers are named, and that is load-bearing
          *
          * Every entry picks one of the constants below rather than spelling a number. Six mobs
-         * priced at 10.0 are not six coincidences — they share a *reason*, and naming it means
+         * at one fight tier are not six coincidences — they share a *reason*, and naming it means
          * revising the reason moves all of them, which is the only way this stays coherent as
          * entries are added. It also stops the drift where someone nudges `blaze` to 12 and
          * leaves `strider` at 10 for no reason anybody wrote down.
-         *
-         * They are deliberately **not** shared with [STRUCTURE_ACCESS], though the temptation is
-         * obvious: reaching a blaze and reaching a bastion chest really are the same portal. The
-         * two scales do not decompose into a common base — nether mobs are 10.0 here against the
-         * Nether's 4.0 there, and raid mobs are 20.0 because a raid is an *event* rather than a
-         * place. Forcing one multiplier would state a relationship that is not true.
          */
+        internal sealed interface Hunt {
+            /** Kills cost this many times the bare action, once you are where the mob is. */
+            val fight: Double
+        }
+
+        /** It comes to you, or the wait is the whole cost. Nothing to travel to. */
+        private data class Encounter(override val fight: Double) : Hunt
+
+        /** A journey of [tripMinutes], shared by the [perTrip] kills made on it. */
+        private data class Trip(
+            val tripMinutes: Double,
+            val perTrip: Double,
+            override val fight: Double,
+        ) : Hunt
+
+        private fun inStructure(set: String, perTrip: Double, fight: Double) =
+            Trip(structureTrips(set) * VILLAGE_TRIP_MINUTES, perTrip, fight)
+
+        private fun inBiome(villageTrips: Double, perTrip: Double, fight: Double) =
+            Trip(villageTrips * VILLAGE_TRIP_MINUTES, perTrip, fight)
+
+        // ── Fight: one kill, once you are there ──────────────────────────────
+
+        /** An animal. What the type's number was written for. */
+        private const val PASSIVE = 1.0
+
         /** They come to you; the cost is the fight, not the journey. */
         private const val COMMON_HOSTILE = 1.5
+
+        /** Hits back hard, or has to be fought on its own ground: a spawner, a golem. */
+        private const val TOUGH = 2.0
 
         /** Everywhere, but it takes a while and it teleports. */
         private const val ENDERMAN = 3.0
 
-        /** A biome you pass through anyway, or a structure you meet while caving. */
-        private const val NEARBY = 5.0
+        /** Floats over lava, throws potions, or gives you mining fatigue first. */
+        private const val DANGEROUS = 3.0
 
-        /** A biome or dimension you have to set out for: a jungle, or a portal. */
-        private const val DISTANT = 10.0
-
-        /** An event or a built structure — a raid, a mansion, a monument, a trial chamber. */
-        private const val EVENT_OR_STRUCTURE = 20.0
-
-        /** Somewhere you make an expedition to, and one of the rarest biomes in the game. */
-        private const val EXPEDITION = 30.0
+        /** Not a place but a wait, or a thing you build: three sleepless nights, a snow golem. */
+        private const val WAIT_OR_BUILD = 5.0
 
         /** Not a fight anyone takes for loot. */
         private const val LETHAL = 100.0
@@ -871,19 +969,65 @@ class EffortTable(
         /** Summoned or fought once, at the cost of everything it took to get there. */
         private const val BOSS = 200.0
 
-        private val ENTITY_FINDING: Map<String, Double> = buildMap {
+        // ── Trip: biomes, which the jar cannot place (MCO-525), in village trips ──
+
+        /** A biome you pass through anyway: snowy plains, a savanna plateau. */
+        private const val NEARBY_BIOME = 1.0
+
+        /** A biome you have to set out for: a jungle. */
+        private const val DISTANT_BIOME = 3.0
+
+        /** One of the rarest biomes in the game: mushroom fields. */
+        private const val RARE_BIOME = 10.0
+
+        /**
+         * A raid: an outpost for the captain's omen, then a village to bring it to. Both
+         * halves are structures, so both come from the jar.
+         */
+        private val RAID_TRIPS: Double get() = structureTrips("pillager_outposts") + structureTrips("villages")
+
+        private val ENTITY_FINDING: Map<String, Hunt> = buildMap {
             // Common hostiles: they come to you, but you fight them.
-            for (m in listOf("zombie", "skeleton", "creeper", "spider", "husk", "drowned")) put(m, COMMON_HOSTILE)
-            put("enderman", ENDERMAN)
-            // Nether structures — a journey, then a fortress or a bastion.
-            for (m in listOf("blaze", "wither_skeleton", "ghast", "piglin", "hoglin", "magma_cube")) put(m, DISTANT)
-            // Raids, mansions, ocean monuments: an event or a structure, not an encounter.
-            for (m in listOf(
-                "vindicator", "evoker", "pillager", "ravager", "witch", "illusioner",
-                "guardian", "elder_guardian",
-            )) put(m, EVENT_OR_STRUCTURE)
-            put("shulker", EXPEDITION)
-            put("ender_dragon", BOSS)
+            for (m in listOf("zombie", "skeleton", "creeper", "spider", "husk", "drowned")) {
+                put(m, Encounter(COMMON_HOSTILE))
+            }
+            put("enderman", Encounter(ENDERMAN))
+
+            // Nether fortress: the same trip its nether bricks pay, shared by a sitting at the
+            // spawner (blazes) or a lap of the walkways (wither skeletons).
+            put("blaze", inStructure("nether_complexes", perTrip = 24.0, fight = COMMON_HOSTILE))
+            put("wither_skeleton", inStructure("nether_complexes", perTrip = 16.0, fight = TOUGH))
+
+            // The rest of the Nether lives in biomes, so the trip is the portal alone.
+            put("magma_cube", inBiome(NETHER_TRIPS, perTrip = 16.0, fight = COMMON_HOSTILE))
+            put("piglin", inBiome(NETHER_TRIPS, perTrip = 16.0, fight = COMMON_HOSTILE))
+            put("zombified_piglin", inBiome(NETHER_TRIPS, perTrip = 32.0, fight = COMMON_HOSTILE))
+            put("strider", inBiome(NETHER_TRIPS, perTrip = 8.0, fight = PASSIVE))
+            put("hoglin", inBiome(NETHER_TRIPS, perTrip = 8.0, fight = TOUGH))
+            put("ghast", inBiome(NETHER_TRIPS, perTrip = 4.0, fight = DANGEROUS))
+            // A hoglin that wandered through a portal and turned. You do not meet many.
+            put("zoglin", inBiome(NETHER_TRIPS, perTrip = 2.0, fight = TOUGH))
+
+            // Ocean monument. Guardians respawn for as long as you stay; there are exactly
+            // three elders and they never come back — which is why the elder no longer wins
+            // prismarine shards on its file name, at the same one shard a kill.
+            put("guardian", inStructure("ocean_monuments", perTrip = 32.0, fight = TOUGH))
+            put("elder_guardian", inStructure("ocean_monuments", perTrip = 3.0, fight = DANGEROUS))
+
+            // Woodland mansion: a dozen vindicators and a couple of evokers, a long way out.
+            put("vindicator", inStructure("woodland_mansions", perTrip = 12.0, fight = COMMON_HOSTILE))
+            put("evoker", inStructure("woodland_mansions", perTrip = 3.0, fight = TOUGH))
+            // Pillagers garrison their outpost and keep spawning around it.
+            put("pillager", inStructure("pillager_outposts", perTrip = 12.0, fight = COMMON_HOSTILE))
+            // A ravager comes with a raid and nowhere else — two or so to a raid.
+            put("ravager", Trip(RAID_TRIPS * VILLAGE_TRIP_MINUTES, perTrip = 2.0, fight = DANGEROUS))
+            // A swamp hut spawns witches, slowly; they also turn up in the dark anywhere.
+            put("witch", inStructure("swamp_huts", perTrip = 4.0, fight = DANGEROUS))
+            // Never spawns in survival.
+            put("illusioner", Encounter(LETHAL))
+
+            put("shulker", inStructure("end_cities", perTrip = 12.0, fight = COMMON_HOSTILE))
+            put("ender_dragon", Encounter(BOSS))
 
             // ── MCO-498: the half of this table that was never populated ────────────
             //
@@ -893,23 +1037,19 @@ class EffortTable(
             // the list is "would you meet this by walking around where you already are?", not
             // "is it hostile?". Swept against the 74 entity sources ingested for 1.21.4.
 
-            // Mobs you had to *build*. An iron golem is a village or a farm you constructed;
-            // it is not an encounter. Priced at 1.0 it won iron by 7% against smelting raw
-            // iron — the planner's advice for iron being to go and kill the golems made of it.
-            // A wither costs three wither-skeleton skulls at ~2.5% each, which is why it sits
-            // with the dragon rather than with the raid mobs.
-            put("iron_golem", EVENT_OR_STRUCTURE)
-            put("snow_golem", NEARBY)
-            put("wither", BOSS)
+            // Mobs you had to *build* or find in a village. Priced at 1.0 an iron golem won iron
+            // by 7% against smelting raw iron — the planner's advice for iron being to go and
+            // kill the golems made of it. A village has about one. A wither costs three
+            // wither-skeleton skulls at ~2.5% each, which is why it sits with the dragon.
+            put("iron_golem", inStructure("villages", perTrip = 1.0, fight = TOUGH))
+            put("snow_golem", Encounter(WAIT_OR_BUILD))
+            put("wither", Encounter(BOSS))
 
             // Structure-gated hostiles, the same errand as the chest tables in CHEST_FINDING.
             // The warden is not a fight anyone wins for loot; it is priced to say so.
-            put("warden", LETHAL)
-            put("breeze", EVENT_OR_STRUCTURE)  // trial chambers only
-            put("cave_spider", NEARBY)         // mineshafts
-
-            // The Nether, for the mobs the block above missed.
-            for (m in listOf("strider", "zombified_piglin", "zoglin")) put(m, DISTANT)
+            put("warden", Encounter(LETHAL))
+            put("breeze", inStructure("trial_chambers", perTrip = 6.0, fight = TOUGH))
+            put("cave_spider", inStructure("mineshafts", perTrip = 16.0, fight = COMMON_HOSTILE))
 
             // Biome-gated animals. Common where they live and absent everywhere else, which
             // is exactly what ENTITY_FINDING exists to express and did not.
@@ -919,12 +1059,12 @@ class EffortTable(
             // scored a flat 100 in the shipped scorer too, and "chicken" only won there
             // because it sorts before "parrot" — a correct answer produced by an alphabetical
             // tie-break rather than by anything either model knew.
-            put("mooshroom", EXPEDITION)   // mushroom fields, one of the rarest biomes in the game
-            put("parrot", DISTANT)         // jungle
-            put("panda", DISTANT)          // bamboo jungle — a sub-biome, but the same journey
-            put("polar_bear", NEARBY)      // frozen ocean, snowy
-            put("llama", NEARBY)           // windswept hills, savanna plateau
-            put("phantom", NEARBY)         // three nights without sleeping, not a place you go
+            put("mooshroom", inBiome(RARE_BIOME, perTrip = 8.0, fight = PASSIVE))
+            put("parrot", inBiome(DISTANT_BIOME, perTrip = 4.0, fight = PASSIVE))
+            put("panda", inBiome(DISTANT_BIOME, perTrip = 4.0, fight = PASSIVE))
+            put("polar_bear", inBiome(NEARBY_BIOME, perTrip = 4.0, fight = COMMON_HOSTILE))
+            put("llama", inBiome(NEARBY_BIOME, perTrip = 4.0, fight = PASSIVE))
+            put("phantom", Encounter(WAIT_OR_BUILD))
         }
 
         /**
