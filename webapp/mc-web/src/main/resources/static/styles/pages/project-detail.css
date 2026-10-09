@@ -863,6 +863,12 @@
     flex: 1;
 }
 
+/* And at their own height: a flex row stretches its items, which made Choose and ⇄ blocks as
+   tall as a three-line question on a phone. */
+.plan-attention .callout {
+    align-items: flex-start;
+}
+
 .plan-attention__question {
     font-family: var(--font-body);
     font-size: var(--text-sm);

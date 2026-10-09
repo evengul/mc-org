@@ -39,8 +39,6 @@ import kotlinx.html.ul
  * without having read what it is about to choose.
  */
 
-/** The element the control is lazy-loaded into, so the picks are computed once, on the server. */
-const val BULK_ANSWER_SLOT_ID = "plan-attention-bulk"
 
 /** The undo toast's id — one at a time, so a fixed id is enough for the OOB dismissal. */
 const val BULK_ANSWER_TOAST_ID = "plan-attention-bulk-undo"
@@ -60,9 +58,9 @@ private fun bulkUrl(worldId: Int, projectId: Int) =
  * The control itself: a disclosure whose summary makes the offer and whose body shows every pick
  * before the button that applies them.
  *
- * Rendered into `#$BULK_ANSWER_SLOT_ID` (innerHTML). Never rendered for a lead question — those
- * are the ones worth reading — and never for a single question, where it would be more work than
- * the click it replaces.
+ * Lazy-loaded with the page, in place of a `loadOnArrival` placeholder, so the picks are computed
+ * once, on the server. Never rendered for a lead question — those are the ones worth reading —
+ * and never for a single question, where it would be more work than the click it replaces.
  */
 fun bulkAnswerControl(worldId: Int, projectId: Int, picks: List<RecommendedAnswer>): String =
     createHTML().details("plan-attention__bulk") {

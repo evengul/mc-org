@@ -26,6 +26,7 @@ import app.mcorg.pipeline.resources.FarmSuggestionChoices
 import app.mcorg.pipeline.resources.RecommendationReason
 import app.mcorg.presentation.templated.dsl.formatPlainCount
 import app.mcorg.presentation.hxDelete
+import app.mcorg.presentation.loadOnArrival
 import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxDeleteWithConfirm
 import app.mcorg.presentation.hxGet
@@ -1419,7 +1420,7 @@ private fun FlowContent.needsAttentionList(
         id = "plan-attention"
         p("plan-attention__lead") { +attentionLead(questions, leadCount) }
         div("resource-list") {
-            lead.forEachIndexed { i, it -> openTagActivityRow(project.worldId, project.id, it, open = i == 0) }
+            lead.forEachIndexed { i, question -> openTagActivityRow(project.worldId, project.id, question, open = i == 0) }
         }
         if (rest.isNotEmpty()) {
             // MCO-507: "answer the remaining N with the recommended pick", loaded on demand.
@@ -1431,11 +1432,8 @@ private fun FlowContent.needsAttentionList(
             // One request, on a section that only exists when there is a tail to fold.
             //
             // Empty response when there is nothing to offer (fewer than two folded questions, or
-            // no graph), so the slot just stays empty.
-            div("plan-attention__bulk-slot") {
-                id = BULK_ANSWER_SLOT_ID
-                loadOnArrival("/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk")
-            }
+            // no graph), so the placeholder is replaced by nothing.
+            loadOnArrival("/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk")
             details("plan-attention__rest") {
                 summary {
                     span("btn btn--ghost btn--sm plan-attention__toggle") {
@@ -1625,8 +1623,10 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
         // Resolve inline: drops the tag-member picker below this row; a pick re-renders the
         // List lens (origin=list) so the resolved tag leaves "Needs attention", and the
         // question that is now on top opens in its place.
+        // Secondary, not primary: the open question above is the one to act on, and a solid
+        // lapis button on the row below it would pull the eye away from it.
         if (!open) {
-            button(classes = "btn btn--primary btn--sm") {
+            button(classes = "btn btn--secondary btn--sm") {
                 type = ButtonType.button
                 attributes["hx-get"] = pickerUrl
                 attributes["hx-target"] = "#$pickerSlotId"
@@ -1640,24 +1640,6 @@ private fun FlowContent.openTagActivityRow(worldId: Int, projectId: Int, activit
     div("chain-node__picker") {
         id = pickerSlotId
         if (open) loadOnArrival(pickerUrl)
-    }
-}
-
-/**
- * A placeholder that fetches [url] with the page and is replaced by the response.
- *
- * It replaces *itself* (outerHTML) rather than filling a slot that keeps the request on it,
- * because htmx 4 runs here with `implicitInheritance` (Layout.kt): an element inherits its
- * ancestors' hx-get and hx-trigger. Content left inside an element carrying `hx-trigger="load"`
- * inherits both, so every control in the response fires that GET on arrival, into its own target,
- * and no longer answers a click. On the plan that replaced the page with a picker (MCO-504).
- */
-private fun FlowContent.loadOnArrival(url: String) {
-    div {
-        attributes["hx-get"] = url
-        attributes["hx-trigger"] = "load"
-        attributes["hx-target"] = "this"
-        attributes["hx-swap"] = "outerHTML"
     }
 }
 

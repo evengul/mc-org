@@ -203,8 +203,9 @@ respondHtml(createHTML().li {
 
 ### Dynamic content load on page load
 
-The placeholder replaces itself. A slot that must stay (an id something else targets) wraps
-the placeholder rather than carrying the request — `loadOnArrival` in `ProjectDetailPage.kt`:
+The placeholder replaces itself. `FlowContent.loadOnArrival(url)` in `presentation/hx.kt` is the
+helper; a slot that has to stay (an id something else targets) wraps it rather than carrying the
+request. Written out:
 
 ```kotlin
 div {

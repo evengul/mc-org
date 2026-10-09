@@ -143,7 +143,7 @@ private fun DIV.renderTargetTree(
                 val chipLabel = when {
                     nodeSource != null -> nodeSource.getName()
                     node.status == PlanNodeStatus.OPEN_TAG -> "Choose material"
-                    else -> "Pick source"
+                    else -> "Choose source"
                 }
                 button(classes = "chip") {
                     type = ButtonType.button
@@ -241,7 +241,8 @@ internal const val VARIANT_QUESTION = "Which should the plan use in recipes?"
 /**
  * Picker fragment for one node — source selector or tag-member selector.
  *
- * Rendered into `#picker-{nodeSlug}` via innerHTML swap.
+ * Rendered into `#picker-{nodeSlug}`: as its contents when a Choose or ⇄ chip opens it, or in
+ * place of the `loadOnArrival` placeholder there for the top Needs attention question.
  *
  * For source nodes (multi-source items): shows all candidate sources sorted by getName(),
  * capped at [PICKER_MAX_OPTIONS] with a note when truncated. Each option POSTs to the
@@ -312,7 +313,9 @@ fun nodePickerFragment(
 
             // Opened from a Needs attention row (origin=list), the row directly above has just
             // asked this; everywhere else the picker is the first thing to ask it.
-            if (origin != "list") span("section-label picker__label") { +VARIANT_QUESTION }
+            // A sentence, so it is set like the row's question rather than as an all-caps
+            // section label, which is for short noun headings.
+            if (origin != "list") p("picker__question") { +VARIANT_QUESTION }
             if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
             // MCO-487: answering "which tree" here answers it for `#planks`, `#wooden_slabs` and

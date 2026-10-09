@@ -796,7 +796,8 @@ class DrillViewTest {
         )
 
         for (html in listOf(empty, unmatched)) {
-            assertContains(html, "Which should the plan use in recipes?")
+            // Set as a sentence, not as an all-caps section label.
+            assertContains(html, """<p class="picker__question">Which should the plan use in recipes?</p>""")
             assertFalse(html.contains("variant", ignoreCase = true), "\"variant\" is our word, not the player's: $html")
         }
     }
