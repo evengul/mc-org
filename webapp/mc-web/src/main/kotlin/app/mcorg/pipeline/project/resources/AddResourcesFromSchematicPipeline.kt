@@ -14,6 +14,9 @@ import app.mcorg.pipeline.project.ReceiveSchematicStep
 import app.mcorg.pipeline.project.SchematicUpload
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.pipeline.resources.FollowMeasurementStep
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.hxOutOfBands
 import app.mcorg.presentation.templated.dsl.pages.planResourceTableFragment
@@ -44,9 +47,9 @@ suspend fun ApplicationCall.handleAddResourcesFromSchematic() {
     val previousIds = GetAllResourceGatheringItemsStep.process(projectId).getOrNull()?.map { it.id } ?: emptyList()
 
     handlePipeline(
-        onSuccess = { resources ->
+        onSuccess = { (resources, measurements) ->
             respondHtml(
-                planResourceTableFragment(worldId, projectId, resources) +
+                planResourceTableFragment(worldId, projectId, resources, measurements = measurements) +
                     createHTML().div { hxOutOfBands("delete:#plan-empty-state") } +
                     // A schematic replace deletes every resource_gathering row (MCO-247: including
                     // any previously ignored ones), so drop a stale ignored section from the DOM.
@@ -64,9 +67,12 @@ suspend fun ApplicationCall.handleAddResourcesFromSchematic() {
         ReplaceProjectResourcesStep(projectId).run(materials.requirements)
 
         previousIds.forEach { CacheManager.onResourceGatheringDeleted(projectId, it) }
+        // A replaced target list moves every clamp on a tracked project (MCO-540).
+        FollowMeasurementStep.afterTargetsChanged(projectId)
         val resources = GetAllResourceGatheringItemsStep.run(projectId)
         resources.forEach { CacheManager.onResourceGatheringCreated(projectId, it.id) }
-        resources
+        // The table is redrawn whole, so it needs its Chests column like the page's first render.
+        resources to (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
     }
 }
 

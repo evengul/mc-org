@@ -189,6 +189,49 @@ class StorageTrackedIT : WithUser() {
     }
 
     @Test
+    fun `a project whose only tags have never been read cannot be switched on`() {
+        val worldId = createWorld("unread-tags")
+        val projectId = createProject(worldId)
+        insertGathering(projectId, iron, required = 512)
+        setCollected(projectId, iron, 500)
+        // Tagged, but no sweep has read it: nothing feeds the measurement, so following it would
+        // zero every count exactly as following no tags at all would.
+        tagContainer(worldId, projectId, state = "unreadable")
+
+        val result = runBlocking { SetStorageTrackedStep.process(SetStorageTrackedInput(projectId, true)) }
+
+        assertIs<Result.Failure<AppFailure>>(result)
+        assertFalse(trackingOf(projectId).tracked)
+        assertEquals(500, collectedOf(projectId, iron), "a refused switch zeroed a typed count")
+    }
+
+    @Test
+    fun `changing a target's required re-follows a tracked count`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            apiV1Routes()
+            with(WorldHandler()) { worldRoutes() }
+        }
+        val fixture = trackedProject("required-change", required = 64)
+        trackOn(fixture.projectId)
+        push(fixture.reporterToken, fixture.chest, iron to 100L)
+        assertEquals(64, collectedOf(fixture.projectId, iron))
+
+        // No sweep follows this: the chest has not changed, so nothing would push.
+        val response = client.patch(
+            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/resources/gathering/${fixture.gatheringId}/required"
+        ) {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("required=128")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(100, collectedOf(fixture.projectId, iron))
+    }
+
+    @Test
     fun `switching off keeps the followed counts, and the next sweep leaves them alone`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val fixture = trackedProject("off-again")
@@ -562,17 +605,21 @@ class StorageTrackedIT : WithUser() {
         ).process(Unit) as Result.Success).value
     }
 
-    private fun tagContainer(worldId: Int, projectId: Int): Long =
+    /**
+     * A tagged chest the server has already read once (`ok`), which is what switching on needs. A
+     * fresh tag is `unreadable` until the first sweep reaches it.
+     */
+    private fun tagContainer(worldId: Int, projectId: Int, state: String = "ok"): Long =
         Database.getConnection().use { conn ->
             conn.prepareStatement(
                 """
                 INSERT INTO container_tags
-                    (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by)
-                VALUES (?, ?, 'minecraft:overworld', 0, 64, 0, '0,64,0', 'chest', ?)
+                    (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by, state)
+                VALUES (?, ?, 'minecraft:overworld', 0, 64, 0, '0,64,0', 'chest', ?, ?)
                 RETURNING id
                 """.trimIndent()
             ).use { st ->
-                st.setInt(1, worldId); st.setInt(2, projectId); st.setInt(3, user.id)
+                st.setInt(1, worldId); st.setInt(2, projectId); st.setInt(3, user.id); st.setString(4, state)
                 st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
             }
         }

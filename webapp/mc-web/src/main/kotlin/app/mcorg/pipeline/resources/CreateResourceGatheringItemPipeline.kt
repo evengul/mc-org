@@ -51,7 +51,7 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
         val id = CreateResourceGatheringItemStep(projectId).run(input)
         CacheManager.onResourceGatheringCreated(projectId, id)
         // On a tracked project the new target counts what the chests already hold (MCO-540).
-        FollowMeasurementStep.run(projectId)
+        FollowMeasurementStep.afterTargetsChanged(projectId)
         val item = GetResourceGatheringItemStep.run(id)
         // Chests may already hold the item from before it was added to the plan.
         val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE

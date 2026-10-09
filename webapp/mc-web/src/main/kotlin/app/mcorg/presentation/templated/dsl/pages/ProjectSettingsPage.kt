@@ -121,7 +121,7 @@ private fun FlowContent.storageTrackingSection(worldId: Int, projectId: Int, tra
         hxSwap("outerHTML")
         // On the form, because the form is what sends the request. Only the direction that
         // replaces numbers asks; turning it off changes none.
-        if (!tracking.tracked && tracking.taggedContainers > 0) {
+        if (!tracking.tracked && tracking.readableContainers > 0) {
             attributes["hx-confirm"] =
                 "Every count on this project will follow its tagged chests, and an item in none of them " +
                     "will read 0. This replaces the counts you typed. Continue?"
@@ -147,9 +147,14 @@ private fun FlowContent.storageTrackingSection(worldId: Int, projectId: Int, tra
                 strong { +"Typed by hand." }
                 +" Tagged chests show what they hold beside each count, and you choose whether to use it."
             }
-            if (tracking.taggedContainers == 0) {
+            if (tracking.readableContainers == 0) {
                 p("settings-form__helper") {
-                    +"Tag a chest to this project in game with the Seam mod to let its chests drive the counts."
+                    +if (tracking.taggedContainers == 0) {
+                        "Tag a chest to this project in game with the Seam mod to let its chests drive the counts."
+                    } else {
+                        "None of the ${chests(tracking.taggedContainers)} has been read by the server yet. " +
+                            "Once one has, its contents can drive the counts."
+                    }
                 }
                 button(classes = "btn btn--primary btn--sm") {
                     type = ButtonType.submit
@@ -158,7 +163,7 @@ private fun FlowContent.storageTrackingSection(worldId: Int, projectId: Int, tra
                 }
             } else {
                 p("settings-form__helper") {
-                    +"Once your tagging is complete, let the ${chests(tracking.taggedContainers)} drive the counts. "
+                    +"Once your tagging is complete, let the ${chests(tracking.readableContainers)} drive the counts. "
                     +"Each sweep then sets every count to what the chests hold."
                 }
                 button(classes = "btn btn--primary btn--sm") {

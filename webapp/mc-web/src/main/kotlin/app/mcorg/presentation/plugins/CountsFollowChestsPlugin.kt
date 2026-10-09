@@ -1,6 +1,6 @@
 package app.mcorg.presentation.plugins
 
-import app.mcorg.pipeline.resources.GetStorageTrackingStep
+import app.mcorg.pipeline.resources.IsStorageTrackedStep
 import app.mcorg.presentation.handler.respondRefusal
 import app.mcorg.presentation.utils.getProjectId
 import io.ktor.http.HttpStatusCode
@@ -20,7 +20,9 @@ import io.ktor.server.application.createRouteScopedPlugin
  */
 val CountsFollowChestsPlugin = createRouteScopedPlugin("CountsFollowChestsPlugin") {
     onUnansweredCall {
-        val tracked = GetStorageTrackingStep.process(it.getProjectId()).getOrNull()?.tracked ?: false
+        // A failed lookup reads as untracked: the write right after it goes to the same database,
+        // and a count that does slip through is put back by the next sweep.
+        val tracked = IsStorageTrackedStep.process(it.getProjectId()).getOrNull() ?: false
         if (tracked) {
             it.respondRefusal(
                 HttpStatusCode.Conflict,

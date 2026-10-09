@@ -63,6 +63,19 @@ data class StorageTracking(
     val readableContainers: Int,
 )
 
+/**
+ * Just the flag, for the paths that need nothing else: the guard on every counter press and the
+ * mod's sync. [GetStorageTrackingStep] also counts containers, which those paths never read.
+ */
+object IsStorageTrackedStep : Step<Int, AppFailure.DatabaseError, Boolean> {
+    override suspend fun process(input: Int) =
+        DatabaseSteps.query<Int, Boolean>(
+            sql = SafeSQL.select("SELECT storage_tracked FROM projects WHERE id = ?"),
+            parameterSetter = { st, projectId -> st.setInt(1, projectId) },
+            resultMapper = { rs -> rs.next() && rs.getBoolean(1) },
+        ).process(input)
+}
+
 object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTracking> {
     override suspend fun process(input: Int) =
         DatabaseSteps.query<Int, StorageTracking>(
@@ -249,6 +262,17 @@ object FollowMeasurementStep : Step<Int, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
         DatabaseSteps.transaction<Int, Int> { tx -> within(tx) }.process(input)
 
+    /**
+     * Re-follow after a change to a project's targets, which has already committed by the time
+     * this runs. Never fails the caller: the change is saved, and reporting an error for it would
+     * invite a retry that adds the same target twice. A follow that does fail is redone by the
+     * next recompute. Costs one indexed read for a project that is not tracked, which is nearly all.
+     */
+    suspend fun afterTargetsChanged(projectId: Int) {
+        if (IsStorageTrackedStep.process(projectId).getOrNull() != true) return
+        process(projectId)
+    }
+
     fun within(tx: TransactionConnection): Step<Int, AppFailure.DatabaseError, Int> =
         object : Step<Int, AppFailure.DatabaseError, Int> {
             override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
@@ -344,13 +368,16 @@ object SetStorageTrackedStep : Step<SetStorageTrackedInput, AppFailure, StorageT
     override suspend fun process(input: SetStorageTrackedInput): Result<AppFailure, StorageTracking> {
         if (input.tracked) {
             val current = GetStorageTrackingStep.process(input.projectId).getOrElse { return Result.failure(it) }
-            if (current.taggedContainers == 0) {
+            // Readable, not merely tagged: only containers the last sweep could read feed the
+            // measurement, so a project whose tags are all unreadable or missing has nothing to
+            // follow, and switching it on would zero every count just the same.
+            if (current.readableContainers == 0) {
                 return Result.failure(
                     AppFailure.ValidationError(
                         listOf(
                             ValidationFailure.CustomValidation(
                                 "storageTracked",
-                                "Tag at least one chest to this project in game first. With nothing to follow, every count would read 0.",
+                                "No tagged chest has been read yet. Tag one in game and let the server sweep it first; with nothing to follow, every count would read 0.",
                             )
                         )
                     )

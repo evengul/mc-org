@@ -30,7 +30,7 @@ suspend fun ApplicationCall.handleUpdateResourceRequiredAmount() {
         val input = ValidateRequiredAmountInputStep.run(parameters)
         UpdateRequiredAmountStep(resourceGatheringId).run(input)
         // A tracked count is clamped to `required`, so a new ceiling moves it (MCO-540).
-        FollowMeasurementStep.run(projectId)
+        FollowMeasurementStep.afterTargetsChanged(projectId)
     }
 }
 

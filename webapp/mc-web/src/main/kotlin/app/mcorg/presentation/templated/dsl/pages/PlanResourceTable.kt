@@ -42,8 +42,12 @@ fun TR.planResourceRow(
     // No default: every single-row swap replaces the page's row, and a row rendered without its
     // measurement loses its drift chip.
     measured: MeasuredStock?,
-    /** Non-null on a storage-tracked project, whose Chests column says where the count comes from. */
-    followed: FollowedChests? = null,
+    /**
+     * Non-null on a storage-tracked project, whose Chests column says where the count comes from.
+     * No default, for the same reason as [measured]: a swap that forgot it would put an adopt
+     * button back on a project whose counts nobody may set.
+     */
+    followed: FollowedChests?,
 ) {
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()

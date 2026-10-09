@@ -49,6 +49,7 @@ suspend fun ApplicationCall.handleAdoptMeasurement() {
                         required = adopted.item.required,
                         source = adopted.item.solvedByProject?.second,
                         measured = adopted.measured,
+                        followed = adopted.followed,
                     )
                 }.removePrefix("<div>").removeSuffix("</div>") +
                     createHTML().div {
@@ -77,10 +78,15 @@ suspend fun ApplicationCall.handleAdoptAllMeasurements() {
     val projectId = this.getProjectId()
 
     handlePipeline(
-        onSuccess = { rows -> respondHtml(fieldLogSliceRowsFragment(worldId, projectId, rows)) }
+        onSuccess = { (rows, measurements) ->
+            respondHtml(fieldLogSliceRowsFragment(worldId, projectId, rows, measurements))
+        }
     ) {
         AdoptAllMeasurementsStep.run(projectId)
-        GetAllResourceGatheringItemsStep.run(projectId)
+        // With the measurements, so the redrawn rows keep their chest counts — and, on a project
+        // switched to storage-tracked since the page loaded, stay read-only (MCO-540).
+        GetAllResourceGatheringItemsStep.run(projectId) to
+            (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
     }
 }
 
@@ -88,6 +94,8 @@ suspend fun ApplicationCall.handleAdoptAllMeasurements() {
 data class AdoptedResource(
     val item: ResourceGatheringItem,
     val measured: MeasuredStock?,
+    /** Non-null on a storage-tracked project, whose redrawn row must stay read-only (MCO-540). */
+    val followed: FollowedChests?,
     val totalRequired: Int,
     val totalCollected: Int,
 )
@@ -110,6 +118,7 @@ private class AdoptedResourceStep(private val projectId: Int) :
             AdoptedResource(
                 item = item,
                 measured = measurements[item.itemId],
+                followed = measurements.followed,
                 totalRequired = CountTotalResourcesRequiredInProjectWithItemIdStep.process(input).getOrNull() ?: 0,
                 totalCollected = CountCollectedResourcesInProjectWithItemIdStep.process(input).getOrNull() ?: 0,
             )

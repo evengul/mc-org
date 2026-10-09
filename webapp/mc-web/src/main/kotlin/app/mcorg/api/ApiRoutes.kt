@@ -12,7 +12,7 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
-import app.mcorg.pipeline.resources.GetStorageTrackingStep
+import app.mcorg.pipeline.resources.IsStorageTrackedStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemStep
@@ -276,7 +276,7 @@ suspend fun ApplicationCall.handleSyncResources() {
     // A storage-tracked project's counts follow its chests (MCO-540), and the next sweep would
     // overwrite a typed count within 30 seconds. Refused rather than skipped so the mod knows its
     // number did not land; 409 is permanent to the mod, which drops it instead of retrying forever.
-    if (GetStorageTrackingStep.process(projectId).getOrNull()?.tracked == true) {
+    if (IsStorageTrackedStep.process(projectId).getOrNull() == true) {
         respondApiError(
             HttpStatusCode.Conflict,
             "storage_tracked",
