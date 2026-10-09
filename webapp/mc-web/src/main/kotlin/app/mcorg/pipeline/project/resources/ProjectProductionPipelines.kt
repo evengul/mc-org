@@ -6,6 +6,8 @@ import app.mcorg.pipeline.Step
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.pipeline.project.GetProjectStateStep
 import app.mcorg.pipeline.resources.InvalidateDemandSuppliedByStep
+import app.mcorg.pipeline.resources.SupplyReach
+import app.mcorg.pipeline.resources.supplyReach
 import app.mcorg.pipeline.resources.invalidateDemandSuppliedBy
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -164,11 +166,22 @@ internal data class ValidateProductionModeStep(val projectId: Int) :
  */
 internal data class DeleteProjectProductionStep(val projectId: Int, val invalidateInWorld: Int? = null) :
     Step<Int, AppFailure.DatabaseError, Int> {
-    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+        // Read before the transaction opens: see InvalidateDemandSuppliedByStep's reach.
+        val reach: SupplyReach? = invalidateInWorld?.let { worldId ->
+            when (val read = supplyReach(worldId, projectId)) {
+                is Result.Failure -> return read
+                is Result.Success -> read.value
+            }
+        }
+        return deleteWith(reach, input)
+    }
+
+    private suspend fun deleteWith(reach: SupplyReach?, input: Int): Result<AppFailure.DatabaseError, Int> =
         DatabaseSteps.transaction { connection ->
             Step<Int, AppFailure.DatabaseError, Int> { productionId ->
-                if (invalidateInWorld != null) {
-                    val invalidated = InvalidateDemandSuppliedByStep(invalidateInWorld, projectId, connection).process(Unit)
+                if (invalidateInWorld != null && reach != null) {
+                    val invalidated = InvalidateDemandSuppliedByStep(invalidateInWorld, projectId, reach, connection).process(Unit)
                     if (invalidated is Result.Failure) return@Step invalidated
                 }
                 DatabaseSteps.update<Int>(
