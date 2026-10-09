@@ -181,6 +181,30 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    @Test
+    fun `a faster farm whose own edge is set aside does not take the slower farm's edge with it`() {
+        // The faster farm outranks the slower one only where it is drawn itself. Here a hand-made
+        // order sets its edge aside, and without this the item would have no producer at all.
+        val worldId = createWorld("Set Aside Rival World")
+        val consumer = createProject(worldId, "Storage System")
+        val slow = createProject(worldId, "Alpha Iron Farm")
+        val fast = createProject(worldId, "Beta Iron Farm")
+        createRequirement(consumer, "minecraft:iron_ingot", "Iron Ingot")
+        createDemand(consumer, "minecraft:iron_ingot", "Iron Ingot", 32)
+        createProduction(slow, "minecraft:iron_ingot", "Iron Ingot", ratePerHour = 400)
+        createProduction(fast, "minecraft:iron_ingot", "Iron Ingot", ratePerHour = 3_800)
+        runBlocking { UpdateProjectStageStep(slow).process(ProjectStage.COMPLETED) }
+        runBlocking { UpdateProjectStageStep(fast).process(ProjectStage.COMPLETED) }
+        setAside(worldId, consumer = consumer, producer = fast)
+
+        val roadmap = roadmapOf(worldId)
+
+        assertNull(roadmap.edge(consumer, fast))
+        assertNotNull(roadmap.edge(consumer, slow), "the slower farm still supplies the item")
+
+        deleteWorld(worldId)
+    }
+
     /**
      * The other half of MCO-466: coverage is per item, so an unfinished farm still blocks for
      * whatever nothing operational makes. Without this the fix would silently unblock a world.
@@ -731,6 +755,19 @@ class WorldRoadmapIT : WithUser() {
                 """.trimIndent()
             ),
             parameterSetter = { stmt, _ -> stmt.setInt(1, projectId) }
+        ).process(Unit)
+    }
+
+    private fun setAside(worldId: Int, consumer: Int, producer: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO roadmap_cycle_order (world_id, consumer_project_id, producer_project_id) VALUES (?, ?, ?)"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, worldId)
+                stmt.setInt(2, consumer)
+                stmt.setInt(3, producer)
+            }
         ).process(Unit)
     }
 

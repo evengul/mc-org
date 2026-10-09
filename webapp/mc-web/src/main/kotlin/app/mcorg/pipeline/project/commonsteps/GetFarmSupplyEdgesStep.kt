@@ -161,6 +161,8 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                   )
                   -- Of two running farms making the item, only the one the plan names supplies it
                   -- (MCO-603): the higher rate, then the name, then the id — ProjectSupply's order.
+                  -- A rival counts only where its own edge is drawn, or setting it aside by hand
+                  -- would leave the item with no producer at all.
                   AND NOT (
                       prod.state = ?
                       AND EXISTS (
@@ -171,6 +173,14 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                             AND rival.world_id = pc.world_id
                             AND rival.state = ?
                             AND rival.id NOT IN (prod.id, d.project_id)
+                            AND NOT EXISTS (
+                                SELECT 1 FROM roadmap_cycle_order rco
+                                WHERE rco.consumer_project_id = d.project_id
+                                  AND rco.producer_project_id = rival.id
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1 FROM project_gather_instead g WHERE g.project_id = rival.id
+                            )
                           GROUP BY rival.id, rival.name
                           HAVING ROW(-MAX(rival_pp.rate_per_hour), rival.name, rival.id) < ROW(
                               -(SELECT MAX(own.rate_per_hour) FROM project_productions own
