@@ -26,7 +26,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -160,7 +159,7 @@ class DemandDerivationRaceIT : WithUser() {
         val derivation = derive(worldId, projectId)
 
         setState(farmId, "DONE")
-        assertIs<Result.Success<*>>(runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId).process(Unit) })
+        assertIs<Result.Success<*>>(invalidateSupplyOf(worldId, farmId))
         storeDerivation(derivation)
 
         assertTrue(projectId in uncovered(worldId), "a plan that mines cobblestone next to a running generator")
@@ -168,11 +167,11 @@ class DemandDerivationRaceIT : WithUser() {
     }
 
     /**
-     * Not a race: supply invalidation picks its projects by the items their *current* plan
-     * touches, but a newly supplied item can make a recipe the plan does not use the cheaper one.
+     * Not a race: supply invalidation used to pick its projects by the items their *current* plan
+     * touches, but a newly supplied item can make a recipe the plan does not use the cheaper one
+     * (MCO-593).
      */
     @Test
-    @Disabled("MCO-593")
     fun `a farm that makes another recipe cheaper invalidates the projects that would switch to it`() {
         val (worldId, projectId) = smelter("Recipe Switch World", either)
         storeDerivation(derive(worldId, projectId))
@@ -182,7 +181,7 @@ class DemandDerivationRaceIT : WithUser() {
         val farmId = createProject(worldId, "Blackstone Farm")
         produce(farmId, blackstone)
         setState(farmId, "DONE")
-        assertIs<Result.Success<*>>(runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId).process(Unit) })
+        assertIs<Result.Success<*>>(invalidateSupplyOf(worldId, farmId))
 
         // The premise: re-derived now, the plan does switch. Read without storing.
         val switched = runBlocking {
@@ -192,6 +191,48 @@ class DemandDerivationRaceIT : WithUser() {
         assertTrue(plan!!.activityList.any { it.item.id == blackstone.id }, "supplied blackstone is free")
 
         assertTrue(projectId in uncovered(worldId), "the stored cobblestone plan is stale")
+    }
+
+    /** The other half of the rule: reach is up the graph from the supplied item, not the world. */
+    @Test
+    fun `a farm leaves alone the projects whose targets cannot be made from what it supplies`() {
+        val (worldId, smelterId) = smelter("Recipe Bystander World", either)
+        val quarryId = createProject(worldId, "Quarry")
+        gather(quarryId, cobblestone)
+        storeDerivation(derive(worldId, smelterId))
+        storeDerivation(derive(worldId, quarryId))
+
+        val farmId = createProject(worldId, "Blackstone Farm")
+        produce(farmId, blackstone)
+        setState(farmId, "DONE")
+        assertIs<Result.Success<*>>(invalidateSupplyOf(worldId, farmId))
+
+        assertTrue(smelterId in uncovered(worldId))
+        assertFalse(quarryId in uncovered(worldId), "no chain to cobblestone passes through blackstone")
+    }
+
+    /**
+     * A reach that could not be computed widens to every stored plan. Narrowed to the farm's own
+     * items instead, a failed graph read would quietly bring back the recipe-switch miss above.
+     */
+    @Test
+    fun `an unknown reach invalidates every stored plan in the world`() {
+        val (worldId, smelterId) = smelter("Unknown Reach World", either)
+        val quarryId = createProject(worldId, "Quarry")
+        gather(quarryId, cobblestone)
+        storeDerivation(derive(worldId, smelterId))
+        storeDerivation(derive(worldId, quarryId))
+        val farmId = createProject(worldId, "Blackstone Farm")
+        produce(farmId, blackstone)
+        setState(farmId, "DONE")
+
+        assertIs<Result.Success<*>>(
+            runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId, SupplyReach.World).process(Unit) }
+        )
+
+        assertTrue(smelterId in uncovered(worldId))
+        assertTrue(quarryId in uncovered(worldId), "nothing narrows an unknown reach")
+        assertFalse(farmId in uncovered(worldId), "the producer is still excluded")
     }
 
     // ---- across transactions ----------------------------------------------------------------
@@ -299,7 +340,7 @@ class DemandDerivationRaceIT : WithUser() {
         val derivation = derive(worldId, projectId)
 
         setState(farmId, "DONE")
-        assertIs<Result.Success<*>>(runBlocking { InvalidateDemandSuppliedByStep(worldId, farmId).process(Unit) })
+        assertIs<Result.Success<*>>(invalidateSupplyOf(worldId, farmId))
         storeDerivation(derivation)
 
         assertTrue(projectId in uncovered(worldId))
@@ -407,17 +448,24 @@ class DemandDerivationRaceIT : WithUser() {
             (result as Result.Success).value
         }
         val projectId = createProject(worldId, "Smelter")
-        runBlocking {
-            DatabaseSteps.update<Unit>(
-                SafeSQL.insert("INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, 1)"),
-                parameterSetter = { stmt, _ ->
-                    stmt.setInt(1, projectId)
-                    stmt.setString(2, furnace.id)
-                    stmt.setString(3, furnace.name)
-                },
-            ).process(Unit)
-        }
+        gather(projectId, furnace)
         return worldId to projectId
+    }
+
+    /** What the handlers do: read the farm's reach outside any transaction, then invalidate by it. */
+    private fun invalidateSupplyOf(worldId: Int, farmId: Int) = runBlocking {
+        supplyReach(worldId, farmId).flatMap { InvalidateDemandSuppliedByStep(worldId, farmId, it).process(Unit) }
+    }
+
+    private fun gather(projectId: Int, item: Item) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert("INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, 1)"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, item.id)
+                stmt.setString(3, item.name)
+            },
+        ).process(Unit)
     }
 
     private fun createProject(worldId: Int, name: String): Int = runBlocking {

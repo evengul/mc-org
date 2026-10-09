@@ -7,6 +7,8 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
+import app.mcorg.pipeline.minecraft.GetItemSourceGraphForVersionStep
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 
 /**
@@ -41,13 +43,38 @@ import org.slf4j.LoggerFactory
  * re-derivation is paid lazily, once, by the next roadmap load — which is the cost fill-on-read
  * already permits and which the numbers above price at 0.7 s per affected project.
  *
- * ## Targeted by item, not by world
+ * ## Targeted by the farm's reach, not by world
  *
- * Invalidating the whole world would be simpler and much more expensive: every planned project
- * would re-derive because one farm changed. A project's plan can only have changed if it touches
- * an item the producer produces, and `project_demand` already records exactly which items each
- * project's plan touched — so the invalidation is a join, and flipping the iron farm invalidates
- * the projects that gather iron and nobody else.
+ * Invalidating the whole world would be simpler and more expensive: every planned project would
+ * re-derive because one farm changed. A plan can only change where a price under it does, and a
+ * supplied item costs nothing, so the prices that move are those of every item whose acquisition
+ * can pass through what the farm makes — [app.mcorg.engine.model.ItemSourceGraph.getItemsDependingOn], the same links
+ * `UnitCostModel` prices along. `project_demand` holds every node of a project's plan, targets
+ * included, so a plan that could change has a row in that set, and the invalidation is a join.
+ *
+ * It used to join on the farm's items alone (MCO-404). That misses the plan a farm makes switch
+ * recipe: furnaces from 8 cobblestone or 9 blackstone, and a blackstone farm going DONE makes the
+ * blackstone recipe free while the stored plan, which has no blackstone row, stays current
+ * (MCO-593).
+ *
+ * Measured against the real ingested `Forever world` (1.21.4: 1,265 items, 22 producers, 3
+ * planned projects, one the 554-target YAMS storage system):
+ *
+ * | What                                                  | Measured                  |
+ * | ----------------------------------------------------- | ------------------------- |
+ * | Reverse index, built once per cached graph            | 6 – 7 ms                  |
+ * | One farm's reach                                      | 8 µs – 0.9 ms             |
+ * | Reach size, per farm                                  | 2 – 301 items (0.2 – 24%) |
+ * | Re-derivations over all 22 farms flipping: this rule  | 34                        |
+ * | … joining on the farm's items alone (missed 6)        | 28                        |
+ * | … invalidating the whole world                        | 66                        |
+ *
+ * Reach is uneven by item: gunpowder 0.4% of the version, cobblestone 5.8%, string 8.6%, oak log
+ * 29% (it is in every wooden thing). A project with hundreds of targets, like YAMS, is in nearly
+ * every farm's reach and re-derives on any of them, as it did under the item join; the saving is
+ * on the small, specific projects that make up most of a world. On the graph's cache miss
+ * [supplyReach] builds it first (~0.8 – 1 s, off the call thread and outside any transaction), and
+ * when it cannot be read at all, every stored plan in the world is invalidated rather than too few.
  *
  * ## What is deliberately *not* invalidated here
  *
@@ -112,7 +139,8 @@ private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.Deman
 
 /**
  * Invalidates the stored demand of every project in [worldId] whose plan touches an item that
- * [producerProjectId] produces, so the next roadmap load re-derives them.
+ * [producerProjectId] produces, or any item that can be made from one (MCO-593), so the next
+ * roadmap load re-derives them.
  *
  * Projects with gathering rows and nothing current stored are invalidated too, whatever their
  * plan touches (MCO-584). They have no `project_demand` rows to match on, so the item join cannot
@@ -135,13 +163,16 @@ private val logger = LoggerFactory.getLogger("app.mcorg.pipeline.resources.Deman
  * the bump would come before the change, and a derivation starting in between would read the new
  * generation with the old supply and store its plan as current (MCO-584).
  *
- * It reads every runtime mode's items, since every mode supplies (MCO-588).
+ * [reach] is [supplyReach] of the producer, read **before** any transaction is opened: it can
+ * load and build the graph, on other pool connections, and a transaction waiting on that would
+ * hold its own connection meanwhile.
  *
  * @return the number of projects invalidated.
  */
 data class InvalidateDemandSuppliedByStep(
     val worldId: Int,
     val producerProjectId: Int,
+    val reach: SupplyReach,
     val transactionConnection: TransactionConnection? = null,
 ) : Step<Unit, AppFailure.DatabaseError, Int> {
 
@@ -161,10 +192,7 @@ data class InvalidateDemandSuppliedByStep(
                       AND c.id <> ?
                       AND (
                           EXISTS (SELECT 1 FROM project_demand d
-                                  WHERE d.project_id = c.id
-                                    AND d.item_id IN (
-                                        SELECT pp.item_id FROM project_productions pp WHERE pp.project_id = ?
-                                    ))
+                                  WHERE d.project_id = c.id AND (? OR d.item_id = ANY(?)))
                           OR (EXISTS (SELECT 1 FROM resource_gathering rg WHERE rg.project_id = c.id)
                               AND NOT EXISTS (
                                   SELECT 1 FROM project_demand_state s
@@ -188,14 +216,68 @@ data class InvalidateDemandSuppliedByStep(
                 """.trimIndent()
             ),
             parameterSetter = { statement, _ ->
+                val items = (reach as? SupplyReach.Items)?.ids.orEmpty()
                 statement.setInt(1, worldId)
                 statement.setInt(2, producerProjectId)
-                statement.setInt(3, producerProjectId)
-                statement.setInt(4, DemandFingerprint.REVISION)
+                statement.setBoolean(3, reach is SupplyReach.World)
+                statement.setArray(4, statement.connection.createArrayOf("text", items.toTypedArray()))
+                statement.setInt(5, DemandFingerprint.REVISION)
             },
             resultMapper = { rs -> rs.next(); rs.getInt("invalidated") },
             transactionConnection = transactionConnection,
         ).process(Unit)
+}
+
+/** What a change to one producer's supply can reach in its world's stored plans. */
+sealed interface SupplyReach {
+    /** Every item whose price the producer's items can move: their upward closure, them included. */
+    data class Items(val ids: Set<String>) : SupplyReach
+
+    /** The graph could not be read, so the closure is unknown: every plan with stored rows. */
+    data object World : SupplyReach
+}
+
+/**
+ * The [SupplyReach] of [producerProjectId]: every item it produces in any mode (MCO-588), closed
+ * upward over the world's graph ([app.mcorg.engine.model.ItemSourceGraph.getItemsDependingOn]).
+ *
+ * Call it outside any transaction. On a cold cache it builds the graph (~0.8 – 1 s of CPU), on
+ * [PlannerDispatcher] rather than the caller's thread, because production has one call thread
+ * (MCO-551). The epoch is read fresh first, as `GenerateGatheringPlanStep` does, so the reach is
+ * never taken from an older graph than the one a plan was just derived on.
+ *
+ * When the graph cannot be read the reach is [SupplyReach.World], never the producer's items
+ * alone: narrowing would silently miss every plan the farm could switch, which is the bug this
+ * exists to close (MCO-593), while widening costs one lazy re-derivation per planned project.
+ */
+suspend fun supplyReach(worldId: Int, producerProjectId: Int): Result<AppFailure.DatabaseError, SupplyReach> {
+    val items = when (
+        val read = DatabaseSteps.query<Int, Set<String>>(
+            sql = SafeSQL.select("SELECT item_id FROM project_productions WHERE project_id = ?"),
+            parameterSetter = { statement, id -> statement.setInt(1, id) },
+            resultMapper = { rs -> buildSet { while (rs.next()) add(rs.getString("item_id")) } },
+        ).process(producerProjectId)
+    ) {
+        is Result.Failure -> return read
+        is Result.Success -> read.value
+    }
+    if (items.isEmpty()) return Result.success(SupplyReach.Items(emptySet()))
+
+    val graph = when (val version = GetWorldVersionStep.process(worldId)) {
+        is Result.Failure -> null
+        is Result.Success -> {
+            GetItemSourceGraphForVersionStep.freshEpoch(version.value)
+            withContext(PlannerDispatcher) { GetItemSourceGraphForVersionStep.process(version.value) }.getOrNull()
+        }
+    }
+    if (graph == null) {
+        logger.warn(
+            "Demand: no graph for world {}, so a supply change in project {} invalidates every stored plan",
+            worldId, producerProjectId,
+        )
+        return Result.success(SupplyReach.World)
+    }
+    return Result.success(SupplyReach.Items(graph.getItemsDependingOn(items)))
 }
 
 /**
@@ -209,7 +291,10 @@ data class InvalidateDemandSuppliedByStep(
  * visit.
  */
 suspend fun invalidateDemandSuppliedBy(worldId: Int, producerProjectId: Int) {
-    when (val result = InvalidateDemandSuppliedByStep(worldId, producerProjectId).process(Unit)) {
+    val result = supplyReach(worldId, producerProjectId).flatMap { reach ->
+        InvalidateDemandSuppliedByStep(worldId, producerProjectId, reach).process(Unit)
+    }
+    when (result) {
         is Result.Success ->
             if (result.value > 0) {
                 logger.debug(

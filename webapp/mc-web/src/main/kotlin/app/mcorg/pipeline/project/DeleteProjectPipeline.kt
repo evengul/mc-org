@@ -7,6 +7,8 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.InvalidateDemandSuppliedByStep
+import app.mcorg.pipeline.resources.SupplyReach
+import app.mcorg.pipeline.resources.supplyReach
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.presentation.utils.clientRedirect
@@ -36,14 +38,19 @@ suspend fun ApplicationCall.handleDeleteProject() {
  * project, and after that nothing can tell which items stopped being supplied (MCO-404). In the
  * same transaction, so the invalidation and the delete commit together: committed first on its
  * own, a derivation starting in between would read the bumped generation with the farm still in
- * its supply, and store that plan as current (MCO-584). Unconditional on state — a farm that was
- * never DONE supplied nothing, so its item join matches no one.
+ * its supply, and store that plan as current (MCO-584). Unconditional on state: a farm that was
+ * never DONE supplied nothing, so for one of those it over-reaches — a re-derivation, paid lazily,
+ * per project whose plan its items could reach (MCO-593) — on an action as rare as deleting a
+ * project, where reading the state inside the transaction first would buy little.
  */
 internal data class DeleteProjectStep(val worldId: Int) : Step<Int, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
+        supplyReach(worldId, input).flatMap { reach -> deleteWith(reach, input) }
+
+    private suspend fun deleteWith(reach: SupplyReach, input: Int): Result<AppFailure.DatabaseError, Int> =
         DatabaseSteps.transaction { connection ->
             Step<Int, AppFailure.DatabaseError, Int> { projectId ->
-                when (val invalidated = InvalidateDemandSuppliedByStep(worldId, projectId, connection).process(Unit)) {
+                when (val invalidated = InvalidateDemandSuppliedByStep(worldId, projectId, reach, connection).process(Unit)) {
                     is Result.Failure -> invalidated
                     is Result.Success -> DatabaseSteps.update<Int>(
                         SafeSQL.delete("DELETE FROM projects WHERE id = ?"),

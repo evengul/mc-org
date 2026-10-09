@@ -59,6 +59,19 @@ data class SourceNode(
         }
     }
 
+    /**
+     * The block a block loot table is for (`blocks/soul_campfire.json` → `minecraft:soul_campfire`),
+     * or null for any other source. Breaking that block is this source's real input, which the
+     * graph's edges do not show; the cost model and [ItemSourceGraph.getItemsDependingOn] both
+     * read it here so they cannot disagree about which block it is.
+     */
+    fun lootedBlockId(): String? =
+        if (sourceType == ResourceSource.SourceType.LootTypes.BLOCK) {
+            "minecraft:" + filename.substringAfterLast('/').substringBeforeLast('.')
+        } else {
+            null
+        }
+
     private fun getPrettyFilename(): String {
         return filename.substringAfterLast('/').substringBeforeLast('.').replace('_', ' ')
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(getDefault()) else it.toString() }
@@ -153,6 +166,62 @@ class ItemSourceGraph private constructor(
     fun getSourcesForItem(item: MinecraftId): Set<SourceNode> {
         val itemNode = itemNodes[item] ?: return emptySet()
         return producersByItem[itemNode] ?: emptySet()
+    }
+
+    /**
+     * Dependents reverse-index: item id -> the ids of items whose acquisition can use it one link
+     * up. Built lazily like [producersByItem], and not serialized either.
+     *
+     * Three kinds of link, and they are the three ways one item's price reaches another in
+     * `UnitCostModel`:
+     *
+     * - **an ingredient**, to everything its source produces;
+     * - **a tag member**, to the tag: a tag costs its cheapest member;
+     * - **a block**, to what its block loot table drops. The loot source requires nothing in the
+     *   graph, but breaking a block you had to build costs the block (`manufacturedBlockCost`),
+     *   so the block is an input the edges do not show. Every block loot source gets the link,
+     *   not only the built-only ones that rule prices that way — a superset costs nothing here.
+     */
+    private val dependentsById: Map<String, Set<String>> by lazy {
+        val index = HashMap<String, MutableSet<String>>(itemNodes.size)
+        fun link(from: String, to: String) {
+            index.getOrPut(from) { HashSet() }.add(to)
+        }
+        for ((source, produced) in sourceToItemEdges) {
+            for (required in sourceToRequiredItems[source].orEmpty()) {
+                for (item in produced) link(required.itemId, item.itemId)
+            }
+            source.lootedBlockId()?.let { blockId ->
+                for (item in produced) link(blockId, item.itemId)
+            }
+        }
+        for (node in itemNodes.values) {
+            val tag = node.item as? MinecraftTag ?: continue
+            for (member in tag.content) link(member.id, tag.id)
+        }
+        index
+    }
+
+    /**
+     * Every item whose acquisition can pass through any of [itemIds], those items included.
+     *
+     * The upward closure of the production graph: an item is in it when some chain that obtains
+     * it, through any source, tag member or broken block, uses one of [itemIds] somewhere below.
+     * Equivalently, the items whose price can change when the price of one of [itemIds] does —
+     * supplying an item, making it cheaper, or removing it as an option reaches no other item.
+     *
+     * Ids are strings so a tag (`#minecraft:planks`) and an item are told apart by their prefix.
+     * An id the graph does not know is returned on its own.
+     */
+    fun getItemsDependingOn(itemIds: Set<String>): Set<String> {
+        val reached = HashSet(itemIds)
+        val queue = ArrayDeque(itemIds)
+        while (queue.isNotEmpty()) {
+            for (next in dependentsById[queue.removeFirst()].orEmpty()) {
+                if (reached.add(next)) queue.addLast(next)
+            }
+        }
+        return reached
     }
 
     /**

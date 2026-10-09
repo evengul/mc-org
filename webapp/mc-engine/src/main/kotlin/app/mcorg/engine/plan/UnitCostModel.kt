@@ -499,8 +499,7 @@ class UnitCostModel(
         out: Double,
         c: Map<String, Double>,
     ): Double? {
-        if (source.sourceType != SourceType.LootTypes.BLOCK) return null
-        val blockId = "minecraft:" + source.filename.substringAfterLast('/').substringBeforeLast('.')
+        val blockId = source.lootedBlockId() ?: return null
         // The item's own placed form is the branch above; this is only the other case.
         if (blockId == item.id) return null
         if (StructureDensity.setsContaining(blockId).isNotEmpty()) return null

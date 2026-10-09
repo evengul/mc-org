@@ -1,9 +1,12 @@
 package app.mcorg.engine.model
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.minecraft.MinecraftId
+import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.domain.model.resources.ResourceSource
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -320,5 +323,77 @@ class ItemSourceGraphTest {
         assertTrue(edge.toString().contains("minecraft:diamond"))
         assertTrue(edge.toString().contains("minecraft:block"))
     }
-}
 
+    // ---- getItemsDependingOn ---------------------------------------------------------------
+
+    private val cobblestone = Item("minecraft:cobblestone", "Cobblestone")
+    private val blackstone = Item("minecraft:blackstone", "Blackstone")
+    private val stoneTag = MinecraftTag("#minecraft:stone_crafting_materials", "Stone crafting materials", listOf(cobblestone, blackstone))
+    private val furnace = Item("minecraft:furnace", "Furnace")
+    private val blastFurnace = Item("minecraft:blast_furnace", "Blast Furnace")
+    private val ironIngot = Item("minecraft:iron_ingot", "Iron Ingot")
+    private val stick = Item("minecraft:stick", "Stick")
+    private val planks = Item("minecraft:oak_planks", "Oak Planks")
+
+    /**
+     * blackstone, cobblestone ∈ #stone_crafting_materials → furnace (+ iron) → blast_furnace;
+     * planks → stick, unrelated; and breaking a blast furnace drops an iron nugget through block
+     * loot, a source that consumes nothing in the graph.
+     */
+    private fun stoneGraph(): ItemSourceGraph {
+        val b = ItemSourceGraph.builder()
+        fun recipe(name: String, output: Item, vararg inputs: MinecraftId) {
+            val source = b.addSourceNode(ResourceSource.SourceType.RecipeTypes.CRAFTING_SHAPED, "$name.json")
+            inputs.forEach { b.addItemToSourceEdge(b.addItemNode(it), source) }
+            b.addSourceToItemEdge(source, b.addItemNode(output))
+        }
+        recipe("furnace", furnace, stoneTag)
+        recipe("blast_furnace", blastFurnace, furnace, ironIngot)
+        recipe("stick", stick, planks)
+        // Cycle: a furnace can be "uncrafted" back to cobblestone.
+        recipe("cobblestone_from_furnace", cobblestone, furnace)
+        val loot = b.addSourceNode(ResourceSource.SourceType.LootTypes.BLOCK, "blocks/blast_furnace.json")
+        b.addSourceToItemEdge(loot, b.addItemNode(Item("minecraft:iron_nugget", "Iron Nugget")))
+        b.addItemNode(blackstone)
+        return b.build()
+    }
+
+    @Test
+    fun `items depending on an item follow ingredients up through recipes and tags`() {
+        val dependents = stoneGraph().getItemsDependingOn(setOf(blackstone.id))
+
+        assertTrue(stoneTag.id in dependents, "a tag costs its cheapest member")
+        assertTrue(furnace.id in dependents)
+        assertTrue(blastFurnace.id in dependents, "two links up")
+        assertTrue(blackstone.id in dependents, "the item itself is included")
+    }
+
+    @Test
+    fun `items depending on an item leave out what cannot be made from it`() {
+        val dependents = stoneGraph().getItemsDependingOn(setOf(blackstone.id))
+
+        assertFalse(stick.id in dependents)
+        assertFalse(planks.id in dependents)
+        assertFalse(ironIngot.id in dependents, "an ingredient beside it is not made from it")
+    }
+
+    @Test
+    fun `items depending on an item follow block loot through the block it is broken from`() {
+        val dependents = stoneGraph().getItemsDependingOn(setOf(blackstone.id))
+
+        assertTrue("minecraft:iron_nugget" in dependents, "breaking a blast furnace costs a blast furnace")
+    }
+
+    @Test
+    fun `items depending on an item terminate on a cycle`() {
+        val dependents = stoneGraph().getItemsDependingOn(setOf(cobblestone.id))
+
+        assertTrue(furnace.id in dependents)
+        assertTrue(cobblestone.id in dependents)
+    }
+
+    @Test
+    fun `items depending on an id the graph does not know is just that id`() {
+        assertEquals(setOf("minecraft:nothing"), stoneGraph().getItemsDependingOn(setOf("minecraft:nothing")))
+    }
+}
