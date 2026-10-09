@@ -227,8 +227,10 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         // Every one of them, not just the first: the design was drawn against a world with
         // exactly one such farm, and silently hiding the second would be the same class of bug
         // the design set out to fix.
+        // Built, with no edge, *and* nothing declared — a farm whose output nothing needs right now
+        // also has no edge, and saying it declares no productions would be false.
         dataGaps = isolated
-            .filter { it.state == ProjectState.DONE }
+            .filter { it.state == ProjectState.DONE && it.projectId !in farms }
             .map {
                 RoadmapGraphView.DataGap(
                     projectId = it.projectId,

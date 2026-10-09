@@ -450,6 +450,35 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /**
+     * A built farm whose output nothing in the plan needs right now has no edge, and was reported as
+     * declaring no productions. It does declare them; what it lacks is a consumer — which gathering
+     * the only consumer instead (MCO-574) makes an ordinary state to be in.
+     */
+    @Test
+    fun `a built farm nothing needs right now is not reported as declaring no productions`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("Idle Farm World")
+        val storage = createProject(worldId, "Storage System")
+        val hoppers = createProject(worldId, "Hopper Farm")
+        val bamboo = createProject(worldId, "Bamboo Farm")
+        // Data gaps are listed under PRODUCING, so something has to be feeding the plan.
+        val cobble = createProject(worldId, "Cobble Farm")
+        createDemand(storage, "minecraft:cobblestone", "Cobblestone", 51_575, status = "SUPPLIED")
+        createProduction(cobble, "minecraft:cobblestone", "Cobblestone")
+        createProduction(hoppers, "minecraft:hopper", "Hopper")
+        setState(cobble, "DONE")
+        setState(hoppers, "DONE")
+        setState(bamboo, "DONE")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertFalse(body.contains("Hopper Farm is done but declares no productions"), "it declares hoppers")
+        assertContains(body, "Bamboo Farm is done but declares no productions", message = "the real gap is still named")
+
+        deleteWorld(worldId)
+    }
+
     /** Fixture 5: the graph drew an assumed order as fact; the question was table-view only. */
     @Test
     fun `the roadmap asks which of two farms comes first`() = testApplication {
