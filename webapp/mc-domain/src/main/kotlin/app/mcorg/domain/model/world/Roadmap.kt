@@ -36,6 +36,11 @@ data class Roadmap(
     val cycles: List<RoadmapCycle> = emptyList(),
     /** Pairs a person has already ordered by hand, so the choice can be seen and changed. */
     val resolvedOrders: List<RoadmapCycleOrder> = emptyList(),
+    /**
+     * Farms still to build that the world gathers by hand for now (MCO-574). Not in [nodes], and no
+     * edge touches them: out of the plan, but listed so the choice can be seen and undone.
+     */
+    val gatheringInstead: List<RoadmapNode> = emptyList(),
 ) {
     /**
      * Gets all root nodes (projects with no dependencies)
@@ -62,7 +67,7 @@ data class Roadmap(
     /**
      * Checks if the roadmap has any projects
      */
-    fun isEmpty(): Boolean = nodes.isEmpty()
+    fun isEmpty(): Boolean = nodes.isEmpty() && gatheringInstead.isEmpty()
 
     /**
      * Gets statistics about the roadmap

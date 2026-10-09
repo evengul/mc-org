@@ -116,7 +116,7 @@ private suspend fun ApplicationCall.readPair(): Pair<Int, Int>? {
     return first to waiting
 }
 
-private suspend fun ApplicationCall.backToRoadmap(worldId: Int) {
+internal suspend fun ApplicationCall.backToRoadmap(worldId: Int) {
     val target = "/worlds/$worldId/roadmap"
     if (request.headers["HX-Request"] == "true") {
         clientRedirect(target)

@@ -22,11 +22,16 @@ import app.mcorg.presentation.templated.dsl.statusBadge
 import app.mcorg.presentation.templated.dsl.WorldTab
 import app.mcorg.presentation.templated.dsl.worldBar
 import app.mcorg.presentation.templated.dsl.pages.newProjectAffordance
+import kotlinx.html.ButtonType
 import kotlinx.html.DIV
 import kotlinx.html.FlowContent
+import kotlinx.html.FormMethod
 import kotlinx.html.SPAN
 import kotlinx.html.a
+import kotlinx.html.button
 import kotlinx.html.div
+import kotlinx.html.form
+import kotlinx.html.hiddenInput
 import kotlinx.html.id
 import kotlinx.html.main
 import kotlinx.html.p
@@ -153,8 +158,11 @@ fun roadmapGraphPage(
                     view.toBuild.takeIf { !it.isEmpty }?.let { toBuild ->
                         finishFirstSection(view, toBuild)
                         orderBandSection(view, toBuild)
-                        toBuildSection(view, toBuild)
+                        toBuildSection(view, toBuild, canEdit = isWorldAdmin)
                     }
+                    // Outside the TO BUILD block: with every farm gathered instead there is nothing left
+                    // to build, and this is then the only place the undo lives.
+                    gatheringInsteadSection(view, canEdit = isWorldAdmin)
                     graphSection(view)
                     moreFinalProjectsSection(view)
                     // Between the graph and the lists, as the design orders it: the graph is
@@ -455,18 +463,17 @@ private fun FlowContent.orderListSection(
  * (frame 4B), a chained farm indented under the one it waits on (4C).
  *
  * No hours: prices are only relatively calibrated (MCO-564), which is why this table exists in
- * place of 4A's. And no `gather instead ▸` — it has no mechanism yet: taking a farm out of the plan
- * is neither a state change nor a dismissal, and it needs a definition that survives the plan being
- * re-derived before a button can promise it (MCO-574).
+ * place of 4A's. `gather instead ▸` is on every row for a world admin (MCO-574) — an action, not a
+ * recommendation, so it needs no price; what it cannot say without one is whether it is a good trade.
  */
-private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild) {
+private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapToBuild.ToBuild, canEdit: Boolean) {
     val count = toBuild.rows.size
     val inOrder = toBuild.ordered.size
     val grouped = RoadmapToBuild.groupsOf(toBuild, view.terminals)
     div("rmg-section rmg-tobuild") {
         id = "roadmap-to-build"
         if (grouped != null) {
-            groupedToBuild(view, toBuild, grouped)
+            groupedToBuild(view, toBuild, grouped, canEdit)
             return@div
         }
         div("rmg-tobuild__head") {
@@ -486,12 +493,14 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                 }
             }
         }
-        ariaTable("rmg-tobuild__table", "Farms to build") {
+        val columns = if (canEdit) 5 else 4
+        ariaTable("rmg-tobuild__table${if (canEdit) " rmg-tobuild__table--actions" else ""}", "Farms to build") {
             ariaRow("rmg-tobuild__row rmg-tobuild__row--head") {
                 ariaCell(header = true) { +"FARM" }
                 ariaCell(header = true) { +"STATE" }
                 ariaCell(header = true) { +"SUPPLIES" }
                 ariaCell("rmg-tobuild__num", header = true) { +"ITEMS SUPPLIED" }
+                if (canEdit) ariaCell(header = true) { span("visually-hidden") { +"Action" } }
             }
             toBuild.rows.forEachIndexed { index, row ->
                 val band = if (index % 2 == 1) " rmg-tobuild__row--band" else ""
@@ -511,17 +520,18 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
+                    if (canEdit) ariaCell("rmg-tobuild__action") { gatherInsteadForm(view.roadmap.worldId, row) }
                 }
                 // Both lines when both are true: a farm in an unanswered loop can still wait on a farm
                 // outside it, and the indent alone does not say for what.
                 if (row.waitsOn.isNotEmpty()) {
                     ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
-                        ariaCell(span = 4) { +RoadmapToBuild.waitsText(row.waitsOn) }
+                        ariaCell(span = columns) { +RoadmapToBuild.waitsText(row.waitsOn) }
                     }
                 }
                 if (row.unsettled) {
                     ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-$depth$band") {
-                        ariaCell(span = 4) {
+                        ariaCell(span = columns) {
                             a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
                                 href = "#roadmap-cycles"
                                 +"⚠ order unsettled — which comes first is the question above"
@@ -537,10 +547,79 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                     ariaCell {}
                     ariaCell {}
                     ariaCell("rmg-tobuild__num") { +RoadmapGraphLayout.format(toBuild.totalItems) }
+                    if (canEdit) ariaCell {}
                 }
             }
         }
         itemsCaveat()
+    }
+}
+
+private fun FlowContent.gatherInsteadForm(worldId: Int, row: RoadmapToBuild.Row) = projectActionForm(
+    classes = "rmg-tobuild__gather",
+    action = "/worlds/$worldId/roadmap/gather-instead",
+    projectId = row.projectId,
+    text = "gather instead",
+    label = "Gather instead of building ${row.name}",
+)
+
+/**
+ * A `▸` action on one project — a plain post, as the cycle answers are: the roadmap re-renders as a
+ * whole. Lapis text as 4B draws it, like the page's other `▸` actions. [label] names the project,
+ * since a screen reader's list of buttons would otherwise read the same words once per row.
+ */
+private fun FlowContent.projectActionForm(classes: String, action: String, projectId: Int, text: String, label: String) {
+    form(classes = classes) {
+        method = FormMethod.post
+        this.action = action
+        hiddenInput { name = "project"; value = projectId.toString() }
+        button(classes = "rmg-act") {
+            type = ButtonType.submit
+            attributes["aria-label"] = label
+            +"$text "
+            span { attributes["aria-hidden"] = "true"; +"▸" }
+        }
+    }
+}
+
+/**
+ * GATHERING INSTEAD — farms taken out of the plan with `gather instead ▸` (MCO-574).
+ *
+ * Out of TO BUILD, FINISH THESE FIRST and every count those make, but not out of sight: the farm is
+ * one the world could still build, and this is where that is undone. Its items were on the hand
+ * list all along; what changed is that the panels no longer count them as promised.
+ */
+private fun FlowContent.gatheringInsteadSection(view: RoadmapGraphView, canEdit: Boolean) {
+    val farms = view.roadmap.gatheringInstead
+    if (farms.isEmpty()) return
+    div("rmg-section rmg-gathering") {
+        id = "roadmap-gathering-instead"
+        div("rmg-gathering__head") {
+            sectionLabel { +"GATHERING INSTEAD · ${farms.size}" }
+            span("rmg-note") { +"out of the plan — what they make is yours to gather, and nothing waits on them" }
+        }
+        div("rmg-chips") {
+            farms.forEach { farm ->
+                div("rmg-gathering__item") {
+                    a(classes = "rmg-tobuild__link rmg-chip__name") {
+                        href = "/worlds/${view.roadmap.worldId}/projects/${farm.projectId}"
+                        +farm.projectName
+                    }
+                    span("rmg-chip__note rmg-tone-muted") {
+                        +RoadmapToBuild.progressLabel(farm.state, farm.projectId in view.started)
+                    }
+                    if (canEdit) {
+                        projectActionForm(
+                            classes = "rmg-gathering__undo",
+                            action = "/worlds/${view.roadmap.worldId}/roadmap/gather-instead/clear",
+                            projectId = farm.projectId,
+                            text = "build it after all",
+                            label = "Build ${farm.projectName} after all",
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -565,7 +644,9 @@ private fun FlowContent.groupedToBuild(
     view: RoadmapGraphView,
     toBuild: RoadmapToBuild.ToBuild,
     grouped: RoadmapToBuild.Grouped,
+    canEdit: Boolean,
 ) {
+    val columns = if (canEdit) 3 else 2
     val count = toBuild.rows.size
     div("rmg-tobuild__head") {
         val state = grouped.stateWord.uppercase()
@@ -573,14 +654,16 @@ private fun FlowContent.groupedToBuild(
         sectionLabel { +"TO BUILD · $count ${if (count == 1) "FARM" else "FARMS"} · ALL $state · $order" }
         span("rmg-note") { +"one state, so grouped by where the output goes, then name" }
     }
-    ariaTable("rmg-tobuild__table rmg-tobuild__table--grouped", "Farms to build, by what they feed") {
+    val classes = "rmg-tobuild__table rmg-tobuild__table--grouped${if (canEdit) " rmg-tobuild__table--actions" else ""}"
+    ariaTable(classes, "Farms to build, by what they feed") {
         ariaRow("rmg-tobuild__row rmg-tobuild__row--head") {
             ariaCell(header = true) { +"FARM" }
             ariaCell("rmg-tobuild__num", header = true) { +"ITEMS SUPPLIED" }
+            if (canEdit) ariaCell(header = true) { span("visually-hidden") { +"Action" } }
         }
         grouped.groups.forEach { group ->
             ariaRow("rmg-tobuild__group") {
-                ariaCell(span = 2, rowHeader = true) {
+                ariaCell(span = columns, rowHeader = true) {
                     +"FEEDS ${RoadmapToBuild.suppliesText(group.supplies).uppercase()} · ${group.rows.size}"
                 }
             }
@@ -596,10 +679,11 @@ private fun FlowContent.groupedToBuild(
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
                     }
+                    if (canEdit) ariaCell("rmg-tobuild__action") { gatherInsteadForm(view.roadmap.worldId, row) }
                 }
                 if (row.unsettled) {
                     ariaRow("rmg-tobuild__sub rmg-tobuild__sub--depth-0$band") {
-                        ariaCell(span = 2) {
+                        ariaCell(span = columns) {
                             a(classes = "rmg-tone-amber rmg-tobuild__unsettled") {
                                 href = "#roadmap-cycles"
                                 +"⚠ order unsettled — which comes first is the question above"
@@ -613,7 +697,7 @@ private fun FlowContent.groupedToBuild(
         // here feeds on its own is a fact about the world, not a group the page forgot.
         if (grouped.emptyFinals.isNotEmpty()) {
             ariaRow("rmg-tobuild__group rmg-tobuild__group--empty") {
-                ariaCell(span = 2) {
+                ariaCell(span = columns) {
                     +grouped.emptyFinals.joinToString("  ·  ") { "FEEDS ${it.uppercase()} ONLY · none" }
                 }
             }
