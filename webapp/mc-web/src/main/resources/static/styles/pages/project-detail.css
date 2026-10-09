@@ -1200,3 +1200,13 @@
     font-size: var(--text-xs);
     color: var(--text-muted);
 }
+
+/* On a storage-tracked project this line is the one statement of the mode that a touch screen can
+   read, so it is set in body ink rather than the muted note colour (MCO-540). */
+.work-panel__provenance--followed {
+    color: var(--text-primary);
+}
+
+.work-panel__provenance--followed a {
+    color: var(--accent);
+}

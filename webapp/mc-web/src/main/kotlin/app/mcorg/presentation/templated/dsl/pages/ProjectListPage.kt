@@ -18,6 +18,7 @@ import app.mcorg.presentation.templated.dsl.emptyStateCards
 import app.mcorg.presentation.templated.dsl.ResumeHeroData
 import app.mcorg.presentation.templated.dsl.ResumeSort
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.newProjectMenu
@@ -54,7 +55,7 @@ fun projectListPage(
     isWorldAdmin: Boolean = false,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String = pageShell(
     pageTitle = "Seam — ${world.name}",
     user = user,
@@ -63,7 +64,6 @@ fun projectListPage(
         worldName = world.name,
         worldId = world.id,
         user = user,
-        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds").current(world.name)
         }
@@ -72,7 +72,7 @@ fun projectListPage(
         container {
             // An empty world has nothing to add *to* yet, and its own empty state already
             // carries the same doors — so the menu appears only once there is a list.
-            worldBar(world.id, WorldTab.PROJECTS) {
+            worldBar(world.id, WorldTab.PROJECTS, isWorldAdmin) {
                 newProjectAffordance(world.id, showMenu = projects.isNotEmpty())
             }
             div {
@@ -100,7 +100,7 @@ fun kotlinx.html.FlowContent.projectsContent(
     projects: List<ProjectListItem>,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     fieldLogTitle(world)
     div {
@@ -114,7 +114,7 @@ fun kotlinx.html.FlowContent.projectsViewContent(
     projects: List<ProjectListItem>,
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     if (projects.isEmpty()) {
         worldEmptyState(world.id)

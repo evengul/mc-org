@@ -10,6 +10,7 @@ import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.fieldLogRowFragment
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.fieldLogSliceRowsFragment
 import app.mcorg.presentation.templated.dsl.sliceNextToGather
 import app.mcorg.presentation.utils.getProjectId
@@ -22,7 +23,7 @@ private data class FieldLogRowData(
     val feeds: List<ProjectResourceEdge>,
     val blockedBy: List<ProjectResourceEdge>,
     val items: List<ResourceGatheringItem>,
-    val measurements: Map<String, MeasuredStock>,
+    val measurements: ProjectMeasurements,
 )
 
 /**
@@ -51,7 +52,7 @@ suspend fun ApplicationCall.handleGetFieldLogRow() {
         // Only when the slice is actually open: a collapsed row draws no resource rows, so the
         // query would be paid for on every project in the list and shown for none of them.
         val measurements =
-            if (expanded) GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty() else emptyMap()
+            if (expanded) (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE) else ProjectMeasurements.NONE
         FieldLogRowData(project, feeds, blockedBy, items, measurements)
     }
 }
@@ -73,7 +74,7 @@ suspend fun ApplicationCall.handleGetFieldLogSliceItems() {
             .map { it.producerId }
             .toSet()
         val items = GetAllResourceGatheringItemsStep.run(projectId)
-        val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty()
+        val measurements = (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
         sliceNextToGather(items, blockedProducerIds, query) to measurements
     }
 }

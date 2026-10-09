@@ -7,6 +7,7 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.TransactionConnection
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.getOrElse
+import app.mcorg.pipeline.resources.FollowMeasurementStep
 import java.sql.ResultSet
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -303,7 +304,7 @@ object RecomputeMeasurementStep : Step<Int, AppFailure.DatabaseError, Int> {
                     transactionConnection = tx,
                 ).process(projectId).getOrElse { return Result.failure(it) }
 
-                return DatabaseSteps.update<Int>(
+                val rows = DatabaseSteps.update<Int>(
                     sql = SafeSQL.insert(
                         """
                         INSERT INTO resource_gathering_measurement
@@ -322,7 +323,12 @@ object RecomputeMeasurementStep : Step<Int, AppFailure.DatabaseError, Int> {
                     ),
                     parameterSetter = { st, id -> st.setInt(1, id) },
                     transactionConnection = tx,
-                ).process(projectId)
+                ).process(projectId).getOrElse { return Result.failure(it) }
+
+                // A storage-tracked project's counts move with its measurement (MCO-540). Here, so
+                // every door that changes a measurement — a sweep, a tag, an untag — moves them too.
+                FollowMeasurementStep.within(tx).process(projectId).getOrElse { return Result.failure(it) }
+                return Result.success(rows)
             }
         }
 }

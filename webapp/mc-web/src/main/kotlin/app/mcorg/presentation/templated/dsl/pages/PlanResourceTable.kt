@@ -23,7 +23,10 @@ import kotlinx.html.input
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.driftChip
+import app.mcorg.presentation.templated.dsl.followedLabel
+import app.mcorg.pipeline.resources.FollowedChests
 import kotlinx.html.summary
 import kotlinx.html.table
 import kotlinx.html.tbody
@@ -39,6 +42,12 @@ fun TR.planResourceRow(
     // No default: every single-row swap replaces the page's row, and a row rendered without its
     // measurement loses its drift chip.
     measured: MeasuredStock?,
+    /**
+     * Non-null on a storage-tracked project, whose Chests column says where the count comes from.
+     * No default, for the same reason as [measured]: a swap that forgot it would put an adopt
+     * button back on a project whose counts nobody may set.
+     */
+    followed: FollowedChests?,
 ) {
     id = "plan-row-${item.id}"
     attributes["data-resource-id"] = item.id.toString()
@@ -70,7 +79,11 @@ fun TR.planResourceRow(
         }
     }
     td("plan-resource-table__chests") {
-        driftCell(worldId, projectId, item, measured)
+        if (followed != null) {
+            followedLabel(measured, followed)
+        } else {
+            driftCell(worldId, projectId, item, measured)
+        }
     }
     td("plan-resource-table__action") {
         div("plan-resource-table__action-group") {
@@ -139,7 +152,7 @@ fun FlowContent.planResourceTable(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
@@ -156,7 +169,7 @@ fun planResourceTableFragment(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String = createHTML().div {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
@@ -190,7 +203,7 @@ private fun TABLE.planResourceGroups(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     layout.groups.forEach { group ->
         val isUnplanned = group.group == null
@@ -218,7 +231,7 @@ private fun TABLE.planResourceGroups(
             }
             group.rows.forEach { item ->
                 tr {
-                    planResourceRow(worldId, projectId, item, measurements[item.itemId])
+                    planResourceRow(worldId, projectId, item, measurements[item.itemId], measurements.followed)
                 }
             }
         }
@@ -236,7 +249,7 @@ private fun FlowContent.planFoldedTail(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     if (layout.folded.isEmpty()) return
     details("plan-resource-fold") {
@@ -253,7 +266,7 @@ private fun FlowContent.planFoldedTail(
                 id = "plan-resource-folded-body"
                 layout.folded.forEach { item ->
                     tr {
-                        planResourceRow(worldId, projectId, item, measurements[item.itemId])
+                        planResourceRow(worldId, projectId, item, measurements[item.itemId], measurements.followed)
                     }
                 }
             }
@@ -274,7 +287,7 @@ fun FlowContent.planResourcesArea(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     div {
         id = "plan-resources-area"

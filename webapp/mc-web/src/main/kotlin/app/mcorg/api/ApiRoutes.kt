@@ -12,6 +12,7 @@ import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.failure.AppFailure
 import app.mcorg.pipeline.resources.GatheringPlanInput
 import app.mcorg.pipeline.resources.GenerateGatheringPlanStep
+import app.mcorg.pipeline.resources.IsStorageTrackedStep
 import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.SetProgressByItemStep
@@ -269,6 +270,18 @@ suspend fun ApplicationCall.handleSyncResources() {
     val body = receiveJsonOrNull<SyncRequest>()
     if (body == null) {
         respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Malformed request body")
+        return
+    }
+
+    // A storage-tracked project's counts follow its chests (MCO-540), and the next sweep would
+    // overwrite a typed count within 30 seconds. Refused rather than skipped so the mod knows its
+    // number did not land; 409 is permanent to the mod, which drops it instead of retrying forever.
+    if (IsStorageTrackedStep.process(projectId).getOrNull() == true) {
+        respondApiError(
+            HttpStatusCode.Conflict,
+            "storage_tracked",
+            "This project's counts follow its tagged chests; typed counts are not accepted.",
+        )
         return
     }
 

@@ -38,6 +38,7 @@ import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -79,7 +80,7 @@ fun projectDetailPage(
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     productions: ProductionsView = ProductionsView(emptyList()),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
@@ -106,9 +107,7 @@ fun projectDetailPage(
         // product name that went to a world.
         worldName = worldName,
         worldId = project.worldId,
-        projectId = project.id,
         user = user,
-        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
                 .link(worldName, Link.Worlds.world(project.worldId).roadmap().to)
@@ -122,6 +121,7 @@ fun projectDetailPage(
             +"←"
         }
         p("project-detail__mobile-name") { +project.name }
+        projectSettingsLink(project)
     }
     main {
         container {
@@ -137,10 +137,8 @@ fun projectDetailPage(
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
-                if (isWorldAdmin) {
-                    div("project-detail__header-right") {
-                        projectDeleteButton(project)
-                    }
+                div("project-detail__header-right") {
+                    projectSettingsLink(project)
                 }
             }
 
@@ -179,21 +177,15 @@ private fun FlowContent.projectImportedFromIdea(project: Project, user: TokenPro
 }
 
 /**
- * Delete-project affordance shown next to the edit fields (admins only — gated by the
- * caller). Uses the shared type-to-confirm delete dialog (hxDeleteWithConfirm); the
- * server redirects back to the world's project list on success.
+ * The way into the project's settings (MCO-540) — labelled, and in the header beside the name
+ * rather than a bare gear at the far edge of the app bar. The delete that used to sit here is on
+ * the settings page now, one deliberate step further from a stray click.
  */
-private fun FlowContent.projectDeleteButton(project: Project) {
-    button(classes = "btn btn--danger btn--sm") {
-        type = ButtonType.button
-        hxDeleteWithConfirm(
-            url = Link.Worlds.world(project.worldId).project(project.id).to,
-            title = "Delete project",
-            description = "This action cannot be undone. All tasks, resources, and progress for this project will be permanently deleted.",
-            warning = "Warning: This will permanently delete \"${project.name}\" and all associated data.",
-            confirmText = project.name,
-        )
-        +"Delete project"
+private fun FlowContent.projectSettingsLink(project: Project) {
+    a(classes = "btn btn--secondary btn--sm project-detail__settings") {
+        href = Link.Worlds.world(project.worldId).project(project.id).settings().to
+        span { attributes["aria-hidden"] = "true"; +"⚙ " }
+        +"Settings"
     }
 }
 
@@ -210,7 +202,7 @@ private fun FlowContent.gatheringOverallProgress(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
 
@@ -302,7 +294,7 @@ fun FlowContent.gatheringPlannerContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -420,7 +412,7 @@ private fun FlowContent.listLensContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -615,7 +607,7 @@ fun FlowContent.gatheringPlanSections(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -655,7 +647,18 @@ fun FlowContent.gatheringPlanSections(
 
         // Once for the page, not once per section. GATHER and SMELT both carrying chest counts is
         // normal, and repeating the sentence does not make it two different facts.
-        if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
+        val followed = measurements.followed
+        if (followed != null) {
+            // The only place the mode is said in words a touch screen can read: the rows' own
+            // explanation is a title, and titles do not show without a pointer (MCO-540).
+            p("work-panel__provenance work-panel__provenance--followed") {
+                +"Counted from ${if (followed.containerCount == 1) "1 tagged chest" else "${followed.containerCount} tagged chests"}"
+                +" — counts can't be typed here. "
+                a(href = Link.Worlds.world(project.worldId).project(project.id).settings().to) {
+                    +"Change in Settings →"
+                }
+            }
+        } else if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
             p("work-panel__provenance") {
                 +"Chest counts come from containers tagged in game with the Seam mod."
             }
@@ -738,7 +741,7 @@ private fun FlowContent.workSection(
     feedsLabels: Map<String, FeedsLabel>,
     farmScaleIds: Set<String>,
     planTotal: Long,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val split = ActivitySectionLayout.of(ordered, planTotal)
     fun stateOf(activity: Activity) =
@@ -748,7 +751,9 @@ private fun FlowContent.workSection(
     // shrinks that line's name column and drags every column after it left. The chests column is
     // therefore a fixed width, and reserved only when this section has something to put in it, so
     // a project with nothing tagged does not pay 165px of name for an empty column.
-    val hasChests = ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }
+    // A storage-tracked project fills it on every row, with where each count comes from (MCO-540).
+    val hasChests = measurements.followed != null ||
+        ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }
 
     div("work-panel" + if (hasChests) " work-panel--chests" else "") {
         split.lead.forEach { activity ->
@@ -776,7 +781,9 @@ private fun FlowContent.smallJobsStrip(worldId: Int, projectId: Int, jobs: List<
     val hidden = jobs.size - shown.size
 
     div("small-jobs") {
-        span("small-jobs__label") { +"Small jobs · tick off as you go" }
+        // "Tick off as you go" is an instruction a tracked project's chips cannot follow.
+        val followed = jobs.firstOrNull()?.followed != null
+        span("small-jobs__label") { +(if (followed) "Small jobs · counted from chests" else "Small jobs · tick off as you go") }
         div("small-jobs__chips") {
             shown.forEach { smallJobChip(worldId, projectId, it) }
             if (hidden > 0) {
@@ -1831,7 +1838,7 @@ fun gatheringPlannerFragment(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),

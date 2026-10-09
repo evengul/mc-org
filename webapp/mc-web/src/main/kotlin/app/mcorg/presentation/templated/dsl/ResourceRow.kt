@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.dsl
 
+import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
 import kotlinx.html.*
 import java.time.Duration
@@ -14,6 +15,8 @@ fun FlowContent.resourceRow(
     required: Int,
     source: String? = null,
     measured: MeasuredStock? = null,
+    /** Non-null on a storage-tracked project: the count is the chests', and no counter is drawn. */
+    followed: FollowedChests? = null,
 ) {
     val percent = if (required > 0) (current.coerceAtMost(required) * 100 / required) else 0
     val complete = required > 0 && current >= required
@@ -55,6 +58,11 @@ fun FlowContent.resourceRow(
                 span("resource-row__source") {
                     +"Source: $source"
                 }
+            }
+
+            if (followed != null) {
+                followedLabel(measured, followed)
+                return@div
             }
 
             driftChip(worldId, projectId, id, itemName, current, measured)
@@ -119,6 +127,44 @@ fun FlowContent.driftChip(
 }
 
 /**
+ * Where a storage-tracked count comes from, in place of the counters it no longer has (MCO-540).
+ *
+ * Says *why* the number cannot be typed, not only that it cannot: the title names the setting that
+ * made it so, which is the way back to typing it. An item in no chest says so rather than leaving
+ * a bare zero to look like a bug.
+ */
+fun FlowContent.followedLabel(measured: MeasuredStock?, followed: FollowedChests) {
+    span("followed-count") {
+        attributes["title"] = FOLLOWED_TITLE
+        +followedText(measured, followed)
+    }
+}
+
+internal const val FOLLOWED_TITLE =
+    "Counted from tagged chests. This project's counts follow its chests, so they can't be typed. " +
+        "Change it under the project's Settings → Chest Counts."
+
+/** "from 4 chests · 2m ago", or "in none of 4 chests" for an item the chests do not hold. */
+internal fun followedText(measured: MeasuredStock?, followed: FollowedChests): String =
+    if (measured != null && measured.containerCount > 0) {
+        "from ${chestCount(measured.containerCount)}" + (measured.oldestSeenAt?.let { " · ${ago(it)}" } ?: "")
+    } else {
+        "in none of ${chestCount(followed.containerCount)}"
+    }
+
+private fun chestCount(count: Int) = if (count == 1) "1 chest" else "$count chests"
+
+private fun ago(seen: Instant): String {
+    val age = Duration.between(seen, Instant.now())
+    return when {
+        age.toMinutes() < 1 -> "just now"
+        age.toHours() < 1 -> "${age.toMinutes()}m ago"
+        age.toDays() < 1 -> "${age.toHours()}h ago"
+        else -> "${age.toDays()}d ago"
+    }
+}
+
+/**
  * How much to trust the number, which is the question a drift chip provokes.
  *
  * The age is of the *oldest* contributing reading: one chest nobody has walked past in a week is
@@ -126,13 +172,6 @@ fun FlowContent.driftChip(
  */
 private fun driftTitle(measured: MeasuredStock): String {
     val seen = measured.oldestSeenAt ?: return "Measured in ${measured.containerCount} tagged container(s)."
-    val age = Duration.between(seen, Instant.now())
-    val ago = when {
-        age.toMinutes() < 1 -> "just now"
-        age.toHours() < 1 -> "${age.toMinutes()}m ago"
-        age.toDays() < 1 -> "${age.toHours()}h ago"
-        else -> "${age.toDays()}d ago"
-    }
     return "Measured in ${measured.containerCount} tagged container(s). " +
-        "Oldest reading $ago — a container nobody has been near is not re-read."
+        "Oldest reading ${ago(seen)} — a container nobody has been near is not re-read."
 }

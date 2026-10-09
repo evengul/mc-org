@@ -14,6 +14,8 @@ import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageHeading
 import app.mcorg.presentation.templated.dsl.pageShell
+import app.mcorg.presentation.templated.dsl.WorldTab
+import app.mcorg.presentation.templated.dsl.worldBar
 import kotlinx.html.div
 import kotlinx.html.id
 import kotlinx.html.main
@@ -51,15 +53,15 @@ fun worldSettingsPage(user: TokenProfile, data: SettingsPageData): String = page
         worldName = data.world.name,
         worldId = data.world.id,
         user = user,
-        isWorldAdmin = true,
+        // The breadcrumb locates the world; that this is its Settings is the tab's to say, as on
+        // Roadmap and Projects (docs-ia, "Breadcrumb by page").
         breadcrumbBlock = {
-            link("Worlds", "/worlds")
-                .link(data.world.name, "/worlds/${data.world.id}/roadmap")
-                .current("Settings")
+            link("Worlds", "/worlds").current(data.world.name)
         }
     )
     main {
         container {
+            worldBar(data.world.id, WorldTab.SETTINGS, isWorldAdmin = true)
             pageHeading(
                 title = "World Settings",
                 subtitle = "Manage your world settings, members, and invitations",

@@ -10,6 +10,7 @@ import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
 import app.mcorg.pipeline.resources.farmDismissalsFor
@@ -126,7 +127,7 @@ suspend fun ApplicationCall.handleGetProject() {
     val versionGaps = versionGapsForPlan(projectId, plan)
     // What the tagged chests hold (MCO-539). One indexed read of the materialised rollup; empty
     // where nothing is tagged, which is what keeps the column blank rather than apologetic.
-    val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty()
+    val measurements = (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
 
     respondHtml(
         projectDetailPage(
