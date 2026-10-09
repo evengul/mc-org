@@ -1434,11 +1434,7 @@ private fun FlowContent.needsAttentionList(
             // no graph), so the slot just stays empty.
             div("plan-attention__bulk-slot") {
                 id = BULK_ANSWER_SLOT_ID
-                attributes["hx-get"] =
-                    "/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk"
-                attributes["hx-trigger"] = "load"
-                attributes["hx-target"] = "this"
-                attributes["hx-swap"] = "innerHTML"
+                loadOnArrival("/worlds/${project.worldId}/projects/${project.id}/plan/attention/bulk")
             }
             details("plan-attention__rest") {
                 summary {

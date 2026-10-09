@@ -237,6 +237,28 @@ class NeedsAttentionSectionTest {
     }
 
     /**
+     * htmx 4 runs with `implicitInheritance` (Layout.kt), so an element inherits its ancestors'
+     * hx-get *and* hx-trigger. A slot that keeps `hx-trigger="load"` while its response lands
+     * inside it hands that trigger to everything in the response: each picker option re-ran the
+     * slot's GET into its own target, `#project-content`, and replaced the page with a picker.
+     * The bulk slot did the same since htmx 4 (MCO-545): its "Answer these N" button re-ran the
+     * bulk GET on arrival and replaced the plan with the bulk control. Measured in the browser,
+     * MCO-504. Whatever loads on arrival has to replace itself.
+     */
+    @Test
+    fun `whatever loads on arrival replaces itself, so what it brings cannot inherit the trigger`() {
+        val tail = (1..12).map { question(tag("filler_$it", "Filler $it"), 1_000L) }
+        val html = render(plan(question(planks, 110_824), *tail.toTypedArray()))
+
+        val loaders = Regex("""<[a-z]+ [^>]*hx-trigger="load"[^>]*>""").findAll(html).map { it.value }.toList()
+        assertEquals(2, loaders.size, "the top question's picker and the bulk control: $loaders")
+        for (loader in loaders) {
+            assertContains(loader, "hx-swap=\"outerHTML\"")
+            assertContains(loader, "hx-target=\"this\"")
+        }
+    }
+
+    /**
      * Even, reviewing round 3: "what's next is mostly relevant AFTER the questions have been
      * answered. When those questions are there, they are the most important thing, and now
      * they're asked in two different places."
