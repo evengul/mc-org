@@ -66,6 +66,18 @@ class PlacedFormCircularityTest {
     }
 
     @Test
+    fun `breaking a potted plant hands back the plant and the pot you put there`() {
+        // MCO-564. `blocks/potted_wither_rose.json` was priced as a natural acquisition, because
+        // its stem is not the item's name and nothing listed the pair — so a wither rose cost
+        // three seconds. A pot only ever holds what a player put in it, so every item it drops is
+        // one they already had, whatever the plant is called once potted.
+        assertTrue(isSelfBlockLoot(item("wither_rose"), block("potted_wither_rose")))
+        assertTrue(isSelfBlockLoot(item("poppy"), block("potted_poppy")))
+        assertTrue(isSelfBlockLoot(item("azalea"), block("potted_azalea_bush")))
+        assertTrue(isSelfBlockLoot(item("flower_pot"), block("potted_cactus")))
+    }
+
+    @Test
     fun `every reversible entry really is reversible both ways`() {
         // Guard on the table itself: a REVERSIBLE entry claims placing the item makes the block
         // AND breaking it returns the same amount. Anything added here that only holds one way

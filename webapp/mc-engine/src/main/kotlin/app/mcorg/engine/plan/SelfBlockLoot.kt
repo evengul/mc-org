@@ -55,6 +55,16 @@ internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
     // findable in a mansion, not natural, and "go and find one" is priced elsewhere.
     if (NaturalBlocks.isNatural("minecraft:$stem")) return false
 
+    // A pot holds only what a player put in it, so everything a potted plant drops — the plant
+    // and the pot — is something they already had (MCO-564). Asked by prefix rather than listed
+    // in `PlacedForms`, because there are 37 of them and the import door reads that table as
+    // "one block, one item", which a potted plant is not. `Renewability` already treats the
+    // family the same way.
+    //
+    // Without this, `blocks/potted_wither_rose.json` was a natural acquisition — its stem is not
+    // the item's name — and a wither rose cost three seconds.
+    if (isPottedPlant(source)) return true
+
     // A block is not always named after the item you placed to make it: you put down
     // `minecraft:redstone` and the world holds `minecraft:redstone_wire`. Comparing names caught
     // `blocks/beacon.json` and missed that one, so the planner offered "break placed redstone
@@ -78,3 +88,30 @@ internal fun isSelfBlockLoot(item: MinecraftId, source: SourceNode): Boolean {
     // stays, as the fallback it should always have been.
     return stem == item.id.substringAfterLast(':')
 }
+
+/**
+ * Is [source] re-collection that cannot ground a chain for [item]? The whole rule, for both
+ * callers ([UnitCostModel] prices it, [PlanSelector] asks whether a chain can be completed), so
+ * they cannot drift into disagreeing about what is possible.
+ *
+ * [isSelfBlockLoot] says the block is the item put down. That disqualifies the source only when
+ * the item has a constructive sibling (a recipe, concrete-by-water), because without one breaking
+ * the block may be the only way to get it — an acacia log. A pot is the exception that needs no
+ * sibling: every potted plant's plant has its own loot table beside it, so ruling the pot out
+ * loses no route, and leaving it to the sibling rule let it win a wither rose, which has no
+ * recipe, at the price of one block break (MCO-564).
+ */
+internal fun isRecollection(item: MinecraftId, source: SourceNode, hasConstructiveSibling: Boolean): Boolean =
+    isSelfBlockLoot(item, source) && (hasConstructiveSibling || isPottedPlant(source))
+
+/** A potted plant's loot table: `blocks/potted_*.json`. */
+internal fun isPottedPlant(source: SourceNode): Boolean =
+    source.sourceType == ResourceSource.SourceType.LootTypes.BLOCK &&
+        isPottedBlock(source.filename.substringAfterLast('/'))
+
+/**
+ * Is this block a plant in a pot? The one definition of the family, read by the cost model and by
+ * `Renewability`, which both treat everything a pot drops as something a player put there.
+ */
+internal fun isPottedBlock(block: String): Boolean =
+    block.substringAfter(':').startsWith("potted_")

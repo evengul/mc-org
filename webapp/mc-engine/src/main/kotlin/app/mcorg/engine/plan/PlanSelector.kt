@@ -232,7 +232,7 @@ object PlanSelector {
                 // concrete-by-water) — the placed block had to be obtained first. Without
                 // this, "unpack iron block <- break a placed iron block" would count
                 // as a complete acquisition path.
-                if (hasConstructiveSibling && isSelfBlockLoot(item, source)) return@any false
+                if (isRecollection(item, source, hasConstructiveSibling)) return@any false
                 graph.getRequiredItems(source).all { requirement ->
                     val effective = redirectTag(requirement.item)
                     acquirable(effective, effective.id, resolvingId, memo)

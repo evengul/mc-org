@@ -92,6 +92,7 @@ Other modes, all against the same model:
 | `grain` | per-source vs per-type effort — where the grain is too coarse |
 | `activities` | how many distinct kinds of work the plan adds up to |
 | `projects=<ids>` | carry a real project's item set through every row |
+| `prices` | every item's price and source, sorted — `grep '^minecraft:'` before and after a change and `diff` |
 
 **An `INERT` or "no plateau" verdict is a claim about the *version*, not the constant.** No 1.x
 version ingests villager trades, so the trade rows read inert on 1.21.4 for months while moving

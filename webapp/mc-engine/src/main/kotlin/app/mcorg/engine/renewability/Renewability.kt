@@ -2,6 +2,7 @@ package app.mcorg.engine.renewability
 
 import app.mcorg.domain.model.minecraft.MinecraftTag
 import app.mcorg.engine.model.ItemSourceGraph
+import app.mcorg.engine.plan.isPottedBlock
 
 /**
  * Which items a farm can produce in one version, derived from its source graph rather than kept
@@ -89,7 +90,7 @@ class Renewability private constructor(
         if (block in produced) return listOf(block) to emptyList()
         val drops = blockDrops[block].orEmpty().toList()
         if (drops.isEmpty()) return listOf(block) to emptyList()
-        if (block.removePrefix("minecraft:").startsWith("potted_")) return drops to emptyList()
+        if (isPottedBlock(block)) return drops to emptyList()
         return emptyList<String>() to listOf(drops)
     }
 

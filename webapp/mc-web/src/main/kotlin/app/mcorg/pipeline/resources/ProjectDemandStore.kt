@@ -33,9 +33,11 @@ data class DemandFingerprint(val value: String) {
          * diagnostic — needs no bump, and a bump costs one derivation per planned project.
          *
          * History: 2 when the world's wood species joined the inputs (MCO-409); 3 when the
-         * version's ingestion epoch did, and the revision started being stored (MCO-578).
+         * version's ingestion epoch did, and the revision started being stored (MCO-578); 4 when
+         * mobs started paying their trip once rather than per kill, and potted plants stopped
+         * counting as a way to get the plant (MCO-564).
          */
-        const val REVISION: Int = 3
+        const val REVISION: Int = 4
 
         /**
          * Hashes every input [GenerateGatheringPlanStep] reads.
