@@ -436,9 +436,8 @@ class UnitCostModel(
         // shipped scorer gates on exactly this (`hasConstructiveSibling`), and the first run of
         // this model without the gate proved why: acacia_log came out at 25.7 minutes and lost
         // to a chest. The gate is not scaffolding around a weak score — it is a fact about the
-        // graph, and it survives the change of model. A pot is the exception that needs no
-        // sibling: the plant beside it always has its own loot table ([isPottedPlant]).
-        if (isSelfBlockLoot(item, source) && (hasConstructiveSibling(item) || isPottedPlant(source))) {
+        // graph, and it survives the change of model. A pot needs no sibling ([isRecollection]).
+        if (isRecollection(item, source, hasConstructiveSibling(item))) {
             val own = c[item.id] ?: UNREACHABLE
             return if (own >= UNREACHABLE) UNREACHABLE else own + boundEffort.of(source)
         }
@@ -643,8 +642,14 @@ class EffortTable(
      * wrong, which is the property the whole cost model exists to have. What it must not become
      * is a constant per item — that is the eight-constant scorer again, wearing minutes.
      */
-    fun of(source: SourceNode): Double =
-        of(source.sourceType) * (if (perSource) findFactor(source) else 1.0)
+    fun of(source: SourceNode): Double {
+        if (!perSource) return of(source.sourceType)
+        // A mob's trip is minutes of travel, added rather than multiplied in, so sweeping the
+        // kill does not resize the journey — and an action of zero leaves the trip standing
+        // rather than dividing by it.
+        val trip = tripOf(source)?.let { it.tripMinutes / it.perTrip } ?: 0.0
+        return of(source.sourceType) * findFactor(source) + trip
+    }
 
     /** The action alone, with nothing said about reaching it. Kept for sweeps and tests. */
     fun of(type: SourceType): Double = minutes[type.id] ?: default
@@ -663,36 +668,26 @@ class EffortTable(
                 BLOCK_FINDING[stem]
                     ?: structureFindFactor(stem).takeIf { "minecraft:$stem" in craftableBlocks }
                     ?: 1.0
-            source.sourceType == SourceType.LootTypes.ENTITY -> when (val hunt = ENTITY_FINDING[stem]) {
-                null -> 1.0
-                is Encounter -> hunt.fight
-                // Expressed back as a multiplier on the action so every caller — and every
-                // diagnostic line — still reads one factor. The trip is in minutes and divided
-                // by the action here, so sweeping the kill does not resize the journey.
-                is Trip -> hunt.fight + hunt.tripMinutes / (hunt.perTrip * of(source.sourceType))
-            }
+            // The fight only. A [Trip]'s journey is minutes, not a multiple of the action, and
+            // [of] adds it.
+            source.sourceType == SourceType.LootTypes.ENTITY -> ENTITY_FINDING[stem]?.fight ?: 1.0
             source.sourceType == SourceType.LootTypes.GIFT -> GIFT_FINDING[stem] ?: 1.0
             else -> 1.0
         }
     }
 
     /**
-     * A mob's price taken apart: the fight, and the trip it shares with the other kills made on
-     * it. Null for anything that is not a mob reached by a trip.
+     * The trip a mob is reached by, or null for anything that is not a mob reached by one.
      *
-     * [findFactor] folds both into one multiplier, which is what the arithmetic needs and what
-     * hides the argument — "x 2.55" says nothing a player can check, while "a fight of 2 plus a
-     * nine-minute trip shared by 32 kills" says three things they can.
+     * Public so a diagnostic can print a mob's price as its parts — "a fight of 2 plus a
+     * nine-minute trip shared by 32 kills" says three things a player can check, where one
+     * blended multiplier says none.
      */
-    fun tripOf(source: SourceNode): TripShare? {
+    fun tripOf(source: SourceNode): Trip? {
         if (!perSource || source.sourceType != SourceType.LootTypes.ENTITY) return null
         val stem = source.filename.substringAfterLast('/').substringBeforeLast('.')
-        val hunt = ENTITY_FINDING[stem] as? Trip ?: return null
-        return TripShare(fight = hunt.fight, tripMinutes = hunt.tripMinutes, perTrip = hunt.perTrip)
+        return ENTITY_FINDING[stem] as? Trip
     }
-
-    /** See [tripOf]. `fight` is a multiple of the action; the trip is in minutes. */
-    data class TripShare(val fight: Double, val tripMinutes: Double, val perTrip: Double)
 
     /** A copy that knows which blocks can be made — see [craftableBlocks]. */
     fun withCraftableBlocks(blocks: Set<String>): EffortTable =
@@ -769,20 +764,24 @@ class EffortTable(
             StructureDensity.densityRatio(set) * (STRUCTURE_ACCESS[set] ?: 1.0)
 
         /**
-         * How many 3-second block swings a trip to a village is worth. Five minutes, which
-         * is the one number here a player can check against their own experience.
-         *
-         * This is the scale of the whole structure half of the table: every structure is
-         * priced as a multiple of "go and find a village".
-         */
-        private const val VILLAGE_TRIP = 100.0
-
-        /**
-         * The same trip in minutes, for the mob side. Block loot counts its trip in swings
-         * because a swing is all the action is; a kill is a fight worth pricing in its own
-         * right, so a mob's trip is added to it in minutes rather than multiplied into it.
+         * A trip to a village, in minutes. Five, which is the one number here a player can
+         * check against their own experience, and the scale of every structure and mob trip:
+         * each is priced as a multiple of "go and find a village". The mob side adds it to a
+         * kill in minutes, because a kill is a fight worth pricing in its own right.
          */
         private const val VILLAGE_TRIP_MINUTES = 5.0
+
+        /** The block action [EffortTable.DEFAULT] prices a swing at, which [VILLAGE_TRIP] counts in. */
+        private const val BLOCK_SWING_MINUTES = 0.05
+
+        /**
+         * The same trip in 3-second block swings, for block loot, whose structure factor is a
+         * multiple of the swing because a swing is all the action is. Derived, so editing the
+         * trip moves both sides together. A *sweep* of the block action still resizes the block
+         * side's trips and not the mobs' — the block half keeps its swing units, as every
+         * `BLOCK_FINDING` entry does.
+         */
+        private const val VILLAGE_TRIP = VILLAGE_TRIP_MINUTES / BLOCK_SWING_MINUTES
 
         /**
          * How many of a block one visit yields, when the templates do not say (MCO-513).
@@ -868,11 +867,13 @@ class EffortTable(
             // Not terrain at all, and the one block here whose "finding" is a fight (MCO-564). A
             // wither rose is *placed* where a Wither kills a mob, so breaking the block is how
             // it is collected — but the block only exists because you summoned a Wither: three
-            // wither-skeleton skulls at ~2.5% a kill, around three and a half hours of fortress
-            // at `ENTITY_FINDING`'s price, divided over the twenty-odd mobs it kills before you
-            // kill it. No loot table records the mechanic, so it was priced as the swing alone,
-            // three seconds a rose. A trapped-Wither farm is far cheaper per rose, and is a farm.
-            put("wither_rose", 200.0)                                                    // ~10 min
+            // wither-skeleton skulls at ~2.5% a kill, about six hours of fortress at
+            // `ENTITY_FINDING`'s ~3 minutes a kill, divided over the twenty-odd mobs it kills
+            // before you kill it. No loot table records the mechanic, so it was priced as the
+            // swing alone, three seconds a rose. A trapped-Wither farm is far cheaper per rose,
+            // and is a farm. Written down rather than derived from the skeleton's price, like
+            // every entry here; move it with that price.
+            put("wither_rose", 360.0)                                                    // ~18 min
         }
 
         /**
@@ -903,9 +904,8 @@ class EffortTable(
          * - **trip** is the journey, in village trips, and for a mob that lives in a structure it
          *   is the *same* number its blocks pay ([structureTrips]) — density from the jar, access
          *   from [STRUCTURE_ACCESS]. A fortress is one errand whether you came for its nether
-         *   bricks or its blazes. *(This said the two scales "do not decompose into a common
-         *   base" until MCO-564. They did not while the trip was charged per kill; split out of
-         *   the kill, they do.)*
+         *   bricks or its blazes. Charged per kill, the mob and structure scales could not share
+         *   a base; split out of the kill, they do.
          * - **kills per trip** is the curated half, and every entry is a claim a player can call
          *   wrong: three elder guardians to a monument, a dozen shulkers to an End city. For a
          *   mob that respawns it is a sitting's worth, not a limit.
@@ -922,7 +922,7 @@ class EffortTable(
          * entries are added. It also stops the drift where someone nudges `blaze` to 12 and
          * leaves `strider` at 10 for no reason anybody wrote down.
          */
-        internal sealed interface Hunt {
+        sealed interface Hunt {
             /** Kills cost this many times the bare action, once you are where the mob is. */
             val fight: Double
         }
@@ -931,14 +931,26 @@ class EffortTable(
         private data class Encounter(override val fight: Double) : Hunt
 
         /** A journey of [tripMinutes], shared by the [perTrip] kills made on it. */
-        private data class Trip(
+        data class Trip(
             val tripMinutes: Double,
             val perTrip: Double,
             override val fight: Double,
         ) : Hunt
 
-        private fun inStructure(set: String, perTrip: Double, fight: Double) =
-            Trip(structureTrips(set) * VILLAGE_TRIP_MINUTES, perTrip, fight)
+        /**
+         * A mob that lives in a structure pays that structure's trip.
+         *
+         * [share] is for a structure set that places more than one structure, when the mob lives
+         * in only one of them. `nether_complexes` is fortresses and bastions at weights 2 and 3
+         * (`worldgen/structure_set/nether_complexes.json`), and blazes and wither skeletons spawn
+         * only in the fortress: two complexes in five. The set's density alone priced the trip to
+         * a fortress below the trip into the Nether at all.
+         */
+        private fun inStructure(set: String, perTrip: Double, fight: Double, share: Double = 1.0) =
+            Trip(structureTrips(set) / share * VILLAGE_TRIP_MINUTES, perTrip, fight)
+
+        /** Fortresses' share of `nether_complexes`, by the structure set's weights (2 of 5). */
+        private const val FORTRESS_SHARE = 2.0 / 5.0
 
         private fun inBiome(villageTrips: Double, perTrip: Double, fight: Double) =
             Trip(villageTrips * VILLAGE_TRIP_MINUTES, perTrip, fight)
@@ -995,8 +1007,8 @@ class EffortTable(
 
             // Nether fortress: the same trip its nether bricks pay, shared by a sitting at the
             // spawner (blazes) or a lap of the walkways (wither skeletons).
-            put("blaze", inStructure("nether_complexes", perTrip = 24.0, fight = COMMON_HOSTILE))
-            put("wither_skeleton", inStructure("nether_complexes", perTrip = 16.0, fight = TOUGH))
+            put("blaze", inStructure("nether_complexes", perTrip = 24.0, fight = COMMON_HOSTILE, share = FORTRESS_SHARE))
+            put("wither_skeleton", inStructure("nether_complexes", perTrip = 16.0, fight = TOUGH, share = FORTRESS_SHARE))
 
             // The rest of the Nether lives in biomes, so the trip is the portal alone.
             put("magma_cube", inBiome(NETHER_TRIPS, perTrip = 16.0, fight = COMMON_HOSTILE))

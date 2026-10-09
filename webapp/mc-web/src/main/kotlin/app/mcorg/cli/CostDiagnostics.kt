@@ -185,6 +185,25 @@ private suspend fun run(args: List<String>): Int {
 
     val model = UnitCostModel(graph, effort = table)
 
+    // `prices`: every item's price and the source behind it, one tab-separated line each and
+    // sorted, so two runs diff with `diff`. The tool for "what did this change move" when a
+    // change reaches past the handful of items `why` was asked about (MCO-564). Printed before
+    // the banner and its timing line, which differ on every run; the application log can still
+    // reach stdout, so keep the price lines with `grep '^minecraft:'` before diffing. The counts
+    // of moved and newly unreachable items are the numbers a cost change's PR has to state.
+    if (prices) {
+        graph.getAllItems()
+            .map { it.item }
+            .filter { it !is MinecraftTag }
+            .sortedBy { it.id }
+            .forEach { item ->
+                val total = model.cost[item.id] ?: UnitCostModel.UNREACHABLE
+                val shown = if (total >= UnitCostModel.UNREACHABLE) "unreachable" else "%.4f".format(total)
+                println("${item.id}\t$shown\t${model.best(item)?.getKey() ?: "-"}")
+            }
+        return 0
+    }
+
     // The banner names the reference honestly per mode. `sweep` no longer has a second model in
     // it (MCO-520), and a header still claiming one is how a reader would go on believing the
     // numbers underneath mean agreement.
@@ -203,24 +222,6 @@ private suspend fun run(args: List<String>): Int {
         "Model: %d items relaxed in %.0f ms, %d passes, converged=%s — build once per (graph, supplied)"
             .format(relaxedItems, relaxMillis, model.passesUsed, model.converged)
     )
-
-    // `prices`: every item's price and the source behind it, one tab-separated line each and
-    // sorted, so two runs diff with `diff`. The tool for "what did this change move" when a
-    // change reaches past the handful of items `why` was asked about (MCO-564). Redirect it to a
-    // file before and after the change; the counts of moved and newly unreachable items are the
-    // numbers a cost change's PR has to state.
-    if (prices) {
-        graph.getAllItems()
-            .map { it.item }
-            .filter { it !is MinecraftTag }
-            .sortedBy { it.id }
-            .forEach { item ->
-                val total = model.cost[item.id] ?: UnitCostModel.UNREACHABLE
-                val shown = if (total >= UnitCostModel.UNREACHABLE) "unreachable" else "%.4f".format(total)
-                println("${item.id}\t$shown\t${model.best(item)?.getKey() ?: "-"}")
-            }
-        return 0
-    }
 
     val subjects = graph.getAllItems()
         .map { it.item }

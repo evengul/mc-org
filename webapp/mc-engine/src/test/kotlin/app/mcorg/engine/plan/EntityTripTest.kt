@@ -74,6 +74,26 @@ class EntityTripTest {
     }
 
     @Test
+    fun `a fortress is further than the Nether it is in`() {
+        // `nether_complexes` is fortresses and bastions, 2 to 3. Priced on the set's density
+        // alone, the trip to a blaze came out shorter than the portal trip to a magma cube.
+        val fortress = table.tripOf(entity("blaze"))!!.tripMinutes
+        val nether = table.tripOf(entity("magma_cube"))!!.tripMinutes
+
+        assertTrue(fortress > nether, "fortress trip $fortress min, Nether trip $nether min")
+    }
+
+    @Test
+    fun `a free kill still pays its trip`() {
+        // The trip is added in minutes, not divided by the action, so a sweep down to zero gives
+        // a finite price rather than NaN spreading through the relaxation.
+        val free = table.with(SourceType.LootTypes.ENTITY, 0.0)
+        val trip = free.tripOf(entity("guardian"))!!
+
+        assertEquals(trip.tripMinutes / trip.perTrip, free.of(entity("guardian")), 1e-12)
+    }
+
+    @Test
     fun `the trip does not scale with how long a kill takes`() {
         // A trip is minutes of travel; the action is minutes of fighting. Sweeping the second
         // must not silently resize the first, or a sweep of the entity row measures two things.
