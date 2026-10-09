@@ -570,3 +570,14 @@
 .work-row__adopt {
     flex: 0 0 auto;
 }
+
+/* A storage-tracked row's tick and chips show done-ness but write nothing (MCO-540). */
+.work-row__tick:disabled,
+.small-job:disabled {
+    cursor: default;
+}
+
+.work-row__tick:disabled:hover,
+.small-job:disabled:hover {
+    border-color: var(--border-strong);
+}

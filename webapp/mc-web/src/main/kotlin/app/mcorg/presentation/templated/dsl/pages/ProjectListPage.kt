@@ -64,7 +64,6 @@ fun projectListPage(
         worldName = world.name,
         worldId = world.id,
         user = user,
-        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds").current(world.name)
         }
@@ -73,7 +72,7 @@ fun projectListPage(
         container {
             // An empty world has nothing to add *to* yet, and its own empty state already
             // carries the same doors — so the menu appears only once there is a list.
-            worldBar(world.id, WorldTab.PROJECTS) {
+            worldBar(world.id, WorldTab.PROJECTS, isWorldAdmin) {
                 newProjectAffordance(world.id, showMenu = projects.isNotEmpty())
             }
             div {

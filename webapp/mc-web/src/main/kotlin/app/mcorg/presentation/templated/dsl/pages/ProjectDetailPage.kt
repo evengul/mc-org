@@ -107,9 +107,7 @@ fun projectDetailPage(
         // product name that went to a world.
         worldName = worldName,
         worldId = project.worldId,
-        projectId = project.id,
         user = user,
-        isWorldAdmin = isWorldAdmin,
         breadcrumbBlock = {
             link("Worlds", "/worlds")
                 .link(worldName, Link.Worlds.world(project.worldId).roadmap().to)
@@ -123,6 +121,7 @@ fun projectDetailPage(
             +"←"
         }
         p("project-detail__mobile-name") { +project.name }
+        projectSettingsLink(project)
     }
     main {
         container {
@@ -138,10 +137,8 @@ fun projectDetailPage(
                     }
                     gatheringOverallProgress(project.id, project.worldId, resources, plan, progressMap)
                 }
-                if (isWorldAdmin) {
-                    div("project-detail__header-right") {
-                        projectDeleteButton(project)
-                    }
+                div("project-detail__header-right") {
+                    projectSettingsLink(project)
                 }
             }
 
@@ -180,21 +177,14 @@ private fun FlowContent.projectImportedFromIdea(project: Project, user: TokenPro
 }
 
 /**
- * Delete-project affordance shown next to the edit fields (admins only — gated by the
- * caller). Uses the shared type-to-confirm delete dialog (hxDeleteWithConfirm); the
- * server redirects back to the world's project list on success.
+ * The way into the project's settings (MCO-540) — labelled, and in the header beside the name
+ * rather than a bare gear at the far edge of the app bar. The delete that used to sit here is on
+ * the settings page now, one deliberate step further from a stray click.
  */
-private fun FlowContent.projectDeleteButton(project: Project) {
-    button(classes = "btn btn--danger btn--sm") {
-        type = ButtonType.button
-        hxDeleteWithConfirm(
-            url = Link.Worlds.world(project.worldId).project(project.id).to,
-            title = "Delete project",
-            description = "This action cannot be undone. All tasks, resources, and progress for this project will be permanently deleted.",
-            warning = "Warning: This will permanently delete \"${project.name}\" and all associated data.",
-            confirmText = project.name,
-        )
-        +"Delete project"
+private fun FlowContent.projectSettingsLink(project: Project) {
+    a(classes = "btn btn--secondary btn--sm project-detail__settings") {
+        href = Link.Worlds.world(project.worldId).project(project.id).settings().to
+        +"⚙ Settings"
     }
 }
 
@@ -749,7 +739,9 @@ private fun FlowContent.workSection(
     // shrinks that line's name column and drags every column after it left. The chests column is
     // therefore a fixed width, and reserved only when this section has something to put in it, so
     // a project with nothing tagged does not pay 165px of name for an empty column.
-    val hasChests = ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }
+    // A storage-tracked project fills it on every row, with where each count comes from (MCO-540).
+    val hasChests = measurements.followed != null ||
+        ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }
 
     div("work-panel" + if (hasChests) " work-panel--chests" else "") {
         split.lead.forEach { activity ->

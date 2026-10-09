@@ -304,3 +304,24 @@
 #world-version-gap-notice {
     margin-bottom: var(--space-4);
 }
+
+/* ==========================================================================
+   PROJECT SETTINGS PAGE (MCO-540)
+   Same stacked sections as world settings; the back link stands in for the
+   project header the page leaves behind.
+   ========================================================================== */
+
+.project-settings__back {
+    margin-top: var(--space-4);
+}
+
+.project-settings__tracking {
+    align-items: flex-start;
+}
+
+.project-settings__state {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    line-height: 1.5;
+}

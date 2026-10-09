@@ -239,7 +239,16 @@ private val ADOPT_SQL = SafeSQL.insert(
  * follow, and zeroing a whole project because someone untagged a chest is the destructive surprise
  * the off-by-default setting exists to avoid.
  */
-object FollowMeasurementStep {
+object FollowMeasurementStep : Step<Int, AppFailure.DatabaseError, Int> {
+
+    /**
+     * The same follow on its own, for a change that moves a ceiling rather than a measurement — a
+     * target added or its `required` changed. Without it a tracked count would sit at the old
+     * clamp until the chests next change, which for a full chest left alone may be never.
+     */
+    override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> =
+        DatabaseSteps.transaction<Int, Int> { tx -> within(tx) }.process(input)
+
     fun within(tx: TransactionConnection): Step<Int, AppFailure.DatabaseError, Int> =
         object : Step<Int, AppFailure.DatabaseError, Int> {
             override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
@@ -275,6 +284,10 @@ object FollowMeasurementStep {
  * Targets are summed per item because `resource_gathering` does not make an item unique within a
  * project, and two rows for one item would otherwise make the upsert write one row twice.
  *
+ * A target with no progress row and nothing in the chests already reads 0, so no row is written
+ * for it: a schematic import carries hundreds of targets, and writing a zero for each one is
+ * hundreds of rows that say nothing.
+ *
  * The conflict update skips a row that already holds the value. A sweep runs every 30 seconds and
  * mostly changes nothing, and an unconditional update would rewrite every row each time — and drop
  * the project's derived plan each time, through the trigger that watches these rows (MCO-578).
@@ -303,6 +316,9 @@ private val FOLLOW_SQL = SafeSQL.insert(
         GROUP BY item_id
     ) rg ON rg.item_id = i.item_id
     WHERE p.id = ? AND p.storage_tracked
+      AND (COALESCE(m.measured, 0) > 0
+           OR EXISTS (SELECT 1 FROM resource_gathering_progress e
+                      WHERE e.project_id = p.id AND e.item_id = i.item_id))
     ON CONFLICT (project_id, item_id) DO UPDATE
         SET collected       = EXCLUDED.collected,
             updated_at      = CURRENT_TIMESTAMP,

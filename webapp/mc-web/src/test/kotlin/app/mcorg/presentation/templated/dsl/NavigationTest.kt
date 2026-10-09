@@ -110,29 +110,16 @@ class NavigationTest {
         assertTrue(!html.contains("aria-label=\"Menu\""))
     }
 
+    /**
+     * Settings moved out of the app header (MCO-540): a bare gear at the far end of the bar was
+     * too small and too far from the page it configured. World settings is a world tab now, and
+     * project settings a button in the project's own header.
+     */
     @Test
-    fun `gear is hidden when no world context`() {
-        val html = render { appHeader() }
-        assertTrue(!html.contains("aria-label=\"World settings\""))
-    }
-
-    @Test
-    fun `gear is hidden when worldId is set but user is not admin`() {
-        val html = render { appHeader(worldId = 42, isWorldAdmin = false) }
-        assertTrue(!html.contains("aria-label=\"World settings\""))
-    }
-
-    @Test
-    fun `gear links to world settings when worldId is set and user is admin`() {
-        val html = render { appHeader(worldId = 42, isWorldAdmin = true) }
-        assertTrue(html.contains("aria-label=\"World settings\""))
-        assertTrue(html.contains("/worlds/42/settings"))
-    }
-
-    @Test
-    fun `gear is not rendered when projectId is set even with admin`() {
-        val html = render { appHeader(worldId = 42, projectId = 7, isWorldAdmin = true) }
-        assertTrue(!html.contains("aria-label=\"World settings\""))
+    fun `the app header carries no settings link`() {
+        val html = render { appHeader(worldId = 42) }
+        assertTrue(!html.contains("/worlds/42/settings"))
+        assertTrue(!html.contains("⚙"))
     }
 
     @Test

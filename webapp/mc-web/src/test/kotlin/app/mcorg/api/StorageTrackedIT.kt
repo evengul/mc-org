@@ -2,6 +2,8 @@ package app.mcorg.api
 
 import app.mcorg.config.Database
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.user.Role
+import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -17,6 +19,7 @@ import app.mcorg.presentation.handler.WorldHandler
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
@@ -100,6 +103,21 @@ class StorageTrackedIT : WithUser() {
         push(fixture.reporterToken, fixture.chest, iron to 12L)
 
         assertEquals(0, collectedOf(fixture.projectId, stick))
+    }
+
+    @Test
+    fun `a target never counted and in no chest gets no row written`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val fixture = trackedProject("no-zero-rows")
+        insertGathering(fixture.projectId, gold, required = 512)
+        trackOn(fixture.projectId)
+
+        // A schematic import carries hundreds of targets. Writing a zero for each one would be
+        // hundreds of rows that say what no row already says.
+        push(fixture.reporterToken, fixture.chest, iron to 12L)
+
+        assertFalse(progressRowExists(fixture.projectId, gold), "a zero row was written for gold")
+        assertEquals(12, collectedOf(fixture.projectId, iron))
     }
 
     @Test
@@ -292,7 +310,127 @@ class StorageTrackedIT : WithUser() {
         assertEquals(0, collectedOf(fixture.projectId, iron))
     }
 
+    // ── The settings page ────────────────────────────────────────────────────
+
+    @Test
+    fun `a member opens project settings, and sees no danger zone`() = testApplication {
+        installWorldRoutes()
+        val fixture = trackedProject("settings-member")
+        val member = createExtraUser()
+        addWorldMember(fixture.worldId, member, Role.MEMBER)
+
+        val response = client.get("/worlds/${fixture.worldId}/projects/${fixture.projectId}/settings") {
+            addAuthCookie(this, member)
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Chest counts")
+        assertContains(body, "Count from chests")
+        // Delete is admin-only at the route; the page does not offer what the route will refuse.
+        assertFalse(body.contains("Delete project"), "a member was offered the delete")
+    }
+
+    @Test
+    fun `the owner sees the danger zone on project settings`() = testApplication {
+        installWorldRoutes()
+        val fixture = trackedProject("settings-owner")
+
+        val body = client.get("/worlds/${fixture.worldId}/projects/${fixture.projectId}/settings") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        assertContains(body, "Delete project")
+    }
+
+    @Test
+    fun `someone outside the world cannot open project settings`() = testApplication {
+        installWorldRoutes()
+        val fixture = trackedProject("settings-outsider")
+        val outsider = createExtraUser()
+
+        val response = client.get("/worlds/${fixture.worldId}/projects/${fixture.projectId}/settings") {
+            addAuthCookie(this, outsider)
+        }
+
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
+    fun `switching on from the settings page follows the chests and redraws the section`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            apiV1Routes()
+            with(WorldHandler()) { worldRoutes() }
+        }
+        val fixture = trackedProject("settings-on")
+        setCollected(fixture.projectId, iron, 500)
+        push(fixture.reporterToken, fixture.chest, iron to 12L)
+
+        val response = client.patch(
+            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/settings/storage-tracked"
+        ) {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("tracked=true")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertContains(response.bodyAsText(), "Counted from chests.")
+        assertTrue(trackingOf(fixture.projectId).tracked)
+        assertEquals(12, collectedOf(fixture.projectId, iron))
+    }
+
+    @Test
+    fun `switching on with nothing tagged is refused with a message for the switch`() = testApplication {
+        installWorldRoutes()
+        val worldId = createWorld("settings-untagged")
+        val projectId = createProject(worldId)
+
+        val response = client.patch("/worlds/$worldId/projects/$projectId/settings/storage-tracked") {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("tracked=true")
+        }
+
+        assertTrue(response.status.value in 400..499, "expected a refusal, got ${response.status}")
+        assertContains(response.bodyAsText(), "storageTracked")
+        assertFalse(trackingOf(projectId).tracked)
+    }
+
+    @Test
+    fun `switching with no value is refused`() = testApplication {
+        installWorldRoutes()
+        val fixture = trackedProject("settings-garbage")
+
+        val response = client.patch(
+            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/settings/storage-tracked"
+        ) {
+            addAuthCookie(this)
+            header("HX-Request", "true")
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("tracked=maybe")
+        }
+
+        assertTrue(response.status.value in 400..499, "expected a refusal, got ${response.status}")
+        assertFalse(trackingOf(fixture.projectId).tracked)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private fun addWorldMember(worldId: Int, member: TokenProfile, role: Role) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"
+            ),
+            parameterSetter = { st, _ ->
+                st.setInt(1, member.id); st.setInt(2, worldId)
+                st.setString(3, member.minecraftUsername); st.setInt(4, role.level)
+            }
+        ).process(Unit)
+    }
 
     private data class Fixture(
         val worldId: Int,
@@ -351,6 +489,16 @@ class StorageTrackedIT : WithUser() {
             ).use { st ->
                 st.setInt(1, projectId); st.setString(2, itemId)
                 st.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
+            }
+        }
+
+    private fun progressRowExists(projectId: Int, itemId: String): Boolean =
+        Database.getConnection().use { conn ->
+            conn.prepareStatement(
+                "SELECT 1 FROM resource_gathering_progress WHERE project_id = ? AND item_id = ?"
+            ).use { st ->
+                st.setInt(1, projectId); st.setString(2, itemId)
+                st.executeQuery().use { rs -> rs.next() }
             }
         }
 

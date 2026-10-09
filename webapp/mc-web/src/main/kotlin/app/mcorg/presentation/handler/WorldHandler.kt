@@ -8,6 +8,8 @@ import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
+import app.mcorg.pipeline.project.handleGetProjectSettings
+import app.mcorg.pipeline.project.handleSetStorageTracked
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.world.roadmap.handleClearGatherInstead
 import app.mcorg.pipeline.world.roadmap.handleClearRoadmapCycleOrder
@@ -275,6 +277,13 @@ class WorldHandler {
                             delete {
                                 call.handleRestoreFarmSuggestion()
                             }
+                        }
+                        // Participant-level like /meta: what is here changes how the project
+                        // counts, which any member can already do by hand. The page draws its
+                        // danger zone for admins only; the DELETE above holds that line.
+                        route("/settings") {
+                            get { call.handleGetProjectSettings() }
+                            patch("/storage-tracked") { call.handleSetStorageTracked() }
                         }
                         route("/meta") {
                             get("/name") { call.handleGetProjectNameField() }

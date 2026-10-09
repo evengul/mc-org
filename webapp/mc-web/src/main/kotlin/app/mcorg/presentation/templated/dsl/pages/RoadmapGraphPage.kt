@@ -124,7 +124,6 @@ fun roadmapGraphPage(
         worldName = view.roadmap.worldName,
         worldId = view.roadmap.worldId,
         user = user,
-        isWorldAdmin = isWorldAdmin,
         // The breadcrumb locates the *world*; which section of it you are in is the tab
         // bar's job (MCO-474).
         breadcrumbBlock = {
@@ -133,7 +132,7 @@ fun roadmapGraphPage(
     )
     main {
         container {
-            worldBar(view.roadmap.worldId, WorldTab.ROADMAP) {
+            worldBar(view.roadmap.worldId, WorldTab.ROADMAP, isWorldAdmin) {
                 newProjectAffordance(view.roadmap.worldId, showMenu = !view.roadmap.isEmpty())
             }
             // The title sits outside the card, as on every other page

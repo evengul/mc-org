@@ -143,7 +143,8 @@ fun FlowContent.fieldLogSliceRows(
             val stock = measurements[item.itemId]
             stock != null && stock.containerCount > 0 && stock.measured != item.collected.toLong()
         }
-        if (drifting > 0) {
+        // A tracked project has nothing to adopt: its counts already follow the chests (MCO-540).
+        if (drifting > 0 && measurements.followed == null) {
             button(classes = "btn btn--ghost btn--sm fl-slice__adopt-all") {
                 attributes["hx-post"] = "/worlds/$worldId/projects/$projectId/resources/gathering/adopt-all"
                 attributes["hx-target"] = "#fl-slice-rows-$projectId"
@@ -164,6 +165,7 @@ fun FlowContent.fieldLogSliceRows(
                 required = item.required,
                 source = item.solvedByProject?.second,
                 measured = measurements[item.itemId],
+                followed = measurements.followed,
             )
         }
         if (rows.isEmpty()) {

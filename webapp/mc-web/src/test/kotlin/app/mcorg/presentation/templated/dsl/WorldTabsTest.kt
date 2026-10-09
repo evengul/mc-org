@@ -59,6 +59,22 @@ class WorldTabsTest {
     }
 
     @Test
+    fun `an admin gets a Settings tab, labelled in words`() {
+        val html = render { worldTabs(worldId = 5, active = WorldTab.ROADMAP, isWorldAdmin = true) }
+
+        assertContains(html, "/worlds/5/settings")
+        assertContains(html, "Settings")
+    }
+
+    /** The settings route is admin-gated, and a tab that answers 403 is worse than no tab. */
+    @Test
+    fun `a member gets no Settings tab`() {
+        val html = render { worldTabs(worldId = 5, active = WorldTab.ROADMAP) }
+
+        assertFalse(html.contains("/worlds/5/settings"))
+    }
+
+    @Test
     fun `world id is threaded into every link`() {
         val html = render { worldTabs(worldId = 42, active = WorldTab.ROADMAP) }
 

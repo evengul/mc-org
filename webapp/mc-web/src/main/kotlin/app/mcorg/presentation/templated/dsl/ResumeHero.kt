@@ -86,7 +86,12 @@ fun FlowContent.resumeHero(
             }
 
             div("fl-hero__footer") {
-                span("fl-hero__hint") { +"…or just keep counting right here." }
+                span("fl-hero__hint") {
+                    // A tracked project's counts come from its chests, so there is nothing to count
+                    // here (MCO-540).
+                    +if (measurements.followed != null) "Counted from the tagged chests as they fill."
+                    else "…or just keep counting right here."
+                }
                 a(classes = "btn btn--secondary btn--sm") {
                     href = "/worlds/$worldId/projects/${project.id}"
                     +"Open project page →"
@@ -151,6 +156,7 @@ fun FlowContent.resumeHeroRows(
                 required = item.required,
                 source = item.solvedByProject?.second,
                 measured = measurements[item.itemId],
+                followed = measurements.followed,
             )
         }
         if (sorted.size > RESUME_HERO_MAX_ROWS) {

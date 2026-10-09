@@ -18,7 +18,10 @@ import kotlinx.html.id
 import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.span
+import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.presentation.templated.dsl.FOLLOWED_TITLE
+import app.mcorg.presentation.templated.dsl.followedLabel
 import app.mcorg.pipeline.resources.ProjectMeasurements
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -73,6 +76,11 @@ internal data class WorkRowState(
     val feeds: FeedsLabel?,
     /** What the tagged chests hold for this item, when anything is tagged (MCO-539). */
     val measured: MeasuredStock? = null,
+    /**
+     * Non-null on a storage-tracked project (MCO-540): the count is the chests', so the row draws
+     * no control that writes one — no tick, no Log, no steppers — and says where the number is from.
+     */
+    val followed: FollowedChests? = null,
 ) {
     val need: Long get() = activity.quantity
 
@@ -135,6 +143,7 @@ internal fun workRowStateOf(
         sourceLabel = sourceLabel,
         feeds = feedsLabels[activity.item.id],
         measured = measurements[activity.item.id],
+        followed = measurements.followed,
     )
 }
 
@@ -200,7 +209,11 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
             }
         }
 
-        workRowAction(worldId, projectId, state, working = false)
+        // No Log on a followed row: Log opens the strip, and the strip is counters. The action is
+        // the row's last column, so leaving it out moves nothing else along.
+        if (state.followed == null) {
+            workRowAction(worldId, projectId, state, working = false)
+        }
     }
 }
 
@@ -361,8 +374,15 @@ private fun FlowContent.workTickBox(worldId: Int, projectId: Int, state: WorkRow
         attributes["aria-pressed"] = state.done.toString()
         attributes["aria-label"] =
             if (state.done) "${state.activity.item.name} is done" else "Mark ${state.activity.item.name} done"
-        attributes["title"] = if (state.done) "Done" else "Mark done"
-        markDoneAttributes(worldId, projectId, state, working = false)
+        if (state.followed != null) {
+            // Still drawn, because done-ness is worth reading down the column; just not pressable.
+            disabled = true
+            attributes["title"] = FOLLOWED_TITLE
+            if (!state.done) attributes["aria-label"] = "${state.activity.item.name}, counted from chests"
+        } else {
+            attributes["title"] = if (state.done) "Done" else "Mark done"
+            markDoneAttributes(worldId, projectId, state, working = false)
+        }
         if (state.done) +"✓"
     }
 }
@@ -443,14 +463,23 @@ private fun BUTTON.chipBody(worldId: Int, projectId: Int, state: WorkRowState) {
         type = ButtonType.button
         id = state.rowId
         attributes["aria-pressed"] = state.done.toString()
-        attributes["aria-label"] =
-            if (state.done) "${state.activity.item.name} is done"
-            else "Mark ${state.activity.item.name} done, ${state.remaining} left"
-        attributes["hx-patch"] = "/worlds/$worldId/projects/$projectId/plan/progress"
-        attributes["hx-vals"] =
-            """{"itemId": "${state.activity.item.id}", "amount": ${if (state.done) -state.need else state.remaining}, "required": ${state.need}, "chip": true}"""
-        attributes["hx-target"] = "#${state.rowId}"
-        attributes["hx-swap"] = "outerHTML"
+        if (state.followed != null) {
+            // A chip is a tick with a name; on a followed project the tick writes nothing (MCO-540).
+            disabled = true
+            attributes["title"] = FOLLOWED_TITLE
+            attributes["aria-label"] =
+                if (state.done) "${state.activity.item.name} is done"
+                else "${state.activity.item.name}, ${state.remaining} left, counted from chests"
+        } else {
+            attributes["aria-label"] =
+                if (state.done) "${state.activity.item.name} is done"
+                else "Mark ${state.activity.item.name} done, ${state.remaining} left"
+            attributes["hx-patch"] = "/worlds/$worldId/projects/$projectId/plan/progress"
+            attributes["hx-vals"] =
+                """{"itemId": "${state.activity.item.id}", "amount": ${if (state.done) -state.need else state.remaining}, "required": ${state.need}, "chip": true}"""
+            attributes["hx-target"] = "#${state.rowId}"
+            attributes["hx-swap"] = "outerHTML"
+        }
 
         span("small-job__tick") { if (state.done) +"✓" }
         span("small-job__name") { +splitKind(state.activity.item.name).first }
@@ -475,6 +504,10 @@ private fun DIV.workRowDrift(worldId: Int, projectId: Int, state: WorkRowState) 
     // then out of the row entirely. That is what a conditional pair of children did here: the rows
     // with a measurement grew wider than the rest and the grid overflowed its container.
     span("work-row__chests") {
+        state.followed?.let { followed ->
+            followedLabel(state.measured, followed)
+            return@span
+        }
         val measured = state.measured ?: return@span
         if (measured.containerCount == 0) return@span
         val delta = measured.measured - state.have
