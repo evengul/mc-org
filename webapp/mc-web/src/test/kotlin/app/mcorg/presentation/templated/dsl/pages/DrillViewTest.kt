@@ -344,11 +344,11 @@ class DrillViewTest {
     }
 
     // -------------------------------------------------------------------------
-    // OPEN_TAG nodes (⇄ chip — pick variant)
+    // OPEN_TAG nodes (⇄ chip — choose a material)
     // -------------------------------------------------------------------------
 
     @Test
-    fun `OPEN_TAG node renders chip with pick variant label`() {
+    fun `OPEN_TAG node renders chip that offers to choose a material`() {
         val tree = TargetTree(
             item = item("planks", "Any Planks"),
             quantityIfAlone = 320,
@@ -359,8 +359,8 @@ class DrillViewTest {
         val html = drillChainFragment(testProject(), tree, emptyMap())
 
         assertContains(html, "class=\"chip\"")
-        assertContains(html, "⇄")
-        assertContains(html, "Pick variant")
+        assertContains(html, "⇄ Choose material")
+        assertFalse(html.contains("variant", ignoreCase = true), "\"variant\" is our word, not the player's (MCO-504)")
     }
 
     @Test
@@ -769,11 +769,55 @@ class DrillViewTest {
             activeMemberId = null,
         )
 
-        assertContains(html, "Pick a variant")
+        assertContains(html, "Which should the plan use in recipes?")
         assertContains(html, "hx-post")
         assertContains(html, "/tag")
         assertContains(html, "Oak Planks")
         assertContains(html, "Spruce Planks")
+    }
+
+    /**
+     * MCO-504: the picker said "Pick a variant". "Variant" is ours — the reader is choosing a
+     * material — and an instruction to pick does not say what the pick decides.
+     */
+    @Test
+    fun `tag picker asks the question in a player's words, never 'variant'`() {
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", emptyList())
+        val node = TargetTree(
+            item = tag, quantityIfAlone = 320, craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG, source = null,
+        )
+
+        val empty = nodePickerFragment(1, 2, "minecraft:chest", node, null, null, null)
+        val unmatched = nodePickerFragment(
+            1, 2, "minecraft:chest",
+            node.copy(item = MinecraftTag("#minecraft:planks", "Any Planks", listOf(Item("minecraft:oak_planks", "Oak Planks")))),
+            null, null, null, query = "birch",
+        )
+
+        for (html in listOf(empty, unmatched)) {
+            assertContains(html, "Which should the plan use in recipes?")
+            assertFalse(html.contains("variant", ignoreCase = true), "\"variant\" is our word, not the player's: $html")
+        }
+    }
+
+    /**
+     * Opened from a Needs attention row, the picker lands directly under a row that has just
+     * asked the question, so asking it again would say the same sentence twice in two lines.
+     * That entry point is the only one that passes origin=list.
+     */
+    @Test
+    fun `tag picker opened under a Needs attention row does not repeat the row's question`() {
+        val tag = MinecraftTag("#minecraft:planks", "Any Planks", listOf(Item("minecraft:oak_planks", "Oak Planks")))
+        val node = TargetTree(
+            item = tag, quantityIfAlone = 320, craftsIfAlone = 320,
+            status = PlanNodeStatus.OPEN_TAG, source = null,
+        )
+
+        val html = nodePickerFragment(1, 2, "minecraft:chest", node, null, null, null, origin = "list")
+
+        assertFalse(html.contains("Which should the plan use in recipes?"))
+        assertContains(html, "Oak Planks")
     }
 
     @Test
@@ -1160,7 +1204,7 @@ class DrillViewTest {
         )
 
         // Should render the tag-member picker with both planks options
-        assertContains(html, "Pick a variant")
+        assertContains(html, "Which should the plan use in recipes?")
         assertContains(html, "Oak Planks")
         assertContains(html, "Spruce Planks")
         // Active member is marked selected

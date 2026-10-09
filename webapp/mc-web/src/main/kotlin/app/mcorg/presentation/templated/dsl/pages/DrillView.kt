@@ -142,7 +142,7 @@ private fun DIV.renderTargetTree(
                 val nodeSource = node.source
                 val chipLabel = when {
                     nodeSource != null -> nodeSource.getName()
-                    node.status == PlanNodeStatus.OPEN_TAG -> "Pick variant"
+                    node.status == PlanNodeStatus.OPEN_TAG -> "Choose material"
                     else -> "Pick source"
                 }
                 button(classes = "chip") {
@@ -248,6 +248,18 @@ fun drillNotFoundFragment(project: Project, reason: String): String = createHTML
  * @param activeSourceKey  the currently active source override key, if any
  * @param activeMemberId  the currently active tag-member override id, if any
  */
+/**
+ * What a variant question is asking, in one sentence.
+ *
+ * One constant, because the question must read identically wherever it is asked: the Needs
+ * attention row, and the heading of the picker every other entry point opens (MCO-504).
+ *
+ * "Recipes" is the load-bearing word: these blocks are interchangeable *to a crafting recipe*,
+ * which is not deducible from a list of block names. Neither "variant" nor "open tag" appears —
+ * the reader is choosing a material, not a variant, and "open tag" was ours.
+ */
+internal const val VARIANT_QUESTION = "Which should the plan use in recipes?"
+
 /** One picker is open at a time, so a fixed id is enough for the options to include it. */
 private const val WORLD_WOOD_INPUT_ID = "picker-world-wood"
 
@@ -298,7 +310,9 @@ fun nodePickerFragment(
             val filtered = if (q.isEmpty()) ranked else ranked.filter { it.member.name.contains(q, ignoreCase = true) }
             val displayed = filtered.take(PICKER_MAX_OPTIONS)
 
-            span("section-label picker__label") { +"Pick a variant" }
+            // Opened from a Needs attention row (origin=list), the row directly above has just
+            // asked this; everywhere else the picker is the first thing to ask it.
+            if (origin != "list") span("section-label picker__label") { +VARIANT_QUESTION }
             if (ranked.size > PICKER_MAX_OPTIONS) pickerSearch(sourcesUrl, pickerSlotId, q)
 
             // MCO-487: answering "which tree" here answers it for `#planks`, `#wooden_slabs` and
@@ -319,7 +333,7 @@ fun nodePickerFragment(
             }
 
             if (displayed.isEmpty()) {
-                p("picker__empty") { +(if (q.isEmpty()) "No variants available." else "No variants match \"$q\".") }
+                p("picker__empty") { +(if (q.isEmpty()) "Nothing to choose from." else "Nothing matches \"$q\".") }
             } else {
                 div("stack--xs") {
                     for (rm in displayed) {
