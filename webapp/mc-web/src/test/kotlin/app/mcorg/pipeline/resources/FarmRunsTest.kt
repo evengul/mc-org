@@ -111,6 +111,44 @@ class FarmRunsTest {
         assertEquals("Oak Mode", run.modes.single().modeName)
     }
 
+    // A tree farm whose modes all make sticks too, as many designs' do.
+    private val stickRates = listOf(
+        rate(treeFarm, "minecraft:oak_log", 48_000, "Oak Mode", 11, 0),
+        rate(treeFarm, "minecraft:stick", 1_500, "Oak Mode", 11, 0),
+        rate(treeFarm, "minecraft:jungle_log", 46_300, "Jungle Mode", 14, 1),
+        rate(treeFarm, "minecraft:stick", 1_580, "Jungle Mode", 14, 1),
+    )
+    private val stickProducers = treeProducers + producer("minecraft:stick", treeFarm, "Tree Farm")
+
+    @Test
+    fun `an item rides along on a mode the plan already runs, rather than starting a faster one`() {
+        // Decided 2026-10-09: 1,000 Stick come out of the hour of Oak Mode the Oak Log needs anyway;
+        // switching to Jungle Mode for them, at 1,580/hr, would add 38 minutes for nothing.
+        val lines = listOf(line("minecraft:oak_log", 48_000), line("minecraft:stick", 1_000))
+
+        val run = FarmRuns.derive(lines, stickProducers, stickRates).single()
+
+        assertEquals(listOf("Oak Mode"), run.modes.map { it.modeName })
+        assertEquals(1.0, assertNotNull(run.hoursLeft), 0.001)
+    }
+
+    @Test
+    fun `an item starts its own faster mode when riding along would take longer`() {
+        // Oak Mode is already chosen for the hour of Oak Log. At 100/hr there, 1,000 Stick would
+        // stretch it to 10 hours; Jungle Mode makes them in 38 minutes.
+        val rates = listOf(
+            rate(treeFarm, "minecraft:oak_log", 48_000, "Oak Mode", 11, 0),
+            rate(treeFarm, "minecraft:stick", 100, "Oak Mode", 11, 0),
+            rate(treeFarm, "minecraft:stick", 1_580, "Jungle Mode", 14, 1),
+        )
+        val lines = listOf(line("minecraft:oak_log", 48_000), line("minecraft:stick", 1_000))
+
+        val run = FarmRuns.derive(lines, stickProducers, rates).single()
+
+        assertEquals(listOf("Oak Mode", "Jungle Mode"), run.modes.map { it.modeName })
+        assertEquals(1.0 + 1_000.0 / 1_580, assertNotNull(run.hoursLeft), 0.001)
+    }
+
     @Test
     fun `items one mode makes share its time, the longer one, and the item that sets it is named`() {
         val lines = listOf(

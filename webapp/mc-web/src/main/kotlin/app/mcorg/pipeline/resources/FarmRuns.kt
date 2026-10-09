@@ -107,43 +107,91 @@ object FarmRuns {
      * @param lines the plan's farm-supplied lines; a line no farm in [producers] makes is left out.
      * @param producers the farm that supplies each item, from [ProjectSupply.producers] over the
      *   rows the plan was folded from, so the run names the same farm as the plan.
-     * @param rates every mode's rates for those farms. Within a farm, an item goes to its best-rate
-     *   mode; between equal rates, to the mode listed first.
+     * @param rates every mode's rates for those farms; see [assignModes] for which mode an item goes to.
      */
     fun derive(
         lines: List<SuppliedLine>,
         producers: Map<String, FarmSupplyRow>,
         rates: List<FarmModeRate>,
     ): List<FarmRun> {
-        val ratesByFarmItem = rates.groupBy { it.projectId to it.itemId }
-        val assigned = lines.mapNotNull { line ->
-            val producer = producers[line.itemId] ?: return@mapNotNull null
-            val mode = ratesByFarmItem[producer.projectId to line.itemId]
-                ?.sortedWith(compareByDescending<FarmModeRate> { it.ratePerHour }.thenBy { it.modePosition })
-                ?.first()
-                ?: FarmModeRate(producer.projectId, null, null, 0, line.itemId, producer.ratePerHour)
-            Triple(producer, mode, line)
-        }
-        return assigned
-            .groupBy { (producer, _, _) -> producer.projectId }
+        val ratesByFarm = rates.groupBy { it.projectId }
+        return lines
+            .mapNotNull { line -> producers[line.itemId]?.let { it to line } }
+            .groupBy { (producer, _) -> producer.projectId }
             .map { (projectId, entries) ->
-                val modes = entries
-                    .groupBy { (_, mode, _) -> mode.modeId }
-                    .map { (modeId, inMode) ->
-                        val mode = inMode.first().second
-                        ModeRun(
-                            modeId = modeId,
-                            modeName = mode.modeName,
-                            modePosition = mode.modePosition,
-                            items = inMode
-                                .map { (_, rate, line) -> ItemRun(line, rate.ratePerHour) }
-                                .sortedByDescending { it.line.quantity },
-                        )
-                    }
-                    .sortedBy { it.modePosition }
+                // A farm whose rows carry no mode at all is still one run, at the rate supply read.
+                val supplyRates = entries.associate { (producer, line) -> line.itemId to producer.ratePerHour }
+                val modes = assignModes(entries.map { it.second }, ratesByFarm[projectId].orEmpty(), projectId, supplyRates)
                 FarmRun(projectId = projectId, projectName = entries.first().first.projectName, modes = modes)
             }
             .sortedBy { it.projectName }
+    }
+
+    /**
+     * Which mode each of one farm's lines comes from (decided 2026-10-09, on MCO-603's review).
+     *
+     * An item rides along on a mode the plan already runs, rather than starting a faster one: the
+     * sticks a tree farm's Oak Mode makes come out of the hour the Oak Log needs anyway, and switching
+     * to Jungle Mode for them would add its own run for nothing. So lines are taken longest first,
+     * each at its fastest mode's time, and each goes where it adds least: into a mode already chosen
+     * (stretching it only past its current time), or into its own fastest mode as a new run. A tie
+     * stays in a mode already chosen, so the plan asks for as few switches as it can.
+     *
+     * Greedy, and not always the least total time — a farm has a handful of modes, and the case it
+     * gets wrong needs a large line that a slower mode could also absorb. A line no mode has a
+     * measured rate for goes to a chosen mode that makes it, else to the first mode listed.
+     */
+    private fun assignModes(
+        lines: List<SuppliedLine>,
+        farmRates: List<FarmModeRate>,
+        projectId: Int,
+        supplyRates: Map<String, Int>,
+    ): List<ModeRun> {
+        val byItem = farmRates.groupBy { it.itemId }
+        fun optionsFor(line: SuppliedLine): List<FarmModeRate> =
+            byItem[line.itemId]
+                ?.sortedWith(compareByDescending<FarmModeRate> { it.ratePerHour }.thenBy { it.modePosition })
+                ?: listOf(FarmModeRate(projectId, null, null, 0, line.itemId, supplyRates[line.itemId] ?: 0))
+        fun hours(line: SuppliedLine, rate: FarmModeRate): Double? =
+            if (rate.ratePerHour > 0) line.left.toDouble() / rate.ratePerHour else null
+
+        val chosen = linkedMapOf<Int?, MutableList<Pair<SuppliedLine, FarmModeRate>>>()
+        fun modeHours(modeId: Int?): Double =
+            chosen[modeId].orEmpty().mapNotNull { (line, rate) -> hours(line, rate) }.maxOrNull() ?: 0.0
+
+        val longestFirst = lines.sortedByDescending { line -> hours(line, optionsFor(line).first()) ?: -1.0 }
+        for (line in longestFirst) {
+            val options = optionsFor(line)
+            val fastest = options.first()
+            val alreadyRunning = options.filter { it.modeId in chosen }
+            val pick = if (hours(line, fastest) == null) {
+                alreadyRunning.firstOrNull() ?: fastest
+            } else {
+                val stretch = alreadyRunning
+                    .filter { it.ratePerHour > 0 }
+                    .map { rate -> rate to ((hours(line, rate)!! - modeHours(rate.modeId)).coerceAtLeast(0.0)) }
+                    .minByOrNull { it.second }
+                val ownRun = if (fastest.modeId in chosen) {
+                    (hours(line, fastest)!! - modeHours(fastest.modeId)).coerceAtLeast(0.0)
+                } else {
+                    hours(line, fastest)!!
+                }
+                if (stretch != null && stretch.second <= ownRun) stretch.first else fastest
+            }
+            chosen.getOrPut(pick.modeId) { mutableListOf() }.add(line to pick)
+        }
+
+        return chosen.map { (modeId, entries) ->
+            val mode = entries.first().second
+            ModeRun(
+                modeId = modeId,
+                modeName = mode.modeName,
+                modePosition = mode.modePosition,
+                items = entries
+                    .map { (line, rate) -> ItemRun(line, rate.ratePerHour) }
+                    .sortedByDescending { it.line.quantity },
+            )
+        }.sortedBy { it.modePosition }
     }
 
     /**
