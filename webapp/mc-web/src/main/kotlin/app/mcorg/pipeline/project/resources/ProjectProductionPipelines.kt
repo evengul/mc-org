@@ -233,11 +233,12 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
         val input = ValidateProjectProductionInputStep(validItems).run(parameters)
         val modeId = ValidateProductionModeStep(projectId).run(parameters)
         UpsertProjectProductionStep(projectId, modeId).run(input)
-        // A new produced item on an operational farm is new world supply (MCO-404). Editing a
-        // rate is not — V1 supply is unbounded (MCO-287), so the rate never reached the plan —
-        // but telling the two apart costs a read of what was there before, and the invalidation
-        // is one statement against an action taken by hand. After the upsert is safe on its own
-        // transaction: the bump can only come after the change, never before it.
+        // A new produced item on an operational farm is new world supply (MCO-404). A rate edit
+        // changes no supply — V1 supply is unbounded (MCO-287) — but it can change which farm
+        // supplies an item when several make it (MCO-603), and so the farm a plan names. The
+        // invalidation reaches every plan touching this farm's items, including those naming
+        // another farm. After the upsert is safe on its own transaction: the bump can only come
+        // after the change, never before it.
         if (isOperational(projectId)) invalidateDemandSuppliedBy(worldId, projectId)
         GetProductionsViewStep.run(projectId).copy(lastModeId = modeId)
     }

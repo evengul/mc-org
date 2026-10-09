@@ -147,7 +147,12 @@ object FarmRuns {
     }
 
     /**
-     * Each farm's run for one plan, loading what [derive] needs.
+     * Each farm's run for the plan the project page shows, loading what [derive] needs.
+     *
+     * The world's running farms only: that plan is derived without assumed farms, and a line a
+     * `manual` pick or a project link took from farm supply is not a farm-supplied line, so it is
+     * never in [lines]. A plan derived as if unbuilt farms were finished (the roadmap's promised
+     * split) is not one this reads.
      *
      * @param lines the plan's farm-supplied lines, with what is logged against each.
      */
@@ -161,6 +166,7 @@ object FarmRuns {
         }
         val needed = lines.map { it.itemId }.toSet()
         val producers = ProjectSupply.producers(farms.filter { it.itemId in needed })
+        if (producers.isEmpty()) return Result.success(emptyList())
         val rates = when (val r = GetFarmModeRatesStep.process(producers.values.map { it.projectId }.toSet())) {
             is Result.Success -> r.value
             is Result.Failure -> return r
