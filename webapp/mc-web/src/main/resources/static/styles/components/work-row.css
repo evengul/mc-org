@@ -552,9 +552,38 @@
 }
 
 /* Width only where the section has chest counts — otherwise every project without a tagged
-   container would give up name space to an empty column. */
+   container would give up name space to an empty column. 172px holds "from 12 chests · 59m ago"
+   (MCO-540) without running into the badge column. */
 .work-panel--chests .work-row:not(.work-row--working) {
-    grid-template-columns: 20px minmax(0, 1fr) 190px 130px 150px auto 96px;
+    grid-template-columns: 20px minmax(0, 1fr) 190px 130px 172px auto 96px;
+}
+
+/* Below the width those seven columns need, the chests cell goes under the name instead of taking
+   a column from it. A storage-tracked project fills it on every row, so a column would leave
+   the names 0px wide at 768 (MCO-540). */
+@media (max-width: 960px) {
+    .work-panel--chests .work-row:not(.work-row--working) {
+        grid-template-columns: 20px minmax(0, 1fr) 190px 130px auto 96px;
+        height: auto;
+        min-height: 40px;
+        padding-block: var(--space-2);
+        row-gap: 2px;
+    }
+
+    .work-panel--chests .work-row__chests {
+        grid-row: 2;
+        grid-column: 2 / -1;
+        justify-content: flex-start;
+    }
+}
+
+/* And on a phone, the one-handed grid again, with the chests line under the name. */
+@media (max-width: 640px) {
+    .work-panel--chests .work-row:not(.work-row--working) {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        padding: var(--space-2) 12px var(--space-2) 6px;
+        min-height: 56px;
+    }
 }
 
 /* The always-present cell. Empty on a row with no measurement, which is what keeps the columns
@@ -571,13 +600,28 @@
     flex: 0 0 auto;
 }
 
-/* A storage-tracked row's tick and chips show done-ness but write nothing (MCO-540). */
-.work-row__tick:disabled,
-.small-job:disabled {
+/* A storage-tracked row's tick and chips show done-ness but write nothing (MCO-540). The dashed
+   box is the read-only cue: shape, not colour, and visible without a pointer. */
+.work-row__tick:disabled {
     cursor: default;
+    border-style: dashed;
+    border-color: var(--border);
+    background: transparent;
 }
 
-.work-row__tick:disabled:hover,
+.work-row__tick:disabled:hover {
+    border-color: var(--border);
+}
+
+.small-job:disabled {
+    cursor: default;
+    color: var(--text-primary);
+}
+
 .small-job:disabled:hover {
-    border-color: var(--border-strong);
+    border-color: var(--border);
+}
+
+.small-job:disabled .small-job__tick {
+    border-style: dashed;
 }

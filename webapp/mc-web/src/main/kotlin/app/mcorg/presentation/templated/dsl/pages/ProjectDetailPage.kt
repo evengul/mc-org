@@ -184,7 +184,8 @@ private fun FlowContent.projectImportedFromIdea(project: Project, user: TokenPro
 private fun FlowContent.projectSettingsLink(project: Project) {
     a(classes = "btn btn--secondary btn--sm project-detail__settings") {
         href = Link.Worlds.world(project.worldId).project(project.id).settings().to
-        +"⚙ Settings"
+        span { attributes["aria-hidden"] = "true"; +"⚙ " }
+        +"Settings"
     }
 }
 
@@ -646,7 +647,18 @@ fun FlowContent.gatheringPlanSections(
 
         // Once for the page, not once per section. GATHER and SMELT both carrying chest counts is
         // normal, and repeating the sentence does not make it two different facts.
-        if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
+        val followed = measurements.followed
+        if (followed != null) {
+            // The only place the mode is said in words a touch screen can read: the rows' own
+            // explanation is a title, and titles do not show without a pointer (MCO-540).
+            p("work-panel__provenance work-panel__provenance--followed") {
+                +"Counted from ${if (followed.containerCount == 1) "1 tagged chest" else "${followed.containerCount} tagged chests"}"
+                +" — counts can't be typed here. "
+                a(href = Link.Worlds.world(project.worldId).project(project.id).settings().to) {
+                    +"Change in Settings →"
+                }
+            }
+        } else if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
             p("work-panel__provenance") {
                 +"Chest counts come from containers tagged in game with the Seam mod."
             }
@@ -769,7 +781,9 @@ private fun FlowContent.smallJobsStrip(worldId: Int, projectId: Int, jobs: List<
     val hidden = jobs.size - shown.size
 
     div("small-jobs") {
-        span("small-jobs__label") { +"Small jobs · tick off as you go" }
+        // "Tick off as you go" is an instruction a tracked project's chips cannot follow.
+        val followed = jobs.firstOrNull()?.followed != null
+        span("small-jobs__label") { +(if (followed) "Small jobs · counted from chests" else "Small jobs · tick off as you go") }
         div("small-jobs__chips") {
             shown.forEach { smallJobChip(worldId, projectId, it) }
             if (hidden > 0) {

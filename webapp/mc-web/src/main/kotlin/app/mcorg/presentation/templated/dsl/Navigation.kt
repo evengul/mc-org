@@ -82,7 +82,7 @@ fun FlowContent.worldBar(
 enum class WorldTab(val label: String, val path: String) {
     ROADMAP("Roadmap", "/roadmap"),
     PROJECTS("Projects", "/projects"),
-    SETTINGS("⚙ Settings", "/settings"),
+    SETTINGS("Settings", "/settings"),
 }
 
 fun FlowContent.appHeader(

@@ -368,7 +368,7 @@ class StorageTrackedIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        assertContains(body, "Chest counts")
+        assertContains(body, "Chest Counts")
         assertContains(body, "Count from chests")
         // Delete is admin-only at the route; the page does not offer what the route will refuse.
         assertFalse(body.contains("Delete project"), "a member was offered the delete")

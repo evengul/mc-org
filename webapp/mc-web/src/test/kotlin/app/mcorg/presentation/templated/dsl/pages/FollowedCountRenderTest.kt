@@ -46,7 +46,7 @@ class FollowedCountRenderTest {
         assertFalse(html.contains("/adopt"), html)
         assertContains(html, "from 4 chests")
         // Says why it cannot be typed, and where to change that — not only that it cannot.
-        assertContains(html, "Chest counts")
+        assertContains(html, "Chest Counts")
     }
 
     @Test

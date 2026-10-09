@@ -142,7 +142,7 @@ fun FlowContent.followedLabel(measured: MeasuredStock?, followed: FollowedChests
 
 internal const val FOLLOWED_TITLE =
     "Counted from tagged chests. This project's counts follow its chests, so they can't be typed. " +
-        "Change it under the project's Settings → Chest counts."
+        "Change it under the project's Settings → Chest Counts."
 
 /** "from 4 chests · 2m ago", or "in none of 4 chests" for an item the chests do not hold. */
 internal fun followedText(measured: MeasuredStock?, followed: FollowedChests): String =

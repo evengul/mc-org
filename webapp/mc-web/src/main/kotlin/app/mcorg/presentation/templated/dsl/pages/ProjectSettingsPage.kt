@@ -70,7 +70,7 @@ fun projectSettingsPage(user: TokenProfile, data: ProjectSettingsData): String =
             pageHeading(title = "Project Settings", subtitle = project.name)
             div("settings-page__sections") {
                 section(
-                    title = "Chest counts",
+                    title = "Chest Counts",
                     subtitle = "Where this project's gathered counts come from",
                     card = true,
                 ) {
@@ -133,7 +133,7 @@ private fun FlowContent.storageTrackingSection(worldId: Int, projectId: Int, tra
             p("project-settings__state") {
                 strong { +"Counted from chests." }
                 +" Every count on this project follows its ${chests(tracking.readableContainers)}; "
-                +"an item in none of them counts as 0. Counts cannot be typed while this is on."
+                +"an item in none of them counts as 0. Counts can't be typed while they come from chests."
             }
             p("settings-form__helper") {
                 +"Turning this off keeps every count where it is, and lets you type them again."
