@@ -29,11 +29,20 @@ data class AssumedFarmSuppliesInput(
     val excludeProjectId: Int,
 )
 
-/** One produced item of an operational project in the world. */
+/**
+ * One produced item of a farm project.
+ *
+ * @param ratePerHour the farm's best rate for the item over all its modes. 0 means unmeasured: an
+ *   import writes an unmeasured rate as 0, which also makes it the slowest (MCO-603).
+ * @param assumed the row comes from [GetAssumedFarmSuppliesStep], a farm treated as built although
+ *   it is not. [ProjectSupply] prefers a running farm over an assumed one whatever their rates.
+ */
 data class FarmSupplyRow(
     val itemId: String,
     val projectId: Int,
     val projectName: String,
+    val ratePerHour: Int = 0,
+    val assumed: Boolean = false,
 )
 
 /**
@@ -45,20 +54,24 @@ data class FarmSupplyRow(
  * DECOMMISSIONED projects never supply (MCO-541).
  *
  * Rows are ordered by project name so callers that reduce multiple producers of the
- * same item to a single [app.mcorg.engine.plan.SupplySource.Farm] pick deterministically.
+ * same item to a single [app.mcorg.engine.plan.SupplySource.Farm] pick deterministically: the
+ * fastest wins ([ProjectSupply]), and between equal rates this order decides. One row per farm and
+ * item, at the farm's best rate over its modes.
  */
 val GetWorldFarmSuppliesStep = DatabaseSteps.query<WorldFarmSuppliesInput, List<FarmSupplyRow>>(
     sql = SafeSQL.select("""
                 SELECT
                     pp.item_id,
                     p.id AS project_id,
-                    p.name AS project_name
-                FROM project_supplied_items pp
+                    p.name AS project_name,
+                    MAX(pp.rate_per_hour) AS rate_per_hour
+                FROM project_productions pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.world_id = ?
                   AND p.state = ?
                   AND p.id <> ?
-                ORDER BY p.name, pp.item_id
+                GROUP BY pp.item_id, p.id, p.name
+                ORDER BY p.name, p.id, pp.item_id
             """),
     parameterSetter = { statement, input ->
         statement.setInt(1, input.worldId)
@@ -80,21 +93,23 @@ val GetAssumedFarmSuppliesStep = DatabaseSteps.query<AssumedFarmSuppliesInput, L
                 SELECT
                     pp.item_id,
                     p.id AS project_id,
-                    p.name AS project_name
-                FROM project_supplied_items pp
+                    p.name AS project_name,
+                    MAX(pp.rate_per_hour) AS rate_per_hour
+                FROM project_productions pp
                 JOIN projects p ON p.id = pp.project_id
                 WHERE p.id = ANY(?)
                   AND p.id <> ?
-                ORDER BY p.name, pp.item_id
+                GROUP BY pp.item_id, p.id, p.name
+                ORDER BY p.name, p.id, pp.item_id
             """),
     parameterSetter = { statement, input ->
         statement.setArray(1, statement.connection.createArrayOf("integer", input.projectIds.toTypedArray()))
         statement.setInt(2, input.excludeProjectId)
     },
-    resultMapper = { it.toFarmSupplyRows() }
+    resultMapper = { it.toFarmSupplyRows(assumed = true) }
 )
 
-private fun ResultSet.toFarmSupplyRows(): List<FarmSupplyRow> {
+private fun ResultSet.toFarmSupplyRows(assumed: Boolean = false): List<FarmSupplyRow> {
     val rows = mutableListOf<FarmSupplyRow>()
     while (next()) {
         rows.add(
@@ -102,6 +117,8 @@ private fun ResultSet.toFarmSupplyRows(): List<FarmSupplyRow> {
                 itemId = getString("item_id"),
                 projectId = getInt("project_id"),
                 projectName = getString("project_name"),
+                ratePerHour = getInt("rate_per_hour"),
+                assumed = assumed,
             )
         )
     }

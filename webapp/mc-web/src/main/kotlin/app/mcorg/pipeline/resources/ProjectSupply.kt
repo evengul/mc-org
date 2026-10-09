@@ -44,10 +44,8 @@ object ProjectSupply {
             .filter { it.sourceType == ResourceSourceType.MANUAL }
             .map { it.itemId }
             .toSet()
-        val farmSupplied: Map<String, SupplySource> = farms
-            .filter { it.itemId !in manualItems }
-            .groupBy { it.itemId }
-            .mapValues { (_, producers) -> SupplySource.Farm(producers.first().projectName) }
+        val farmSupplied: Map<String, SupplySource> = producers(farms.filter { it.itemId !in manualItems })
+            .mapValues { (_, producer) -> SupplySource.Farm(producer.projectName) }
         val linkedSupplied: Map<String, SupplySource> = activeItems
             .mapNotNull { item ->
                 val (solvedId, solvedName) = item.solvedByProject ?: return@mapNotNull null
@@ -56,6 +54,23 @@ object ProjectSupply {
             .toMap()
         return farmSupplied + linkedSupplied
     }
+
+    /**
+     * The one farm that supplies each item, when several make it (MCO-603).
+     *
+     * A running farm before an assumed one, because an item a running farm makes is supplied
+     * whether or not the assumed farm is ever built — the roadmap's "promised" split must not
+     * count it. Then the fastest, so the plan names the farm that finishes soonest; an unmeasured
+     * rate is 0 and loses to any measured one. Between equal rates the rows' own order decides:
+     * the queries sort by project name, and a stable sort keeps that, so a tie follows the
+     * database's collation — the one `GetFarmSupplyEdgesStep` compares names with, which is what
+     * keeps the plan and the roadmap naming the same farm.
+     */
+    fun producers(farms: List<FarmSupplyRow>): Map<String, FarmSupplyRow> =
+        farms
+            .sortedWith(compareBy<FarmSupplyRow> { it.assumed }.thenByDescending { it.ratePerHour })
+            .groupBy { it.itemId }
+            .mapValues { (_, producers) -> producers.first() }
 
     /**
      * Load the rows [fold] needs and fold them — for callers that are not already holding them.

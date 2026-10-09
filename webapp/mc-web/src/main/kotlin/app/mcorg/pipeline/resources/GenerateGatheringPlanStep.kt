@@ -212,7 +212,7 @@ object GenerateGatheringPlanStep : Step<GatheringPlanInput, AppFailure, Gatherin
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
-        // Appended after the running farms, so an item both make keeps the running farm's label.
+        // Marked assumed, so an item both make keeps the running farm's label (ProjectSupply.producers).
         val assumed = if (input.assumeBuilt.isEmpty()) {
             emptyList()
         } else {

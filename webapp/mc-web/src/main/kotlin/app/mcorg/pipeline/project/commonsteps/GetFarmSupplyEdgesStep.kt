@@ -88,6 +88,14 @@ import app.mcorg.pipeline.failure.AppFailure
  * here rather than drawn as a producer that is not running: an unfinished producer *blocks*, and
  * nobody is waiting on a farm that will not be restarted.
  *
+ * ## One running farm per item (MCO-603)
+ *
+ * Two running farms making one item used to be drawn as two edges, each with the full quantity,
+ * while the plan names only one of them — so Forever world showed Ender ender feeding 6 Ender Pearl
+ * that the plan said came from Bartering setup. The plan's pick is the fastest farm
+ * (`ProjectSupply.producers`), and this query drops the other running farms' edges in the same
+ * order. A farm still being built keeps its edge, `superseded`: it really will make the item.
+ *
  * ## Nor is a farm gathered instead (MCO-574)
  *
  * `gather instead ▸` takes a farm still to build out of the plan without cancelling it. It is
@@ -151,6 +159,37 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                         AND rg.item_id = d.item_id
                         AND rg.solved_by_project_id IS NOT NULL
                   )
+                  -- Of two running farms making the item, only the one the plan names supplies it
+                  -- (MCO-603): the higher rate, then the name, then the id — ProjectSupply's order.
+                  -- A rival counts only where its own edge is drawn, or setting it aside by hand
+                  -- would leave the item with no producer at all.
+                  AND NOT (
+                      prod.state = ?
+                      AND EXISTS (
+                          SELECT 1
+                          FROM project_productions rival_pp
+                          JOIN projects rival ON rival.id = rival_pp.project_id
+                          WHERE rival_pp.item_id = d.item_id
+                            AND rival.world_id = pc.world_id
+                            AND rival.state = ?
+                            AND rival.id NOT IN (prod.id, d.project_id)
+                            AND NOT EXISTS (
+                                SELECT 1 FROM roadmap_cycle_order rco
+                                WHERE rco.consumer_project_id = d.project_id
+                                  AND rco.producer_project_id = rival.id
+                            )
+                            AND NOT EXISTS (
+                                SELECT 1 FROM project_gather_instead g WHERE g.project_id = rival.id
+                            )
+                          GROUP BY rival.id, rival.name
+                          HAVING ROW(-MAX(rival_pp.rate_per_hour), rival.name, rival.id) < ROW(
+                              -(SELECT MAX(own.rate_per_hour) FROM project_productions own
+                                WHERE own.project_id = prod.id AND own.item_id = d.item_id),
+                              prod.name,
+                              prod.id
+                          )
+                      )
+                  )
             """.trimIndent()),
             // Ordinals follow the text of the whole statement, so the superseded EXISTS in the
             // SELECT list takes 1 and everything in the WHERE clause shifts up by one.
@@ -161,6 +200,8 @@ data class GetFarmSupplyEdgesStep(val worldId: Int) : Step<Unit, AppFailure.Data
                 statement.setString(4, ProjectState.CANCELLED.name)
                 statement.setString(5, ProjectState.ARCHIVED.name)
                 statement.setString(6, ProjectState.DECOMMISSIONED.name)
+                statement.setString(7, ProjectState.DONE.name)
+                statement.setString(8, ProjectState.DONE.name)
             },
             resultMapper = { resultSet ->
                 buildList {
