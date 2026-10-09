@@ -104,6 +104,24 @@ class AdoptMeasurementIT : WithUser() {
     }
 
     @Test
+    fun `adopting an item that has two target rows writes it once, capped at their sum`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("adopt-two-rows")
+        val projectId = createProject(worldId)
+        // Adding an item a second time by hand makes a second row; nothing makes an item unique
+        // within a project. Joined row by row, the adopt wrote the one progress row twice in one
+        // statement, which Postgres refuses — so adopting failed outright for that item.
+        insertGathering(projectId, iron, required = 64)
+        insertGathering(projectId, iron, required = 64)
+        val reporterToken = mintReporterToken(worldId)
+        push(reporterToken, tagContainer(worldId, projectId, 0, 64, 0), iron to 100L)
+
+        adopt(projectId, iron)
+
+        assertEquals(100, collectedOf(projectId, iron))
+    }
+
+    @Test
     fun `adopting one item leaves the others alone`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val worldId = createWorld("adopt-scope")

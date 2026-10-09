@@ -144,9 +144,9 @@ data class AdoptMeasurementInput(val projectId: Int, val itemId: String)
 /**
  * Adopt one measurement: `collected := measured`, stamped as the mod's.
  *
- * **The only path by which evidence becomes progress.** A sweep never does this on its own —
- * doing it automatically once the chests are trusted is MCO-540's, kept separate so this issue is
- * shippable and safe by itself.
+ * **The only path by which evidence becomes progress** on a project that is not storage-tracked. A
+ * sweep never does this on its own; following the chests automatically, once someone trusts them,
+ * is [FollowMeasurementStep]'s (MCO-540).
  *
  * Capped at `required` the way every other progress write is, and driven off the measurement row
  * rather than a number from the browser: a client that could post its own `collected` here would
@@ -158,8 +158,9 @@ object AdoptMeasurementStep : Step<AdoptMeasurementInput, AppFailure.DatabaseErr
             sql = ADOPT_SQL,
             parameterSetter = { st, i ->
                 st.setInt(1, i.projectId)
-                st.setString(2, i.itemId)
+                st.setInt(2, i.projectId)
                 st.setString(3, i.itemId)
+                st.setString(4, i.itemId)
             },
         ).process(input)
 }
@@ -181,8 +182,9 @@ object AdoptAllMeasurementsStep : Step<Int, AppFailure.DatabaseError, Int> {
             // SafeSqlSourceScanTest exists to stop.
             parameterSetter = { st, projectId ->
                 st.setInt(1, projectId)
-                st.setNull(2, java.sql.Types.VARCHAR)
+                st.setInt(2, projectId)
                 st.setNull(3, java.sql.Types.VARCHAR)
+                st.setNull(4, java.sql.Types.VARCHAR)
             },
         ).process(input)
 }
@@ -193,18 +195,25 @@ object AdoptAllMeasurementsStep : Step<Int, AppFailure.DatabaseError, Int> {
  * `LEAST(measured, required)` matches every other write to `collected`; where there is no
  * `resource_gathering` row — a plan item rather than a target — there is no ceiling to clamp to,
  * and the measurement stands as it is.
+ *
+ * Targets are summed per item: nothing makes an item unique within a project, and joining two
+ * target rows for one item made the upsert write one progress row twice, which Postgres refuses.
  */
 private val ADOPT_SQL = SafeSQL.insert(
     """
     INSERT INTO resource_gathering_progress (project_id, item_id, collected, updated_at, progress_source)
     SELECT m.project_id,
            m.item_id,
-           LEAST(m.measured, COALESCE(rg.required::bigint, m.measured))::int,
+           LEAST(m.measured, COALESCE(rg.required, m.measured))::int,
            CURRENT_TIMESTAMP,
            'mod'
     FROM resource_gathering_measurement m
-    LEFT JOIN resource_gathering rg
-           ON rg.project_id = m.project_id AND rg.item_id = m.item_id
+    LEFT JOIN (
+        SELECT item_id, SUM(required)::bigint AS required
+        FROM resource_gathering
+        WHERE project_id = ?
+        GROUP BY item_id
+    ) rg ON rg.item_id = m.item_id
     WHERE m.project_id = ?
       AND (CAST(? AS text) IS NULL OR m.item_id = CAST(? AS text))
     ON CONFLICT (project_id, item_id) DO UPDATE

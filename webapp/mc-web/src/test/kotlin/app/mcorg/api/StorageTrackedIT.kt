@@ -88,6 +88,21 @@ class StorageTrackedIT : WithUser() {
     }
 
     @Test
+    fun `a plan item counted by hand and in no chest reads 0 too`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val fixture = trackedProject("plan-item")
+        // A plan item has a progress row and no target row — the work list counts it by item id.
+        // It is in neither the targets nor the measurement, so only its own progress row names it.
+        val stick = "minecraft:stick"
+        setCollected(fixture.projectId, stick, 30)
+        trackOn(fixture.projectId)
+
+        push(fixture.reporterToken, fixture.chest, iron to 12L)
+
+        assertEquals(0, collectedOf(fixture.projectId, stick))
+    }
+
+    @Test
     fun `an emptied chest takes a followed count back to 0`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val fixture = trackedProject("emptied")
