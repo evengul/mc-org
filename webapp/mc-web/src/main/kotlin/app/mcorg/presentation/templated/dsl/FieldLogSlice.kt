@@ -4,6 +4,7 @@ import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import kotlinx.html.button
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
@@ -51,7 +52,7 @@ fun FlowContent.fieldLogSlice(
     project: ProjectListItem,
     items: List<ResourceGatheringItem>,
     blockedBy: List<ProjectResourceEdge>,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val blockedProducerIds = blockedBy.map { it.producerId }.toSet()
 
@@ -130,7 +131,7 @@ fun FlowContent.fieldLogSliceRows(
     worldId: Int,
     projectId: Int,
     rows: List<ResourceGatheringItem>,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     div("fl-slice__rows") {
         attributes["id"] = "fl-slice-rows-$projectId"
@@ -175,7 +176,7 @@ fun fieldLogSliceRowsFragment(
     worldId: Int,
     projectId: Int,
     rows: List<ResourceGatheringItem>,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String =
     kotlinx.html.stream.createHTML().div {
         fieldLogSliceRows(worldId, projectId, rows, measurements)

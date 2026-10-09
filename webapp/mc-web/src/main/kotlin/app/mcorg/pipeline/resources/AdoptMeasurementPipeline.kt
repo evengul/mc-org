@@ -105,7 +105,7 @@ private class AdoptedResourceStep(private val projectId: Int) :
             is Result.Success -> r.value
             is Result.Failure -> return r
         }
-        val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty()
+        val measurements = (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
         return Result.success(
             AdoptedResource(
                 item = item,

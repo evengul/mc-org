@@ -4,6 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.button
@@ -53,7 +54,7 @@ fun FlowContent.resumeHero(
     data: ResumeHeroData,
     feeds: List<ProjectResourceEdge> = emptyList(),
     sort: ResumeSort = ResumeSort.NEEDED,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val project = data.project
     div("fl-hero") {
@@ -113,7 +114,7 @@ fun FlowContent.resumeSortBody(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     div("fl-hero__toolbar") {
         span("section-label") { +"Resources" }
@@ -135,7 +136,7 @@ fun FlowContent.resumeHeroRows(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val sorted = sortResumeResources(data.resources, sort)
     div("fl-hero__rows") {
@@ -162,7 +163,7 @@ fun resumeHeroRowsFragment(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String =
     kotlinx.html.stream.createHTML().div {
         resumeSortBody(worldId, data, sort, measurements)

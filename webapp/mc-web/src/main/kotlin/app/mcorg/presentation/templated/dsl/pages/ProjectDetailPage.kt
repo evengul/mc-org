@@ -38,6 +38,7 @@ import app.mcorg.presentation.hxTarget
 import app.mcorg.presentation.hxTrigger
 import app.mcorg.presentation.templated.dsl.Link
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.TabItem
 import app.mcorg.presentation.templated.dsl.TabVariant
 import app.mcorg.presentation.templated.dsl.addTaskInline
@@ -79,7 +80,7 @@ fun projectDetailPage(
     plan: GatheringPlan? = null,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     productions: ProductionsView = ProductionsView(emptyList()),
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     drillTarget: TargetTree? = null,
@@ -210,7 +211,7 @@ private fun FlowContent.gatheringOverallProgress(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val (totalRequired, totalCollected) = overallProgressTotals(resources, plan, progressMap)
 
@@ -302,7 +303,7 @@ fun FlowContent.gatheringPlannerContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -420,7 +421,7 @@ private fun FlowContent.listLensContent(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -615,7 +616,7 @@ fun FlowContent.gatheringPlanSections(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),
@@ -738,7 +739,7 @@ private fun FlowContent.workSection(
     feedsLabels: Map<String, FeedsLabel>,
     farmScaleIds: Set<String>,
     planTotal: Long,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val split = ActivitySectionLayout.of(ordered, planTotal)
     fun stateOf(activity: Activity) =
@@ -1831,7 +1832,7 @@ fun gatheringPlannerFragment(
     plan: GatheringPlan?,
     progressMap: Map<String, Int> = emptyMap(),
     /** What tagged chests hold, by item id (MCO-539). Empty where nothing is tagged. */
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
     pendingFarms: List<PendingFarmSupply> = emptyList(),
     farmScaleThreshold: Int = World.DEFAULT_FARM_SCALE_THRESHOLD,
     farmSuggestions: List<FarmSuggestion> = emptyList(),

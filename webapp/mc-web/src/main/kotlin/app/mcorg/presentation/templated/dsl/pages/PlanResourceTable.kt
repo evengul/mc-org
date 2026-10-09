@@ -23,6 +23,7 @@ import kotlinx.html.input
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.templated.dsl.driftChip
 import kotlinx.html.summary
 import kotlinx.html.table
@@ -139,7 +140,7 @@ fun FlowContent.planResourceTable(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
@@ -156,7 +157,7 @@ fun planResourceTableFragment(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String = createHTML().div {
     val layout = ResourceListLayout.of(resources, plan)
     table("data-table plan-resource-table") {
@@ -190,7 +191,7 @@ private fun TABLE.planResourceGroups(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     layout.groups.forEach { group ->
         val isUnplanned = group.group == null
@@ -236,7 +237,7 @@ private fun FlowContent.planFoldedTail(
     worldId: Int,
     projectId: Int,
     layout: ResourceListLayout.Layout,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     if (layout.folded.isEmpty()) return
     details("plan-resource-fold") {
@@ -274,7 +275,7 @@ fun FlowContent.planResourcesArea(
     projectId: Int,
     resources: List<ResourceGatheringItem>,
     plan: GatheringPlan? = null,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     div {
         id = "plan-resources-area"

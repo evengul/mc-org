@@ -19,6 +19,7 @@ import kotlinx.html.input
 import kotlinx.html.label
 import kotlinx.html.span
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -118,7 +119,7 @@ internal fun workRowStateOf(
     nodeIngredients: Map<String, String> = emptyMap(),
     feedsLabels: Map<String, FeedsLabel> = emptyMap(),
     farmScaleIds: Set<String> = emptySet(),
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): WorkRowState {
     val need = activity.quantity
     val have = (progress[activity.item.id] ?: 0).toLong().coerceIn(0, maxOf(need, 0))
