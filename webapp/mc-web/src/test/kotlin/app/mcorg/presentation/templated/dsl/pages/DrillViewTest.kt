@@ -820,6 +820,39 @@ class DrillViewTest {
         assertContains(html, "Oak Planks")
     }
 
+    /**
+     * The "use this wood everywhere" box had one fixed id for every picker, on the assumption
+     * that only one is open at a time. Needs attention opens its top question on arrival
+     * (MCO-504), so a Choose on a second wood question puts two on the page — and then the
+     * second picker's options read the *first* box (`hx-include` takes the first match), and its
+     * label toggles the first box too. Unticking it in the picker you are using did nothing.
+     */
+    @Test
+    fun `two open wood pickers each read their own world-wood box`() {
+        val oak = Item("minecraft:oak_planks", "Oak Planks")
+        val spruce = Item("minecraft:spruce_planks", "Spruce Planks")
+        fun woodPicker(tagId: String) = nodePickerFragment(
+            1, 2, "minecraft:chest",
+            TargetTree(
+                item = MinecraftTag(tagId, "Any", listOf(oak, spruce)), quantityIfAlone = 1, craftsIfAlone = 1,
+                status = PlanNodeStatus.OPEN_TAG, source = null,
+            ),
+            null, null, null, origin = "list", offerWorldWood = true,
+        )
+        val page = woodPicker("#minecraft:planks") + woodPicker("#minecraft:wooden_slabs")
+
+        val boxIds = Regex("""<input[^>]*name="setWorldWood"[^>]*id="([^"]+)"|<input[^>]*id="([^"]+)"[^>]*name="setWorldWood"""")
+            .findAll(page).map { it.groupValues[1].ifEmpty { it.groupValues[2] } }.toList()
+        assertEquals(2, boxIds.size, page)
+        assertEquals(2, boxIds.toSet().size, "each picker needs its own box: $boxIds")
+
+        for ((picker, boxId) in listOf(woodPicker("#minecraft:planks"), woodPicker("#minecraft:wooden_slabs")).zip(boxIds)) {
+            assertContains(picker, "for=\"$boxId\"")
+            val includes = Regex("""hx-include="#([^"]+)"""").findAll(picker).map { it.groupValues[1] }.toSet()
+            assertEquals(setOf(boxId), includes, "options include their own picker's box")
+        }
+    }
+
     @Test
     fun `tag picker marks active member as selected`() {
         val oakPlanks = Item("minecraft:oak_planks", "Oak Planks")
