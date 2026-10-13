@@ -70,6 +70,8 @@ data class StorageTracking(
     val tracked: Boolean,
     val taggedContainers: Int,
     val readableContainers: Int,
+    /** Of [readableContainers], the tagged shulker boxes players are carrying (MCO-548). */
+    val carriedContainers: Int = 0,
 )
 
 /**
@@ -92,7 +94,8 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
                 """
                 SELECT p.storage_tracked,
                        COUNT(ct.id) AS tagged,
-                       COUNT(ct.id) FILTER (WHERE ct.state IN ('ok', 'in_transit')) AS readable
+                       COUNT(ct.id) FILTER (WHERE ct.state IN ('ok', 'in_transit')) AS readable,
+                       COUNT(ct.id) FILTER (WHERE ct.state = 'in_transit') AS carried
                 FROM projects p
                 LEFT JOIN container_tags ct ON ct.project_id = p.id
                 WHERE p.id = ?
@@ -106,6 +109,7 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
                         tracked = rs.getBoolean("storage_tracked"),
                         taggedContainers = rs.getInt("tagged"),
                         readableContainers = rs.getInt("readable"),
+                        carriedContainers = rs.getInt("carried"),
                     )
                 } else {
                     StorageTracking(tracked = false, taggedContainers = 0, readableContainers = 0)
@@ -118,13 +122,16 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
  * This project's measurements, by item id, and whether its counts follow them.
  *
  * Reads the materialised rollup, so it is one indexed query plus one for the setting — the project
- * page is already expensive and this must not be the thing that makes it worse.
+ * page is already expensive and this must not be the thing that makes it worse. Who is carrying a
+ * box is a third, and only runs when the setting's query has counted one: every counter press comes
+ * through here, and almost none of them is on a project with a box on the move.
  */
 object GetProjectMeasurementsStep : Step<Int, AppFailure.DatabaseError, ProjectMeasurements> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ProjectMeasurements> {
         val byItem = GetMeasurementsByItemStep.process(input).getOrElse { return Result.failure(it) }
         val tracking = GetStorageTrackingStep.process(input).getOrElse { return Result.failure(it) }
-        val carried = GetCarriedBoxesStep.process(input).getOrElse { return Result.failure(it) }
+        val carried = if (tracking.carriedContainers == 0) emptyList()
+        else GetCarriedBoxesStep.process(input).getOrElse { return Result.failure(it) }
         return Result.success(
             ProjectMeasurements(
                 byItem = byItem,
@@ -135,16 +142,23 @@ object GetProjectMeasurementsStep : Step<Int, AppFailure.DatabaseError, ProjectM
     }
 }
 
-/** Who is carrying this project's tagged shulker boxes, most boxes first. */
+/**
+ * Who is carrying this project's tagged shulker boxes, most boxes first.
+ *
+ * One player is one uuid, shown under the name of their latest reading. A push names only the boxes
+ * whose reading changed, so after a rename an untouched box still carries the old name, and
+ * grouping by name would show one player as two.
+ */
 private object GetCarriedBoxesStep : Step<Int, AppFailure.DatabaseError, List<CarriedBoxes>> {
     override suspend fun process(input: Int) =
         DatabaseSteps.query<Int, List<CarriedBoxes>>(
             sql = SafeSQL.select(
                 """
-                SELECT carried_by_name, COUNT(*) AS boxes
+                SELECT (ARRAY_AGG(carried_by_name ORDER BY last_seen_at DESC NULLS LAST))[1] AS carried_by_name,
+                       COUNT(*) AS boxes
                 FROM container_tags
                 WHERE project_id = ? AND state = 'in_transit'
-                GROUP BY carried_by_name
+                GROUP BY carried_by_uuid
                 ORDER BY boxes DESC, carried_by_name
                 """.trimIndent()
             ),

@@ -238,6 +238,24 @@ class ReporterContentsIT : WithUser() {
     }
 
     @Test
+    fun `a player who renamed while carrying is one carrier, under the newer name`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-rename")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val first = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        val second = tagContainer(worldId, projectId, 1, 64, 0, kind = "shulker_box")
+
+        // The first box was last read before the rename; nothing about it has changed since, so no
+        // push has re-stamped it.
+        push(token, containerInTransit(first, evenUuid, "OldName", iron to 1L, seenAt = "2026-09-08T10:10:00Z"))
+        push(token, containerInTransit(second, evenUuid, "Even", iron to 1L, seenAt = "2026-09-08T10:20:00Z"))
+
+        val measurements = runBlocking { GetProjectMeasurementsStep.process(projectId) }
+        assertEquals(listOf(CarriedBoxes("Even", 2)), (measurements as Result.Success).value.carried)
+    }
+
+    @Test
     fun `in transit without a usable carrier is refused, not stored`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val worldId = createWorld("carried-invalid")
@@ -562,9 +580,15 @@ class ReporterContentsIT : WithUser() {
     private fun containerInState(id: Long, state: String) =
         """{"id":$id,"state":"$state","seen_at":"2026-09-08T10:05:00Z","items":[]}"""
 
-    private fun containerInTransit(id: Long, uuid: String, name: String, vararg items: Pair<String, Long>): String {
+    private fun containerInTransit(
+        id: Long,
+        uuid: String,
+        name: String,
+        vararg items: Pair<String, Long>,
+        seenAt: String = "2026-09-08T10:10:00Z",
+    ): String {
         val itemJson = items.joinToString(",") { """{"item_id":"${it.first}","count":${it.second}}""" }
-        return """{"id":$id,"state":"in_transit","seen_at":"2026-09-08T10:10:00Z","items":[$itemJson],""" +
+        return """{"id":$id,"state":"in_transit","seen_at":"$seenAt","items":[$itemJson],""" +
             """"carried_by":{"uuid":"$uuid","name":"$name"}}"""
     }
 
