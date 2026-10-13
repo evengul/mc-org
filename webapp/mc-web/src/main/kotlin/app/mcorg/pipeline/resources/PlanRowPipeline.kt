@@ -87,10 +87,15 @@ suspend fun ApplicationCall.handleGetPlanRow() {
         nodeIngredients = buildNodeIngredients(plan),
         feedsLabels = buildFeedsLabels(plan),
         farmScaleIds = farmScaleIds,
+        // Without them the swapped row loses its chest count, and on a storage-tracked project
+        // comes back with the counters the page left out (MCO-540).
+        measurements = GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE,
     )
 
     respondHtml(
-        if (working) workRowStripHtml(worldId, projectId, state)
+        // A tracked line has no strip: the strip is counters. A page opened before the switch can
+        // still ask for one, and gets the read-only line instead.
+        if (working && state.followed == null) workRowStripHtml(worldId, projectId, state)
         else workRowCollapsedHtml(worldId, projectId, state)
     )
 }

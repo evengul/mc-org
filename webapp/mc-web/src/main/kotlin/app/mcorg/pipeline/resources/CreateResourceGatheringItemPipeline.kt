@@ -39,9 +39,9 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
     val itemNames = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
     handlePipeline(
-        onSuccess = { (item, measured) ->
+        onSuccess = { (item, measured, followed) ->
             respondHtml(createHTML().tr {
-                planResourceRow(worldId, projectId, item, measured)
+                planResourceRow(worldId, projectId, item, measured, followed)
             } + createHTML().div {
                 hxOutOfBands("delete:#plan-empty-state")
             })
@@ -50,9 +50,12 @@ suspend fun ApplicationCall.handleCreateResourceGatheringItem() {
         val input = ValidateCreateResourceGatheringItemInputStep(itemNames).run(parameters)
         val id = CreateResourceGatheringItemStep(projectId).run(input)
         CacheManager.onResourceGatheringCreated(projectId, id)
+        // On a tracked project the new target counts what the chests already hold (MCO-540).
+        FollowMeasurementStep.afterTargetsChanged(projectId)
         val item = GetResourceGatheringItemStep.run(id)
         // Chests may already hold the item from before it was added to the plan.
-        item to GetProjectMeasurementsStep.process(projectId).getOrNull()?.get(item.itemId)
+        val measurements = GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE
+        Triple(item, measurements[item.itemId], measurements.followed)
     }
 }
 

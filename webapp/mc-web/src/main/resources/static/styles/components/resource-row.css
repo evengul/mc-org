@@ -228,3 +228,18 @@
 .resource-row__adopt {
     flex: 0 0 auto;
 }
+
+/* --------------------------------------------------------------------------
+   A storage-tracked count's provenance (MCO-540), in place of the counters on
+   the field log row, in the plan table's Chests column and in the work row's
+   chests slot. Quiet, like the chip it replaces: it explains the number, it is
+   not something to act on. The title carries the why.
+   -------------------------------------------------------------------------- */
+
+.followed-count {
+    font-family: var(--font-ui);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    cursor: help;
+}

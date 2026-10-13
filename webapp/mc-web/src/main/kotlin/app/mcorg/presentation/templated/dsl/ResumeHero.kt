@@ -4,6 +4,7 @@ import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.button
@@ -53,7 +54,7 @@ fun FlowContent.resumeHero(
     data: ResumeHeroData,
     feeds: List<ProjectResourceEdge> = emptyList(),
     sort: ResumeSort = ResumeSort.NEEDED,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val project = data.project
     div("fl-hero") {
@@ -85,7 +86,12 @@ fun FlowContent.resumeHero(
             }
 
             div("fl-hero__footer") {
-                span("fl-hero__hint") { +"…or just keep counting right here." }
+                span("fl-hero__hint") {
+                    // A tracked project's counts come from its chests, so there is nothing to count
+                    // here (MCO-540).
+                    +if (measurements.followed != null) "Counted from the tagged chests as they fill."
+                    else "…or just keep counting right here."
+                }
                 a(classes = "btn btn--secondary btn--sm") {
                     href = "/worlds/$worldId/projects/${project.id}"
                     +"Open project page →"
@@ -113,7 +119,7 @@ fun FlowContent.resumeSortBody(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     div("fl-hero__toolbar") {
         span("section-label") { +"Resources" }
@@ -135,7 +141,7 @@ fun FlowContent.resumeHeroRows(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val sorted = sortResumeResources(data.resources, sort)
     div("fl-hero__rows") {
@@ -150,6 +156,7 @@ fun FlowContent.resumeHeroRows(
                 required = item.required,
                 source = item.solvedByProject?.second,
                 measured = measurements[item.itemId],
+                followed = measurements.followed,
             )
         }
         if (sorted.size > RESUME_HERO_MAX_ROWS) {
@@ -162,7 +169,7 @@ fun resumeHeroRowsFragment(
     worldId: Int,
     data: ResumeHeroData,
     sort: ResumeSort,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String =
     kotlinx.html.stream.createHTML().div {
         resumeSortBody(worldId, data, sort, measurements)

@@ -19,6 +19,7 @@ import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
+import app.mcorg.presentation.handler.WorldHandler
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
@@ -401,6 +402,54 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     // ---- routing ----------------------------------------------------------------
+
+    /**
+     * A storage-tracked line has no work strip (MCO-540): the strip is counters. A page opened
+     * before the switch can still press Log, and must get the read-only line back rather than
+     * steppers that every press then refuses.
+     */
+    @Test
+    fun `a storage-tracked line asked for its work strip comes back read-only`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            with(WorldHandler()) { worldRoutes() }
+        }
+        setProjectState(farmId, ProjectState.DONE)
+        try {
+            val tracked = createProject(worldId, "Tracked Build", ProjectState.ACTIVE)
+            createResourceGathering(tracked, ironIngot, required = 32)
+            tagReadableChestAndTrack(tracked)
+
+            val body = client.get("/worlds/$worldId/projects/$tracked/plan/row/minecraft%3Airon_ingot?working=true") {
+                addAuthCookie(this)
+            }.bodyAsText()
+
+            assertFalse(body.contains("work-strip"), "a tracked line came back as a strip of counters")
+            assertFalse(body.contains("plan/progress"), "a tracked line came back with a control that writes")
+            assertContains(body, "in none of 1 chest")
+        } finally {
+            setProjectState(farmId, ProjectState.ACTIVE)
+        }
+    }
+
+    private fun tagReadableChestAndTrack(projectId: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO container_tags
+                    (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by, state)
+                VALUES (?, ?, 'minecraft:overworld', 0, 64, 0, '0,64,0', 'chest', ?, 'ok')
+                """.trimIndent()
+            ),
+            parameterSetter = { st, _ ->
+                st.setInt(1, worldId); st.setInt(2, projectId); st.setInt(3, user.id)
+            }
+        ).process(Unit)
+        DatabaseSteps.update<Unit>(
+            sql = SafeSQL.update("UPDATE projects SET storage_tracked = true WHERE id = ?"),
+            parameterSetter = { st, _ -> st.setInt(1, projectId) }
+        ).process(Unit)
+    }
 
     private fun ApplicationTestBuilder.setupRoutes() {
         routing {

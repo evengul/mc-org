@@ -32,12 +32,6 @@ sealed class BreadcrumbSegment {
     data class Current(val label: String) : BreadcrumbSegment()
 }
 
-private fun settingsHref(worldId: Int?, projectId: Int?, isWorldAdmin: Boolean): String? = when {
-    projectId != null -> null
-    worldId != null && isWorldAdmin -> "/worlds/$worldId/settings"
-    else -> null
-}
-
 /**
  * World-level sections. A world opens on its roadmap — "what do I do next" — and the project
  * list is the reference view you go to deliberately (MCO-474).
@@ -47,10 +41,13 @@ private fun settingsHref(worldId: Int?, projectId: Int?, isWorldAdmin: Boolean):
  * visited a world before will keep landing on the project list no matter what the server now
  * says. Putting the tabs on both leaves that browser one click from the roadmap.
  */
-fun FlowContent.worldTabs(worldId: Int, active: WorldTab) {
+fun FlowContent.worldTabs(worldId: Int, active: WorldTab, isWorldAdmin: Boolean = false) {
     nav("world-tabs") {
         attributes["aria-label"] = "World sections"
-        for (tab in WorldTab.entries) {
+        // Settings is a section of the world like the other two, labelled in words where it used to
+        // be a bare gear at the far end of the app header (MCO-540). Admins only: the route is
+        // admin-gated, and a tab that answers 403 is worse than no tab.
+        for (tab in WorldTab.entries.filter { it != WorldTab.SETTINGS || isWorldAdmin }) {
             val isActive = tab == active
             a(classes = if (isActive) "world-tabs__tab world-tabs__tab--active" else "world-tabs__tab") {
                 href = "/worlds/$worldId${tab.path}"
@@ -68,9 +65,14 @@ fun FlowContent.worldTabs(worldId: Int, active: WorldTab) {
  * reachable from the roadmap — which is now what a world opens to, and was the one view with no
  * way to add anything.
  */
-fun FlowContent.worldBar(worldId: Int, active: WorldTab, actions: (FlowContent.() -> Unit)? = null) {
+fun FlowContent.worldBar(
+    worldId: Int,
+    active: WorldTab,
+    isWorldAdmin: Boolean = false,
+    actions: (FlowContent.() -> Unit)? = null,
+) {
     div("world-bar") {
-        worldTabs(worldId, active)
+        worldTabs(worldId, active, isWorldAdmin)
         if (actions != null) {
             div("world-bar__actions") { actions() }
         }
@@ -80,17 +82,15 @@ fun FlowContent.worldBar(worldId: Int, active: WorldTab, actions: (FlowContent.(
 enum class WorldTab(val label: String, val path: String) {
     ROADMAP("Roadmap", "/roadmap"),
     PROJECTS("Projects", "/projects"),
+    SETTINGS("Settings", "/settings"),
 }
 
 fun FlowContent.appHeader(
     worldName: String? = null,
     worldId: Int? = null,
-    projectId: Int? = null,
     user: TokenProfile? = null,
-    isWorldAdmin: Boolean = false,
     breadcrumbBlock: (BreadcrumbBuilder.() -> BreadcrumbBuilder)? = null
 ) {
-    val settings = settingsHref(worldId, projectId, isWorldAdmin)
     val showProfile = user != null
 
     header("app-header") {
@@ -136,13 +136,6 @@ fun FlowContent.appHeader(
                         +"Profile"
                     }
                 }
-                if (settings != null) {
-                    a(classes = "app-header__link") {
-                        href = settings
-                        attributes["aria-label"] = "World settings"
-                        +"⚙"
-                    }
-                }
             }
         }
 
@@ -164,13 +157,6 @@ fun FlowContent.appHeader(
                 a(classes = "app-header__link") {
                     href = "/profile"
                     +"Profile"
-                }
-            }
-            if (settings != null) {
-                a(classes = "app-header__link") {
-                    href = settings
-                    attributes["aria-label"] = "World settings"
-                    +"⚙"
                 }
             }
         }

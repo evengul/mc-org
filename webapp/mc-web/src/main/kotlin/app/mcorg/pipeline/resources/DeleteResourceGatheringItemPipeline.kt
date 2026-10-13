@@ -29,6 +29,8 @@ suspend fun ApplicationCall.handleDeleteResourceGatheringItem() {
     ) {
         DeleteResourceGatheringStep.run(resourceGatheringId)
         CacheManager.onResourceGatheringDeleted(projectId, resourceGatheringId)
+        // A deleted target lowers or removes the clamp on a tracked count (MCO-540).
+        FollowMeasurementStep.afterTargetsChanged(projectId)
     }
 }
 

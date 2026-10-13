@@ -24,6 +24,7 @@ import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 
@@ -107,7 +108,7 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
             project, resources, tasks, plan, progressMap,
             // The fragment swaps the same table the full page renders, so it has to carry the
             // measurements too — otherwise the Chests column empties itself on every re-render.
-            GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty(),
+            (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE),
             prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, dismissals,
             isRenewableInWorld(worldId),

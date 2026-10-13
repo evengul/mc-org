@@ -15,6 +15,7 @@ import app.mcorg.presentation.templated.dsl.pages.projectListPage
 import app.mcorg.presentation.utils.getUser
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.utils.respondHtml
 import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
@@ -45,7 +46,7 @@ suspend fun ApplicationCall.handleGetProjectList() {
             // list that mostly shows headline numbers (MCO-539).
             val measurements = resume
                 ?.let { GetProjectMeasurementsStep.process(it.project.id).getOrNull() }
-                .orEmpty()
+                ?: ProjectMeasurements.NONE
             respondHtml(
                 projectListPage(
                     user, world, projects,

@@ -57,6 +57,14 @@ sealed interface Link {
                     return Tasks(worldId, projectId)
                 }
 
+                fun settings(): Settings {
+                    return Settings(worldId, projectId)
+                }
+
+                data class Settings(val worldId: Int, val projectId: Int) : Link {
+                    override val to: String = "/worlds/$worldId/projects/$projectId/settings"
+                }
+
                 data class Tasks(val worldId: Int, val projectId: Int): Link {
                     override val to: String = "/worlds/$worldId/projects/$projectId/tasks"
 

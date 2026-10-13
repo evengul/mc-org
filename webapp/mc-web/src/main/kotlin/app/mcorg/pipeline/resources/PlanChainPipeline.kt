@@ -469,7 +469,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(
         project, resources, tasks, plan, progressMap,
         // Same table, so the same measurements — a re-render that dropped them would blank the
         // Chests column every time the plan chain swapped.
-        GetProjectMeasurementsStep.process(projectId).getOrNull().orEmpty(),
+        (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE),
         prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
         isRenewableInWorld(worldId),

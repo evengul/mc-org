@@ -14,7 +14,7 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 1. **Start flat, grow deep.** Every user lands on the same page structure. Complexity is reachable through contextual links. No persona gates, no mandatory setup flows.
 
-2. **Resume the world, not the project.** The app knows which world you were in and opens it on its **roadmap**, the first of the world's two tabs. Projects are not pinned in session. *(This said "lands you on the project list" until 2026-10-07. MCO-474 moved the world's home to the roadmap; MCO-586 moved the last links that still treated the list as home. Opening on whichever tab you last used is parked as MCO-587.)*
+2. **Resume the world, not the project.** The app knows which world you were in and opens it on its **roadmap**, the first of the world's tabs. Projects are not pinned in session. *(This said "lands you on the project list" until 2026-10-07. MCO-474 moved the world's home to the roadmap; MCO-586 moved the last links that still treated the list as home. Opening on whichever tab you last used is parked as MCO-587.)*
 
 3. **Plan and execute are views, not modes.** The toggle is a per-project preference stored server-side. A user can have execute view on one project and plan view on another simultaneously.
 
@@ -37,7 +37,8 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 /worlds/:worldId/projects                                → Projects tab
 /worlds/:worldId/projects/:projectId                     → project detail
 /worlds/:worldId/projects/:projectId/path                → production path
-/worlds/:worldId/settings                                → world settings
+/worlds/:worldId/projects/:projectId/settings            → project settings
+/worlds/:worldId/settings                                → Settings tab (world settings, admins)
 /ideas                                                   → idea hub
 /ideas/:ideaId                                           → idea detail
 ```
@@ -73,12 +74,12 @@ if activeWorldId    → /worlds/:activeWorldId/roadmap
 
 Default header:
 ```
-☰  [World Name]                    ⚙️
+[World Name]                     Profile
 ```
 
 Project detail header:
 ```
-←  [Project Name]          [Plan|Exec]
+←  [Project Name]          [⚙ Settings]
 ```
 
 No persistent bottom nav. Navigation is breadcrumb/back + in-page contextual links.
@@ -87,34 +88,38 @@ No persistent bottom nav. Navigation is breadcrumb/back + in-page contextual lin
 
 Default:
 ```
-[Logo]   Worlds › [World Name]               Ideas   ⚙️
+[Logo]   Worlds › [World Name]               Ideas   Profile
 ```
 
 Project pages:
 ```
-[Logo]   Worlds › [World] › [Project]        Ideas   ⚙️
+[Logo]   Worlds › [World] › [Project]        Ideas   Profile
 ```
+
+The header carries no settings link. Settings belongs to the thing it configures: world settings is a world tab, and project settings a labelled `⚙ Settings` button in the project's own header, on the phone header too. *(Until 2026-10-09 a bare ⚙ at the far end of the app header led to world settings, for admins, on the roadmap and project list only, and nothing led to project settings because there were none. MCO-540 moved it: the gear was too small and too far from the page it configured.)*
 
 ### World bar
 
-Both world pages carry the same bar under the header (`worldBar` in `Navigation.kt`):
+Every world tab carries the same bar under the header (`worldBar` in `Navigation.kt`):
 
 ```
-Roadmap · Projects                              [+ New project]
+Roadmap · Projects · Settings                   [+ New project]
 ```
 
-Roadmap is first and is where the world opens. "+ New project" sits in the bar rather than in either page's own toolbar, so it is reachable from both tabs.
+Roadmap is first and is where the world opens. "+ New project" sits in the bar rather than in either page's own toolbar, so it is reachable from Roadmap and Projects; the Settings tab has no action, since creating a project is not a setting. **Settings is drawn for admins only**: its route is admin-gated, and a tab that answers 403 is worse than no tab.
 
 ### Breadcrumb by page
 
-The breadcrumb locates the *world*; which section of it you are in is the tab. So both tabs share one breadcrumb, and a world name in a breadcrumb links to the roadmap.
+The breadcrumb locates the *world*; which section of it you are in is the tab. So every tab shares one breadcrumb, and a world name in a breadcrumb links to the roadmap.
 
 | Page | Breadcrumb |
 |------|-----------|
 | World list | *(none)* |
 | Roadmap tab | Worlds › [World Name] |
 | Projects tab | Worlds › [World Name] |
+| Settings tab | Worlds › [World Name] |
 | Project detail | Worlds › [World Name] › [Project Name] |
+| Project settings | Worlds › [World Name] › [Project Name] › Settings |
 | Production path | Worlds › [World Name] › [Project Name] › Path |
 | Idea Hub | Ideas |
 | Idea detail | Ideas › [Idea Name] |
@@ -140,9 +145,19 @@ On a phone the project page has no breadcrumb; its `←` goes to the roadmap, th
 
 ---
 
+## Project Settings
+
+`/worlds/:worldId/projects/:projectId/settings` holds what changes how a project *behaves* and is set once: today the **Chest Counts** switch (storage-tracked, MCO-540) and the **Danger zone** with Delete project. What a project *is* — name, state, location — stays inline in its header, where it is read every visit and edited often.
+
+- A page of its own, not a panel, because more will land there and a project page is already the longest page in the app.
+- Open to every world participant, like the inline fields: what is there changes how the project counts, which any member can already do by hand. The danger zone is drawn for admins only, matching the delete route's gate.
+- Delete moved here from beside the project name (2026-10-09), one deliberate step further from a stray click.
+
+---
+
 ## World Tabs: Roadmap and Projects
 
-A world has two tabs because they answer two different questions, and one page answering both would do neither well.
+A world's two working tabs answer two different questions, and one page answering both would do neither well. (The third, Settings, is configuration, not a view of the world.)
 
 | Tab | Answers | Reach for it when |
 |-----|---------|-------------------|

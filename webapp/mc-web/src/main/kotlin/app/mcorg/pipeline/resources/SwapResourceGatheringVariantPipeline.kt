@@ -58,6 +58,8 @@ suspend fun ApplicationCall.handleSwapResourceGatheringVariant() {
         val validItems = GetItemsInWorldVersionStep.run(worldId)
         val chosen = ValidateSwapVariantInputStep(validItems).run(parameters)
         SwapResourceGatheringVariantStep(resourceGatheringId).run(chosen)
+        // The target is a different item now, so a tracked count is a different number (MCO-540).
+        FollowMeasurementStep.afterTargetsChanged(projectId)
 
         val updated = GetResourceGatheringItemStep.run(resourceGatheringId)
         val graph = getGraphForWorld(worldId)

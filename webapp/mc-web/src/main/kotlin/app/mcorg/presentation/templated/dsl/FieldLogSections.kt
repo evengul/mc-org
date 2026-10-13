@@ -4,6 +4,7 @@ import app.mcorg.domain.model.project.ProjectListItem
 import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.pipeline.resources.ProjectMeasurements
 import kotlinx.html.FlowContent
 import kotlinx.html.a
 import kotlinx.html.details
@@ -24,7 +25,7 @@ fun FlowContent.fieldLogSections(
     edges: List<ProjectResourceEdge> = emptyList(),
     resume: ResumeHeroData? = null,
     resumeSort: ResumeSort = ResumeSort.NEEDED,
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val model = FieldLogModel.of(projects, edges)
 
@@ -95,7 +96,7 @@ fun FlowContent.fieldLogRow(
     blockedBy: List<ProjectResourceEdge>,
     expanded: Boolean = false,
     sliceItems: List<ResourceGatheringItem> = emptyList(),
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ) {
     val blocked = blockedBy.isNotEmpty()
 
@@ -161,7 +162,7 @@ fun fieldLogRowFragment(
     blockedBy: List<ProjectResourceEdge>,
     expanded: Boolean,
     sliceItems: List<ResourceGatheringItem> = emptyList(),
-    measurements: Map<String, MeasuredStock> = emptyMap(),
+    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
 ): String = kotlinx.html.stream.createHTML().div {
     fieldLogRow(worldId, project, feeds, blockedBy, expanded, sliceItems, measurements)
 }.removePrefix("<div>").removeSuffix("</div>")

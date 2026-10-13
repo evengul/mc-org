@@ -8,6 +8,8 @@ import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleReviewSchematic
 import app.mcorg.pipeline.project.handleDeleteProject
 import app.mcorg.pipeline.project.handleGetProject
+import app.mcorg.pipeline.project.handleGetProjectSettings
+import app.mcorg.pipeline.project.handleSetStorageTracked
 import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.world.roadmap.handleClearGatherInstead
 import app.mcorg.pipeline.world.roadmap.handleClearRoadmapCycleOrder
@@ -88,6 +90,7 @@ import app.mcorg.pipeline.world.commonsteps.GetWorldProjectPeekStep
 import app.mcorg.pipeline.world.settings.members.handleRemoveWorldMember
 import app.mcorg.pipeline.world.settings.members.handleUpdateWorldMemberRole
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
+import app.mcorg.presentation.plugins.CountsFollowChestsPlugin
 import app.mcorg.presentation.plugins.InviteParamPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
 import app.mcorg.presentation.plugins.ProjectProductionItemParamPlugin
@@ -275,6 +278,13 @@ class WorldHandler {
                                 call.handleRestoreFarmSuggestion()
                             }
                         }
+                        // Participant-level like /meta: what is here changes how the project
+                        // counts, which any member can already do by hand. The page draws its
+                        // danger zone for admins only; the DELETE above holds that line.
+                        route("/settings") {
+                            get { call.handleGetProjectSettings() }
+                            patch("/storage-tracked") { call.handleSetStorageTracked() }
+                        }
                         route("/meta") {
                             get("/name") { call.handleGetProjectNameField() }
                             patch("/name") { call.handleUpdateProjectName() }
@@ -326,8 +336,9 @@ class WorldHandler {
                                     post("/adopt") {
                                         call.handleAdoptMeasurement()
                                     }
-                                    patch("/edit-done") {
-                                        call.handleUpdateRequirementProgress()
+                                    route("/edit-done") {
+                                        install(CountsFollowChestsPlugin)
+                                        patch { call.handleUpdateRequirementProgress() }
                                     }
                                     patch("/required") {
                                         call.handleUpdateResourceRequiredAmount()
@@ -338,8 +349,9 @@ class WorldHandler {
                                     patch("/variant") {
                                         call.handleSwapResourceGatheringVariant()
                                     }
-                                    put("/collected") {
-                                        call.handleSetCollectedValue()
+                                    route("/collected") {
+                                        install(CountsFollowChestsPlugin)
+                                        put { call.handleSetCollectedValue() }
                                     }
                                     get("/detail-panel") {
                                         call.handleGetResourceDetailPanel()
@@ -374,8 +386,9 @@ class WorldHandler {
                             call.handleSetViewPreference()
                         }
                         route("/plan") {
-                            patch("/progress") {
-                                call.handleUpdatePlanProgress()
+                            route("/progress") {
+                                install(CountsFollowChestsPlugin)
+                                patch { call.handleUpdatePlanProgress() }
                             }
                             // Log / Stop working: the same line in its other form. No write —
                             // the working set is view state (see handleGetPlanRow).

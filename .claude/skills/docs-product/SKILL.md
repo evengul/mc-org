@@ -243,13 +243,13 @@ Used for partial dependency notices and inline warnings. **Not a banner. Not ful
 
 ### Navigation Header
 
-**Desktop** — 56px tall. Logo left, breadcrumb center-left in IBM Plex Mono `--text-sm`, Ideas link and gear right.
+**Desktop** — 56px tall. Logo left, breadcrumb center-left in IBM Plex Mono `--text-sm`, Ideas and Profile links right. No settings gear: settings lives on the thing it configures — a world tab, and a labelled button in the project header (docs-ia, "Navigation Chrome"; MCO-540).
 
 Breadcrumb: `›` separators in `--text-disabled`. Current page: `--text-primary`, not a link. Prior segments: links.
 
-**Mobile** — 56px tall. World name in IBM Plex Mono centered. Hamburger left, gear right.
+**Mobile** — 56px tall. World name in IBM Plex Mono centered, Profile right.
 
-Project detail mobile header: back arrow left, project name centered, toggle right.
+Project detail mobile header: back arrow left, project name centered, `⚙ Settings` right.
 
 CSS: `.app-header`, `.breadcrumb`, `.breadcrumb__item`, `.breadcrumb__item--current`, `.breadcrumb__sep`, `.mobile-header`
 
@@ -297,7 +297,7 @@ Use **Lucide** icons only. Icons only where they carry meaning not expressed by 
 | Icon | Usage |
 |------|-------|
 | `←` | Back navigation |
-| `⚙` | Settings |
+| `⚙` | Settings, on a button beside its label (`aria-hidden`); never alone, never on a nav tab |
 | `☰` | Hamburger / drawer |
 | `⚠` | Warning callout |
 | `+` | Add actions (prefer text button over icon-only) |
