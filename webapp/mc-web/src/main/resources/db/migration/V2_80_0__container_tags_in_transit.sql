@@ -19,7 +19,8 @@ ALTER TABLE container_tags ADD COLUMN carried_by_uuid UUID;
 -- fit must not be able to refuse the whole push it arrives in.
 ALTER TABLE container_tags ADD COLUMN carried_by_name VARCHAR(64);
 
--- A carrier exactly when in transit: a stale name on an 'ok' chest would tell someone to go and ask
--- a player about stock that is sitting in storage.
+-- A carrier exactly when in transit, and always both halves of one: a stale name on an 'ok' chest
+-- would tell someone to go and ask a player about stock that is sitting in storage.
 ALTER TABLE container_tags ADD CONSTRAINT container_tags_carried_by_check
-    CHECK ((state = 'in_transit') = (carried_by_uuid IS NOT NULL AND carried_by_name IS NOT NULL));
+    CHECK ((state = 'in_transit') = (carried_by_uuid IS NOT NULL)
+       AND (carried_by_uuid IS NULL) = (carried_by_name IS NULL));

@@ -253,6 +253,31 @@ class ReporterContentsIT : WithUser() {
     }
 
     @Test
+    fun `the database holds a carrier exactly when in transit, and never half of one`() {
+        val worldId = createWorld("carried-check")
+        val projectId = createProject(worldId)
+        val chest = tagContainer(worldId, projectId, 0, 64, 0)
+
+        fun accepts(state: String, uuid: String?, name: String?): Boolean =
+            Database.getConnection().use { conn ->
+                conn.prepareStatement(
+                    "UPDATE container_tags SET state = ?, carried_by_uuid = ?::uuid, carried_by_name = ? WHERE id = ?"
+                ).use { st ->
+                    st.setString(1, state); st.setString(2, uuid); st.setString(3, name); st.setLong(4, chest)
+                    runCatching { st.executeUpdate() }.isSuccess
+                }
+            }
+
+        assertTrue(accepts("in_transit", evenUuid, "Even"))
+        assertTrue(accepts("ok", null, null))
+        assertTrue(!accepts("in_transit", null, null), "in transit without a carrier")
+        assertTrue(!accepts("ok", evenUuid, "Even"), "a carrier on a box in storage")
+        assertTrue(!accepts("ok", evenUuid, null), "half a carrier on a box in storage")
+        assertTrue(!accepts("ok", null, "Even"), "half a carrier on a box in storage")
+        assertTrue(!accepts("in_transit", evenUuid, null), "a carrier with no name to show")
+    }
+
+    @Test
     fun `a carrier's long name cannot refuse the push it arrives in`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val worldId = createWorld("carried-long-name")
