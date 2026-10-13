@@ -46,6 +46,7 @@ import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
+import app.mcorg.presentation.templated.dsl.carriedText
 import app.mcorg.presentation.templated.dsl.resourceRow
 import app.mcorg.presentation.templated.dsl.projectLocationField
 import app.mcorg.presentation.templated.dsl.projectNameField
@@ -661,6 +662,13 @@ fun FlowContent.gatheringPlanSections(
         } else if (plan.activityList.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 }) {
             p("work-panel__provenance") {
                 +"Chest counts come from containers tagged in game with the Seam mod."
+            }
+        }
+        // Someone who walks to the storage and finds boxes gone needs to know who to ask, and that
+        // the counts are not wrong for it (MCO-548).
+        if (measurements.carried.isNotEmpty()) {
+            p("work-panel__provenance") {
+                +carriedText(measurements.carried)
             }
         }
 

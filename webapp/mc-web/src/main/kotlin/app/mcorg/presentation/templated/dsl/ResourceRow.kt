@@ -1,5 +1,6 @@
 package app.mcorg.presentation.templated.dsl
 
+import app.mcorg.pipeline.resources.CarriedBoxes
 import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
 import kotlinx.html.*
@@ -153,6 +154,15 @@ internal fun followedText(measured: MeasuredStock?, followed: FollowedChests): S
     }
 
 private fun chestCount(count: Int) = if (count == 1) "1 chest" else "$count chests"
+
+/** "Even is carrying 2 tagged shulker boxes; Alex 1. What is in them still counts." */
+internal fun carriedText(carried: List<CarriedBoxes>): String {
+    fun boxes(n: Int) = if (n == 1) "1 tagged shulker box" else "$n tagged shulker boxes"
+    val first = carried.first()
+    val rest = carried.drop(1).joinToString("") { "; ${it.playerName} ${it.boxes}" }
+    val them = if (carried.sumOf { it.boxes } == 1) "it" else "them"
+    return "${first.playerName} is carrying ${boxes(first.boxes)}$rest. What is in $them still counts."
+}
 
 private fun ago(seen: Instant): String {
     val age = Duration.between(seen, Instant.now())

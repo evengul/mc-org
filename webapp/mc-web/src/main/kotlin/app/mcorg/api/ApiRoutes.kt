@@ -35,6 +35,7 @@ import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 
 /**
  * Mod-facing JSON API (MCO-235 / MCO-236). Mounted as a top-level machine surface — a sibling of
@@ -472,6 +473,7 @@ private fun ContainerTagRow.toDto() = ContainerTagDto(
     taggedAt = taggedAt.toString(),
     lastSeenAt = lastSeenAt?.toString(),
     state = state,
+    carriedBy = carriedBy?.let { CarrierDto(it.uuid.toString(), it.name) },
 )
 
 suspend fun ApplicationCall.handleGetContainerTags() {
@@ -719,11 +721,26 @@ suspend fun ApplicationCall.handlePushReporterContents() {
             respondApiError(HttpStatusCode.BadRequest, "invalid_request", "Item counts cannot be negative")
             return
         }
+        // Only an in-transit box has a carrier, and it must have one: the name is what tells
+        // someone who to ask, and the uuid is what a restarted reporter reads back.
+        val carrier = if (c.state == CONTAINER_STATE_IN_TRANSIT) {
+            c.carriedBy?.toCarrier() ?: run {
+                respondApiError(
+                    HttpStatusCode.BadRequest,
+                    "invalid_request",
+                    "in_transit needs carried_by with a player uuid and a name",
+                )
+                return
+            }
+        } else {
+            null
+        }
         containers += ReportedContainer(
             id = c.id,
             state = c.state,
             seenAt = seenAt,
             items = c.items.map { ReportedItem(it.itemId, it.count) },
+            carriedBy = carrier,
         )
     }
 
@@ -748,7 +765,21 @@ suspend fun ApplicationCall.handlePushReporterContents() {
 }
 
 /** The states a sweep may report. Mirrors `container_tags.state`'s CHECK constraint. */
-private val REPORTABLE_STATES = setOf("ok", "unreadable", "missing")
+private val REPORTABLE_STATES = setOf("ok", "unreadable", "missing", CONTAINER_STATE_IN_TRANSIT)
+
+/**
+ * Null when the carrier is unusable, which only a broken reporter sends. An over-long name is cut to
+ * the column rather than refused: the name is for display, and refusing it would refuse the whole
+ * push — every container in the world — on every sweep for as long as that player held the box.
+ */
+private fun CarrierDto.toCarrier(): Carrier? {
+    val id = runCatching { UUID.fromString(uuid) }.getOrNull() ?: return null
+    if (name.isBlank()) return null
+    return Carrier(id, name.take(CARRIER_NAME_MAX))
+}
+
+/** `container_tags.carried_by_name`'s width. */
+private const val CARRIER_NAME_MAX = 64
 
 /**
  * `GET /worlds/{id}/reporter` — whether a server is reading this world's tagged containers.

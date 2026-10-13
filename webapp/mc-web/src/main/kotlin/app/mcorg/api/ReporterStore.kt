@@ -12,6 +12,7 @@ import java.sql.ResultSet
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 
 /**
  * Container contents and the measurement rollup (MCO-532).
@@ -136,7 +137,12 @@ data class ReportedContainer(
     val state: String,
     val seenAt: Instant,
     val items: List<ReportedItem>,
+    /** Set exactly when [state] is `in_transit`. */
+    val carriedBy: Carrier? = null,
 )
+
+/** The player carrying a tagged shulker box (MCO-548). */
+data class Carrier(val uuid: UUID, val name: String)
 
 data class PushContentsInput(
     val worldId: Int,
@@ -180,8 +186,9 @@ object PushContainerContentsStep : Step<PushContentsInput, AppFailure.DatabaseEr
                         if (container.id !in owned) continue
                         clearContents(tx, container.id).getOrElse { return Result.failure(it) }
                         // A container the sweep could not read contributes nothing, so its rows
-                        // stay cleared; only a readable one gets contents written back.
-                        if (container.state == CONTAINER_STATE_OK) {
+                        // stay cleared; only a readable one gets contents written back — at its
+                        // position, or carried, whose contents are read from the item itself.
+                        if (container.state in COUNTED_STATES) {
                             for (item in container.items) {
                                 insertContent(tx, container.id, item, container.seenAt)
                                     .getOrElse { return Result.failure(it) }
@@ -259,16 +266,26 @@ object PushContainerContentsStep : Step<PushContentsInput, AppFailure.DatabaseEr
         transactionConnection = tx,
     ).process(Unit)
 
-    /** `state` and `last_seen_at` are the reporter's to write, and this is where it writes them. */
+    /**
+     * `state`, `last_seen_at` and the carrier are the reporter's to write, and this is where it
+     * writes them. The carrier is cleared by any other state, so a box put back in storage stops
+     * naming whoever last had it.
+     */
     private suspend fun stampTag(tx: TransactionConnection, container: ReportedContainer) =
         DatabaseSteps.update<Unit>(
             sql = SafeSQL.update(
-                "UPDATE container_tags SET state = ?, last_seen_at = ? WHERE id = ?"
+                """
+                UPDATE container_tags
+                SET state = ?, last_seen_at = ?, carried_by_uuid = ?, carried_by_name = ?
+                WHERE id = ?
+                """.trimIndent()
             ),
             parameterSetter = { st, _ ->
                 st.setString(1, container.state)
                 st.setObject(2, OffsetDateTime.ofInstant(container.seenAt, ZoneOffset.UTC))
-                st.setLong(3, container.id)
+                st.setObject(3, container.carriedBy?.uuid)
+                st.setString(4, container.carriedBy?.name)
+                st.setLong(5, container.id)
             },
             transactionConnection = tx,
         ).process(Unit)
@@ -278,13 +295,19 @@ object PushContainerContentsStep : Step<PushContentsInput, AppFailure.DatabaseEr
 }
 
 const val CONTAINER_STATE_OK = "ok"
+const val CONTAINER_STATE_IN_TRANSIT = "in_transit"
+
+/** The states whose contents count. Mirrored in SQL as `state IN ('ok', 'in_transit')`. */
+private val COUNTED_STATES = setOf(CONTAINER_STATE_OK, CONTAINER_STATE_IN_TRANSIT)
 
 /**
  * Rebuilds one project's measurement rows from the container contents underneath it.
  *
- * Only containers in state `ok` contribute. An `unreadable` container has never been read and a
- * `missing` one is gone, so counting either would assert stock that is not there; how many are in
- * those states is told from `container_tags`, which is where state lives.
+ * Containers in state `ok` contribute, and so do `in_transit` ones: a tagged shulker box on a
+ * player is still the project's stock, usually on its way to the build (MCO-548). An `unreadable`
+ * container has never been read and a `missing` one is gone, so counting either would assert stock
+ * that is not there; how many are in those states is told from `container_tags`, which is where
+ * state lives.
  *
  * Delete-then-insert rather than upsert because an item can leave a project's storage entirely, and
  * an upsert would leave the stale row behind claiming stock that no longer exists.
@@ -317,7 +340,7 @@ object RecomputeMeasurementStep : Step<Int, AppFailure.DatabaseError, Int> {
                                CURRENT_TIMESTAMP
                         FROM container_tags ct
                         JOIN container_contents cc ON cc.container_tag_id = ct.id
-                        WHERE ct.project_id = ? AND ct.state = 'ok'
+                        WHERE ct.project_id = ? AND ct.state IN ('ok', 'in_transit')
                         GROUP BY ct.project_id, cc.item_id
                         """.trimIndent()
                     ),

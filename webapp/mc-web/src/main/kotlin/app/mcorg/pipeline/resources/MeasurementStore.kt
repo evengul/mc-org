@@ -37,6 +37,8 @@ class ProjectMeasurements(
     private val byItem: Map<String, MeasuredStock>,
     /** Non-null when the project is storage-tracked: its counts are the chests', not typed. */
     val followed: FollowedChests? = null,
+    /** Tagged shulker boxes players are carrying, by player — counted, but not where they were left. */
+    val carried: List<CarriedBoxes> = emptyList(),
 ) : Map<String, MeasuredStock> by byItem {
     companion object {
         val NONE = ProjectMeasurements(emptyMap())
@@ -52,15 +54,24 @@ class ProjectMeasurements(
 data class FollowedChests(val containerCount: Int)
 
 /**
+ * How many of a project's tagged shulker boxes one player is carrying (MCO-548). Their contents are
+ * in the counts already; this is for whoever goes to the storage and finds the boxes gone.
+ */
+data class CarriedBoxes(val playerName: String, val boxes: Int)
+
+/**
  * A project's storage-tracked setting, with what the settings page needs to say about it.
  *
  * [taggedContainers] counts every tag, whatever its state; [readableContainers] only those the last
- * sweep could read, which are the ones a followed count is made of.
+ * sweep could read — at their position or on a player — which are the ones a followed count is made
+ * of.
  */
 data class StorageTracking(
     val tracked: Boolean,
     val taggedContainers: Int,
     val readableContainers: Int,
+    /** Of [readableContainers], the tagged shulker boxes players are carrying (MCO-548). */
+    val carriedContainers: Int = 0,
 )
 
 /**
@@ -83,7 +94,8 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
                 """
                 SELECT p.storage_tracked,
                        COUNT(ct.id) AS tagged,
-                       COUNT(ct.id) FILTER (WHERE ct.state = 'ok') AS readable
+                       COUNT(ct.id) FILTER (WHERE ct.state IN ('ok', 'in_transit')) AS readable,
+                       COUNT(ct.id) FILTER (WHERE ct.state = 'in_transit') AS carried
                 FROM projects p
                 LEFT JOIN container_tags ct ON ct.project_id = p.id
                 WHERE p.id = ?
@@ -97,6 +109,7 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
                         tracked = rs.getBoolean("storage_tracked"),
                         taggedContainers = rs.getInt("tagged"),
                         readableContainers = rs.getInt("readable"),
+                        carriedContainers = rs.getInt("carried"),
                     )
                 } else {
                     StorageTracking(tracked = false, taggedContainers = 0, readableContainers = 0)
@@ -109,19 +122,51 @@ object GetStorageTrackingStep : Step<Int, AppFailure.DatabaseError, StorageTrack
  * This project's measurements, by item id, and whether its counts follow them.
  *
  * Reads the materialised rollup, so it is one indexed query plus one for the setting — the project
- * page is already expensive and this must not be the thing that makes it worse.
+ * page is already expensive and this must not be the thing that makes it worse. Who is carrying a
+ * box is a third, and only runs when the setting's query has counted one: every counter press comes
+ * through here, and almost none of them is on a project with a box on the move.
  */
 object GetProjectMeasurementsStep : Step<Int, AppFailure.DatabaseError, ProjectMeasurements> {
     override suspend fun process(input: Int): Result<AppFailure.DatabaseError, ProjectMeasurements> {
         val byItem = GetMeasurementsByItemStep.process(input).getOrElse { return Result.failure(it) }
         val tracking = GetStorageTrackingStep.process(input).getOrElse { return Result.failure(it) }
+        val carried = if (tracking.carriedContainers == 0) emptyList()
+        else GetCarriedBoxesStep.process(input).getOrElse { return Result.failure(it) }
         return Result.success(
             ProjectMeasurements(
                 byItem = byItem,
                 followed = if (tracking.tracked) FollowedChests(tracking.readableContainers) else null,
+                carried = carried,
             )
         )
     }
+}
+
+/**
+ * Who is carrying this project's tagged shulker boxes, most boxes first.
+ *
+ * One player is one uuid, shown under the name of their latest reading. A push names only the boxes
+ * whose reading changed, so after a rename an untouched box still carries the old name, and
+ * grouping by name would show one player as two.
+ */
+private object GetCarriedBoxesStep : Step<Int, AppFailure.DatabaseError, List<CarriedBoxes>> {
+    override suspend fun process(input: Int) =
+        DatabaseSteps.query<Int, List<CarriedBoxes>>(
+            sql = SafeSQL.select(
+                """
+                SELECT (ARRAY_AGG(carried_by_name ORDER BY last_seen_at DESC NULLS LAST))[1] AS carried_by_name,
+                       COUNT(*) AS boxes
+                FROM container_tags
+                WHERE project_id = ? AND state = 'in_transit'
+                GROUP BY carried_by_uuid
+                ORDER BY boxes DESC, carried_by_name
+                """.trimIndent()
+            ),
+            parameterSetter = { st, projectId -> st.setInt(1, projectId) },
+            resultMapper = { rs ->
+                buildList { while (rs.next()) add(CarriedBoxes(rs.getString("carried_by_name"), rs.getInt("boxes"))) }
+            },
+        ).process(input)
 }
 
 private object GetMeasurementsByItemStep : Step<Int, AppFailure.DatabaseError, Map<String, MeasuredStock>> {

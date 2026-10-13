@@ -11,6 +11,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 
 // ── api_token ────────────────────────────────────────────────────────────────
 
@@ -306,6 +307,8 @@ data class ContainerTagRow(
     val taggedAt: Instant,
     val lastSeenAt: Instant?,
     val state: String,
+    /** Who has it, when [state] is `in_transit`. */
+    val carriedBy: Carrier? = null,
 )
 
 private fun ResultSet.mapToContainerTag() = ContainerTagRow(
@@ -321,11 +324,13 @@ private fun ResultSet.mapToContainerTag() = ContainerTagRow(
     taggedAt = getTimestamp("tagged_at").toInstant(),
     lastSeenAt = getTimestamp("last_seen_at")?.toInstant(),
     state = getString("state"),
+    carriedBy = getObject("carried_by_uuid", UUID::class.java)?.let { Carrier(it, getString("carried_by_name")) },
 )
 
 private const val CONTAINER_TAG_COLUMNS =
     "ct.id, ct.project_id, ct.dimension, ct.x, ct.y, ct.z, ct.group_key, ct.kind, " +
-        "ct.tagged_at, ct.last_seen_at, ct.state, mp.username AS tagged_by_name"
+        "ct.tagged_at, ct.last_seen_at, ct.state, ct.carried_by_uuid, ct.carried_by_name, " +
+        "mp.username AS tagged_by_name"
 
 /** Every tagged container in a world, oldest first. */
 object ListContainerTagsStep : Step<Int, AppFailure.DatabaseError, List<ContainerTagRow>> {
@@ -370,7 +375,12 @@ data class UpsertContainerTagInput(
  * But if the `kind` changed, the block itself changed: someone broke the chest and put a barrel
  * there. Keeping `state = 'ok'` then would present a reading of a container that no longer exists
  * as current, and phase B's contents hang off this row id, so those stale contents would keep
- * counting. So the two columns follow `kind`, and only `kind`.
+ * counting. So the reporter's columns follow `kind` — the carrier with them.
+ *
+ * **Re-tagging a position whose box is being carried discards the reading too**, whatever the kind.
+ * Tagging needs a block at the position, and the tag's own box is on a player, so this is a
+ * different container — a second shulker box set down where the first was picked up looks the same
+ * to `kind`. Keeping `in_transit` would name the first box's carrier for the second box.
  *
  * The insert and the read-back are one statement. Split in two they race: a concurrent DELETE
  * between them makes a successful write report a 500. A data-modifying CTE closes the window, and
@@ -392,14 +402,19 @@ object UpsertContainerTagStep : Step<UpsertContainerTagInput, AppFailure.Databas
                         tagged_by    = EXCLUDED.tagged_by,
                         tagged_at    = CURRENT_TIMESTAMP,
                         state        = CASE WHEN container_tags.kind IS DISTINCT FROM EXCLUDED.kind
+                                                 OR container_tags.state = 'in_transit'
                                             THEN 'unreadable' ELSE container_tags.state END,
                         last_seen_at = CASE WHEN container_tags.kind IS DISTINCT FROM EXCLUDED.kind
-                                            THEN NULL ELSE container_tags.last_seen_at END
+                                                 OR container_tags.state = 'in_transit'
+                                            THEN NULL ELSE container_tags.last_seen_at END,
+                        carried_by_uuid = NULL,
+                        carried_by_name = NULL
                     RETURNING id, project_id, dimension, x, y, z, group_key, kind,
-                              tagged_by, tagged_at, last_seen_at, state
+                              tagged_by, tagged_at, last_seen_at, state, carried_by_uuid, carried_by_name
                 )
                 SELECT ct.id, ct.project_id, ct.dimension, ct.x, ct.y, ct.z, ct.group_key, ct.kind,
-                       ct.tagged_at, ct.last_seen_at, ct.state, mp.username AS tagged_by_name
+                       ct.tagged_at, ct.last_seen_at, ct.state, ct.carried_by_uuid, ct.carried_by_name,
+                       mp.username AS tagged_by_name
                 FROM upserted ct
                 LEFT JOIN minecraft_profiles mp ON mp.user_id = ct.tagged_by
                 """.trimIndent()
