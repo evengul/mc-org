@@ -327,6 +327,33 @@ class ReporterContentsIT : WithUser() {
     }
 
     @Test
+    fun `tagging a new box where a carried one stood does not inherit its carrier`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-replaced")
+        val projectId = createProject(worldId)
+        val reporterToken = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        push(reporterToken, containerInTransit(box, evenUuid, "Even", iron to 10L))
+
+        // Alex sets down a different shulker box on the same spot and tags it. Same kind, so only
+        // the in-transit state says this is not the box Even is carrying.
+        val response = client.post("/api/v1/worlds/$worldId/containers") {
+            header("Authorization", "Bearer ${issueToken()}")
+            contentType(ContentType.Application.Json)
+            setBody(
+                """{"dimension":"minecraft:overworld","x":0,"y":64,"z":0,
+                    "project_id":$projectId,"kind":"shulker_box"}""".trimIndent()
+            )
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+
+        val tag = containerTags(worldId).single { it.id == box }
+        assertEquals("unreadable", tag.state, "the next sweep reads the new box at the position")
+        assertNull(tag.carriedBy)
+        assertTrue(storage(worldId).none { it.itemId == iron }, "the carried box's contents stop counting here")
+    }
+
+    @Test
     fun `re-tagging a container to another project moves its stock immediately`() = testApplication {
         routing { install(AuthPlugin); apiV1Routes() }
         val worldId = createWorld("retag-move")
