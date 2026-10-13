@@ -15,7 +15,9 @@ ALTER TABLE container_tags ADD CONSTRAINT container_tags_state_check
 -- for the stock; the uuid is identity, and it is how a restarted reporter tells "the carrier logged
 -- off" (keep counting) from "the carrier is online and no longer has it" (missing).
 ALTER TABLE container_tags ADD COLUMN carried_by_uuid UUID;
-ALTER TABLE container_tags ADD COLUMN carried_by_name VARCHAR(16);
+-- 64, not Minecraft's 16: a Floodgate or proxy prefix makes names longer, and a name that does not
+-- fit must not be able to refuse the whole push it arrives in.
+ALTER TABLE container_tags ADD COLUMN carried_by_name VARCHAR(64);
 
 -- A carrier exactly when in transit: a stale name on an 'ok' chest would tell someone to go and ask
 -- a player about stock that is sitting in storage.

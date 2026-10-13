@@ -248,11 +248,31 @@ class ReporterContentsIT : WithUser() {
         val noCarrier = """{"id":$box,"state":"in_transit","seen_at":"2026-09-08T10:05:00Z","items":[]}"""
         assertEquals(HttpStatusCode.BadRequest, push(token, noCarrier).status)
         assertEquals(HttpStatusCode.BadRequest, push(token, containerInTransit(box, "not-a-uuid", "Even")).status)
-        // The column holds 16, which is Minecraft's own limit. Longer would be a 500 from the
-        // database instead of a 400 that says why.
-        assertEquals(HttpStatusCode.BadRequest, push(token, containerInTransit(box, evenUuid, "x".repeat(17))).status)
 
         assertEquals("unreadable", containerTags(worldId).single { it.id == box }.state)
+    }
+
+    @Test
+    fun `a carrier's long name cannot refuse the push it arrives in`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-long-name")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        val chest = tagContainer(worldId, projectId, 1, 64, 0)
+
+        // A Floodgate player is ".Name", a proxy may prefix more. Refusing the name would refuse
+        // the chest beside it too, on every sweep, for as long as the box is carried.
+        val floodgate = ".BedrockPlayer1234"
+        val response = push(token, containerInTransit(box, evenUuid, floodgate, iron to 1L), container(chest, iron to 5L))
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+
+        assertEquals(floodgate, containerTags(worldId).single { it.id == box }.carriedBy?.name)
+        assertEquals(6, storage(worldId).single { it.itemId == iron }.measured)
+
+        // Past the column it is cut, not refused.
+        assertEquals(HttpStatusCode.OK, push(token, containerInTransit(box, evenUuid, "x".repeat(80))).status)
+        assertEquals("x".repeat(64), containerTags(worldId).single { it.id == box }.carriedBy?.name)
     }
 
     @Test

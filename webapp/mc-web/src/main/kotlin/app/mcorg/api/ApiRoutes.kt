@@ -728,7 +728,7 @@ suspend fun ApplicationCall.handlePushReporterContents() {
                 respondApiError(
                     HttpStatusCode.BadRequest,
                     "invalid_request",
-                    "in_transit needs carried_by with a player uuid and a name of at most 16 characters",
+                    "in_transit needs carried_by with a player uuid and a name",
                 )
                 return
             }
@@ -767,12 +767,19 @@ suspend fun ApplicationCall.handlePushReporterContents() {
 /** The states a sweep may report. Mirrors `container_tags.state`'s CHECK constraint. */
 private val REPORTABLE_STATES = setOf("ok", "unreadable", "missing", CONTAINER_STATE_IN_TRANSIT)
 
-/** Null when either half is unusable. A Minecraft name is 3–16 characters; the column holds 16. */
+/**
+ * Null when the carrier is unusable, which only a broken reporter sends. An over-long name is cut to
+ * the column rather than refused: the name is for display, and refusing it would refuse the whole
+ * push — every container in the world — on every sweep for as long as that player held the box.
+ */
 private fun CarrierDto.toCarrier(): Carrier? {
     val id = runCatching { UUID.fromString(uuid) }.getOrNull() ?: return null
-    if (name.isBlank() || name.length > 16) return null
-    return Carrier(id, name)
+    if (name.isBlank()) return null
+    return Carrier(id, name.take(CARRIER_NAME_MAX))
 }
+
+/** `container_tags.carried_by_name`'s width. */
+private const val CARRIER_NAME_MAX = 64
 
 /**
  * `GET /worlds/{id}/reporter` — whether a server is reading this world's tagged containers.
