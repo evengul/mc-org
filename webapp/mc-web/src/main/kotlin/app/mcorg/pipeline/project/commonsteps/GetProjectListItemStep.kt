@@ -18,6 +18,7 @@ object GetProjectListItemStep : Step<Int, AppFailure.DatabaseError, ProjectListI
                   p.name,
                   p.stage,
                   p.state,
+                  p.storage_tracked,
                   COUNT(DISTINCT t.id) FILTER (WHERE t.completed = false) AS tasks_remaining,
                   COUNT(DISTINCT t.id)                                      AS tasks_total,
                   COALESCE(SUM(rg.required), 0)                            AS resources_required,
@@ -60,7 +61,8 @@ object GetProjectListItemStep : Step<Int, AppFailure.DatabaseError, ProjectListI
                         resourcesGathered = resultSet.getInt("resources_gathered"),
                         itemCount = resultSet.getInt("item_count"),
                         nextTaskName = resultSet.getString("next_task_name"),
-                        producesCount = resultSet.getInt("produces_count")
+                        producesCount = resultSet.getInt("produces_count"),
+                        storageTracked = resultSet.getBoolean("storage_tracked"),
                     )
                 } else null
             }

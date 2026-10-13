@@ -91,6 +91,11 @@ data class ProjectDto(
     @SerialName("state") val state: String,
     @SerialName("resources") val resources: List<ResourceDto>,
     @SerialName("tasks") val tasks: List<TaskDto>,
+    /**
+     * The counts follow the project's tagged chests (MCO-540), so `resources/sync` answers 409.
+     * Sent so the mod can stop offering counters rather than queue a count that will be refused.
+     */
+    @SerialName("storage_tracked") val storageTracked: Boolean = false,
 )
 
 // ── Sync (absolute set) ─────────────────────────────────────────────────────────

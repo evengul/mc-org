@@ -34,6 +34,12 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
@@ -351,6 +357,28 @@ class StorageTrackedIT : WithUser() {
         assertEquals(HttpStatusCode.Conflict, response.status)
         assertContains(response.bodyAsText(), "storage_tracked")
         assertEquals(0, collectedOf(fixture.projectId, iron))
+    }
+
+    @Test
+    fun `the mod's project list says which projects follow their chests`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val fixture = trackedProject("api-flag")
+        val untracked = createProject(fixture.worldId)
+        trackOn(fixture.projectId)
+        val token = issueApiToken()
+
+        val response = client.get("/api/v1/worlds/${fixture.worldId}/projects") {
+            header("Authorization", "Bearer $token")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        // Read by wire name rather than through ProjectDto: the mod decodes `storage_tracked`, so a
+        // renamed key would pass a DTO round-trip here and still read false on every client.
+        val flags = Json.parseToJsonElement(response.bodyAsText()).jsonArray.associate {
+            val project = it.jsonObject
+            project.getValue("id").jsonPrimitive.int to project.getValue("storage_tracked").jsonPrimitive.boolean
+        }
+        assertEquals(mapOf(fixture.projectId to true, untracked to false), flags)
     }
 
     // ── The settings page ────────────────────────────────────────────────────
