@@ -254,7 +254,7 @@ suspend fun ApplicationCall.handleGetWorldProjects() {
                 )
             },
             tasks = tasks.map { TaskDto(id = it.id, name = it.name, completed = it.completed) },
-            storageTracked = IsStorageTrackedStep.process(p.id).getOrNull() ?: false,
+            storageTracked = p.storageTracked,
         )
     }
     respondJson(HttpStatusCode.OK, dtos)

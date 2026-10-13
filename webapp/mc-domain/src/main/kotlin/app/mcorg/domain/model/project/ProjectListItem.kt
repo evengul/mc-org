@@ -12,6 +12,8 @@ data class ProjectListItem(
     val itemCount: Int,
     val nextTaskName: String?,
     val producesCount: Int = 0,
+    /** The counts follow the project's tagged chests, and typed counts are refused (MCO-540). */
+    val storageTracked: Boolean = false,
 ) {
     /**
      * A finished project that declares produced items is not finished work — it is
