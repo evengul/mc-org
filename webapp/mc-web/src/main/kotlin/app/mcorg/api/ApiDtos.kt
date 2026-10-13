@@ -154,7 +154,8 @@ data class PlanActivityDto(
  * otherwise) — the sweep dedupes on it so a joined chest is not counted twice.
  *
  * [lastSeenAt] and [state] are written only by the reporter (phase B): `unreadable` until a sweep
- * has read the position, then `ok`, or `missing` once the block is gone. Timestamps are ISO-8601.
+ * has read the position, then `ok`, or `missing` once the block is gone, or `in_transit` while a
+ * tagged shulker box is on the player [carriedBy] names (MCO-548). Timestamps are ISO-8601.
  */
 @Serializable
 data class ContainerTagDto(
@@ -170,6 +171,17 @@ data class ContainerTagDto(
     @SerialName("tagged_at") val taggedAt: String,
     @SerialName("last_seen_at") val lastSeenAt: String? = null,
     @SerialName("state") val state: String,
+    @SerialName("carried_by") val carriedBy: CarrierDto? = null,
+)
+
+/**
+ * The player carrying an `in_transit` shulker box. [name] is for whoever is looking for the stock;
+ * [uuid] is identity, and is how a restarted reporter recognises the carrier again.
+ */
+@Serializable
+data class CarrierDto(
+    @SerialName("uuid") val uuid: String,
+    @SerialName("name") val name: String,
 )
 
 /** Tag a position, or move an existing tag there to another project. [groupKey] defaults to the position. */
@@ -221,7 +233,9 @@ data class ReportedItemDto(
 
 /**
  * One container as the sweep found it. [state] is `ok`, `unreadable` (the chunk has not been loaded
- * since tagging) or `missing` (the block is gone); only `ok` carries items worth storing.
+ * since tagging), `missing` (the block is gone) or `in_transit` (a tagged shulker box a player
+ * picked up — its contents travel with it). `ok` and `in_transit` carry items worth storing, and
+ * `in_transit` must name [carriedBy].
  */
 @Serializable
 data class ReportedContainerDto(
@@ -229,6 +243,7 @@ data class ReportedContainerDto(
     @SerialName("state") val state: String,
     @SerialName("seen_at") val seenAt: String,
     @SerialName("items") val items: List<ReportedItemDto> = emptyList(),
+    @SerialName("carried_by") val carriedBy: CarrierDto? = null,
 )
 
 /**

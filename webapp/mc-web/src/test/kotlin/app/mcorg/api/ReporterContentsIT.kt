@@ -7,6 +7,9 @@ import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
+import app.mcorg.pipeline.resources.CarriedBoxes
+import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
+import app.mcorg.pipeline.resources.GetStorageTrackingStep
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.pipeline.world.CreateWorldInput
@@ -169,6 +172,113 @@ class ReporterContentsIT : WithUser() {
         val storage = storage(worldId).single { it.itemId == iron }
         assertEquals(12, storage.measured)
         assertEquals(1, storage.containerCount)
+    }
+
+    // ── Carried shulker boxes (MCO-548) ────────────────────────────────────────
+
+    private val evenUuid = "6a1f0c2e-6c7b-4d55-9a4f-0c1b2a3d4e5f"
+
+    @Test
+    fun `a carried shulker box keeps counting, from what is in it now, and says who has it`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        push(token, container(box, iron to 12L))
+
+        // Picked up and on its way to the build. The reporter reads the contents off the item, so
+        // the count is what is in the box now — two ingots fewer than at the storage.
+        val response = push(token, containerInTransit(box, evenUuid, "Even", iron to 10L))
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+
+        val storage = storage(worldId).single { it.itemId == iron }
+        assertEquals(10, storage.measured, "a carried box is not a missing one")
+        assertEquals(1, storage.containerCount)
+
+        val tag = containerTags(worldId).single { it.id == box }
+        assertEquals("in_transit", tag.state)
+        assertEquals(CarrierDto(evenUuid, "Even"), tag.carriedBy)
+        // The reporter reads this back after a restart, to tell "logged off" from "lost it".
+        assertEquals(CarrierDto(evenUuid, "Even"), reporterTags(token).containers.single { it.id == box }.carriedBy)
+    }
+
+    @Test
+    fun `a box put back in storage stops naming whoever last had it`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-back")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        push(token, containerInTransit(box, evenUuid, "Even", iron to 10L))
+
+        push(token, container(box, iron to 10L))
+
+        val tag = containerTags(worldId).single { it.id == box }
+        assertEquals("ok", tag.state)
+        assertNull(tag.carriedBy)
+    }
+
+    @Test
+    fun `a carried box can still drive a storage-tracked project`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-tracked")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        push(token, containerInTransit(box, evenUuid, "Even", iron to 10L))
+
+        // Its contents are in the measurement, so it is one of the containers a followed count is
+        // made of — counting it as unreadable would refuse the switch while the count says 10.
+        val tracking = runBlocking { GetStorageTrackingStep.process(projectId) }
+        assertEquals(1, (tracking as Result.Success).value.readableContainers)
+
+        val measurements = runBlocking { GetProjectMeasurementsStep.process(projectId) }
+        assertEquals(listOf(CarriedBoxes("Even", 1)), (measurements as Result.Success).value.carried)
+    }
+
+    @Test
+    fun `in transit without a usable carrier is refused, not stored`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-invalid")
+        val projectId = createProject(worldId)
+        val token = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+
+        val noCarrier = """{"id":$box,"state":"in_transit","seen_at":"2026-09-08T10:05:00Z","items":[]}"""
+        assertEquals(HttpStatusCode.BadRequest, push(token, noCarrier).status)
+        assertEquals(HttpStatusCode.BadRequest, push(token, containerInTransit(box, "not-a-uuid", "Even")).status)
+        // The column holds 16, which is Minecraft's own limit. Longer would be a 500 from the
+        // database instead of a 400 that says why.
+        assertEquals(HttpStatusCode.BadRequest, push(token, containerInTransit(box, evenUuid, "x".repeat(17))).status)
+
+        assertEquals("unreadable", containerTags(worldId).single { it.id == box }.state)
+    }
+
+    @Test
+    fun `re-tagging a carried box's position as another kind drops the carrier with the reading`() = testApplication {
+        routing { install(AuthPlugin); apiV1Routes() }
+        val worldId = createWorld("carried-retag")
+        val projectId = createProject(worldId)
+        val reporterToken = mintReporterToken(worldId)
+        val box = tagContainer(worldId, projectId, 0, 64, 0, kind = "shulker_box")
+        push(reporterToken, containerInTransit(box, evenUuid, "Even", iron to 10L))
+
+        // A barrel now stands where the box was. The tag's reading resets to unreadable, and the
+        // carrier must go with it — a carrier on an unreadable tag is refused by the database.
+        val response = client.post("/api/v1/worlds/$worldId/containers") {
+            header("Authorization", "Bearer ${issueToken()}")
+            contentType(ContentType.Application.Json)
+            setBody(
+                """{"dimension":"minecraft:overworld","x":0,"y":64,"z":0,
+                    "project_id":$projectId,"kind":"barrel"}""".trimIndent()
+            )
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+
+        val tag = containerTags(worldId).single { it.id == box }
+        assertEquals("unreadable", tag.state)
+        assertNull(tag.carriedBy)
     }
 
     @Test
@@ -380,6 +490,12 @@ class ReporterContentsIT : WithUser() {
     private fun containerInState(id: Long, state: String) =
         """{"id":$id,"state":"$state","seen_at":"2026-09-08T10:05:00Z","items":[]}"""
 
+    private fun containerInTransit(id: Long, uuid: String, name: String, vararg items: Pair<String, Long>): String {
+        val itemJson = items.joinToString(",") { """{"item_id":"${it.first}","count":${it.second}}""" }
+        return """{"id":$id,"state":"in_transit","seen_at":"2026-09-08T10:10:00Z","items":[$itemJson],""" +
+            """"carried_by":{"uuid":"$uuid","name":"$name"}}"""
+    }
+
     private suspend fun ApplicationTestBuilder.push(token: String, vararg containers: String): HttpResponse =
         client.post("/api/v1/reporter/contents") {
             header("Authorization", "Bearer $token")
@@ -447,19 +563,19 @@ class ReporterContentsIT : WithUser() {
         ).process(Unit) as Result.Success).value
     }
 
-    private fun tagContainer(worldId: Int, projectId: Int, x: Int, y: Int, z: Int): Long =
+    private fun tagContainer(worldId: Int, projectId: Int, x: Int, y: Int, z: Int, kind: String = "chest"): Long =
         Database.getConnection().use { conn ->
             conn.prepareStatement(
                 """
                 INSERT INTO container_tags
                     (world_id, project_id, dimension, x, y, z, group_key, kind, tagged_by)
-                VALUES (?, ?, 'minecraft:overworld', ?, ?, ?, ?, 'chest', ?)
+                VALUES (?, ?, 'minecraft:overworld', ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent()
             ).use { st ->
                 st.setInt(1, worldId); st.setInt(2, projectId)
                 st.setInt(3, x); st.setInt(4, y); st.setInt(5, z)
-                st.setString(6, "$x,$y,$z"); st.setInt(7, user.id)
+                st.setString(6, "$x,$y,$z"); st.setString(7, kind); st.setInt(8, user.id)
                 st.executeQuery().use { rs -> rs.next(); rs.getLong(1) }
             }
         }
