@@ -8,6 +8,22 @@ user-invocable: false
 
 MC-ORG design system. This is the ground truth for all UI implementation and review decisions.
 
+## Where the design system lives
+
+Each thing lives in one place:
+
+- **The values** are in `webapp/mc-web/src/main/resources/static/styles/design-tokens.css`, the
+  file the app actually renders. Each colour carries its usage note as a comment on its own line.
+- **The rules** are here: when to use what, the components and their classes, motion and mobile.
+- **The components** are in the code: the DSL under `presentation/templated/dsl/` and the
+  stylesheets under `static/styles/` (`docs-frontend` maps them).
+- **[SEAM Design System](https://claude.ai/artifact/AYSR427dApGGdLuacvd5r5)** in Claude is
+  derived from those and is never edited by hand. It is what design rounds draw with (the
+  `claude-design` skill). `python3 webapp/scripts/design-tokens.py` produces its `tokens.json`
+  (`css` for `tokens.css`), and this file is published unchanged as its README. When a colour or
+  a rule changes, change it here or in `design-tokens.css` in a PR, then republish. The recipe is
+  in `claude-design` → "The design system".
+
 ---
 
 ## Aesthetic Direction
