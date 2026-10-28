@@ -63,9 +63,9 @@
     --border-strong: #C2AE82;  /* emphasized rule (hover/focus) */
     --text-primary: #2A2218;   /* dark sepia ink */
     --text-muted: #7A6B47;     /* faded pencil */
-    --text-disabled: #A99B78;
+    --text-disabled: #A99B78;  /* disabled controls and placeholders, never body copy */
     --accent: #2C6E9E;         /* lapis ink — primary / CTA + links (act) */
-    --accent-hover: #245C85;
+    --accent-hover: #245C85;   /* lapis under the pointer */
     --accent-muted: #D6E2EC;   /* pale lapis wash */
     --on-accent: #FCF7EA;      /* cream text/icon on a lapis fill */
     --green: #4F7A2B;          /* grass — success / status / growth (done) */
@@ -79,10 +79,10 @@
        hardcoded #cc4545 (MCO-388) that was *lighter* than the rest state and dropped
        cream-on-red from 6.34:1 to 4.66:1 on hover — contrast fell exactly when the
        control was being pointed at. This is 8.03:1. */
-    --red-hover: #8B2A1A;
+    --red-hover: #8B2A1A;      /* redstone under the pointer */
     --progress: #4F7A2B;       /* grass — completion is status, not brand */
-    --green-bg: #DEE8CB;
-    --red-bg: #F0DACF;
+    --green-bg: #DEE8CB;       /* wash behind a done badge or success callout */
+    --red-bg: #F0DACF;         /* wash behind a danger badge or error callout */
 
     /* Typography scale */
     --text-xs: 11px;
