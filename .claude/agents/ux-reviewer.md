@@ -22,6 +22,8 @@ If the app is running (start it with `./webapp/scripts/run.sh` if needed), use t
 - Exercise the interaction you're reviewing (toggle, form, modal), not just the initial render
 - Check hover/focus states on interactive elements
 
+In a cloud session (`CLAUDE_CODE_REMOTE=true`) there is no `/playwright` skill: take the widths with `node webapp/scripts/screenshot.js <path> <out-prefix> 375,768,1440` against `localhost:8080` and read the images. Hover and focus states need a short Node Playwright script of your own (`require('playwright')` works from any directory).
+
 Fall back to code-only review when the app can't be run, and say so in the review.
 
 ## What you're checking

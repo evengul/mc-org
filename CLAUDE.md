@@ -234,9 +234,15 @@ webapp/scripts/cloud-setup.sh --ingest   # INGEST_VERSIONS=latest unless set: on
 Leave `INGEST_VERSIONS` broader (a version list, or `all`) when the change is about how
 versions differ — `mc-data` extraction, or a cost question about an older version.
 
-PRs go through the `mcp__github__*` tools; there is no `gh` CLI here. Visual checks: run
-`run.sh`, sign in via `/auth/oidc/demo-redirect` with Node Playwright (preinstalled), and send
-the screenshot to the chat — or put the `preview` label on the PR for a Fly preview.
+If `java -version` says 21 or Docker is down (a resume restarts processes but keeps the
+filesystem, and the hook may not have run), run `.claude/hooks/cloud-session-start.sh` by hand
+and `export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH`. `service docker start` does not
+work in the sandbox; the script starts `dockerd` directly.
+
+PRs go through the `mcp__github__*` tools; there is no `gh` CLI here except for search. Visual
+checks: `run.sh`, then `node webapp/scripts/screenshot.js <path> <out-prefix>` (demo sign-in,
+375 + 1440) and send the images to the chat — or put the `preview` label on the PR for a Fly
+preview. `start`, `commit`, `verify` and `deliver` each have a "Cloud session" section.
 
 ## Issue Tracking
 

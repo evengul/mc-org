@@ -59,10 +59,17 @@ fi
 # 4. Docker + the local postgres container.
 if ! docker info >/dev/null 2>&1; then
     step "starting Docker"
-    # The init script warns that it cannot raise ulimit in the sandbox; the daemon still starts.
-    service docker start >>"$LOG" 2>&1 || true
+    # A resumed session keeps the filesystem but not the processes, so the previous dockerd's
+    # pid file survives and the init script takes it for a running daemon and does nothing.
+    pid=$(cat /var/run/docker.pid 2>/dev/null || true)
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+        rm -f /var/run/docker.pid
+    fi
+    # Not `service docker start`: its init script cannot raise ulimit in the sandbox and leaves
+    # no daemon behind. The platform starts dockerd on a fresh container; this covers a resume.
+    setsid nohup dockerd >/var/log/dockerd-cloud-setup.log 2>&1 < /dev/null &
     for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
-    docker info >/dev/null 2>&1 || { echo "cloud-setup: Docker did not start (log: $LOG)" >&2; exit 1; }
+    docker info >/dev/null 2>&1 || { echo "cloud-setup: Docker did not start (log: /var/log/dockerd-cloud-setup.log)" >&2; exit 1; }
 fi
 if [[ "$(docker inspect -f '{{.State.Running}}' mcorg-db 2>/dev/null)" != "true" ]]; then
     step "starting the local postgres container"

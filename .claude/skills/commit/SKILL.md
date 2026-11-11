@@ -13,6 +13,22 @@ description: >
 
 Follow the steps in order. Stop and report if one fails.
 
+## Cloud session (`CLAUDE_CODE_REMOTE=true`)
+
+Same steps and format; only the tools differ. There is no `gh` for PRs:
+
+| Here | Cloud |
+|------|-------|
+| `git push -u origin HEAD` | the same; the branch is the session's assigned `claude/*` branch, and it is the only one you may push |
+| `gh pr create --base master --title … --body-file …` | `mcp__github__create_pull_request` (owner `evengul`, repo `mc-org`, `head` = the branch, `base` = `master`, `body` = the description file's text) |
+| `--label preview` | right after creating it: `mcp__github__issue_write` `method: update`, `issue_number` = the PR, `labels: ["preview"]` (a PR is an issue to that API) |
+| `gh pr view <n> --json …` | `mcp__github__pull_request_read` (`get`, `get_files`, `get_check_runs`) |
+| `gh pr create --base <base-branch>` (stacked) | `create_pull_request` with that `base` |
+| `ux-reviewer` against the running app | give it the screenshots from `/verify` → cloud; it cannot drive `playwright-cli` here |
+
+After opening the PR, offer to watch it (`subscribe_pr_activity`) so CI
+failures and review comments come back to the session.
+
 ## How master's history is made
 
 master is squash-merged, and the squash commit takes the **PR title and

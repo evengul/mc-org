@@ -17,6 +17,28 @@ The job is to read the issue, check it still holds, and set the work up so
 Linear shows someone is on it. Stop and ask only where this recipe says so,
 or when the issue needs a decision that is the owner's to make.
 
+## Cloud session (`CLAUDE_CODE_REMOTE=true`)
+
+The container is the worktree (CLAUDE.md → "Cloud Sessions"). Steps 3, 4, 6
+and 7 are unchanged; the others become:
+
+- **0–1.** No main checkout. The session cloned onto its assigned
+  `claude/*` branch. `git fetch origin master`; if the branch has no commits
+  of its own, `git reset --hard origin/master` so you read current code.
+  Commits of its own: stop and ask, it is someone's earlier work.
+- **2.** No `git worktree list`, no `gh pr list`. Search open PRs with
+  `gh api -X GET search/issues -f q='repo:evengul/mc-org is:pr is:open MCO-xxx'`
+  (search is the one thing `gh` does here), and check the issue's
+  attachments in Linear.
+- **5.** No `EnterWorktree`, and keep the assigned branch name: the session
+  may only push there. The issue number goes in the PR title instead. The
+  SessionStart hook has run `cloud-setup.sh` (JDK 25, DB, migrations); if the
+  work needs Minecraft data, run `webapp/scripts/cloud-setup.sh --ingest`
+  now, in the background, while you plan.
+- **Afterwards, UI changes.** The owner cannot open the container's
+  localhost. Hand them screenshots instead (`/verify` → cloud), and offer the
+  `preview` label on the PR when they want to click through it.
+
 ## 0. Starting point
 
 The session should be in the main checkout, not in a worktree. Inspect other

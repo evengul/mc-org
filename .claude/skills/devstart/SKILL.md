@@ -7,6 +7,8 @@ argument-hint: "[--debug] [--env <name>]"
 
 Start the full local development environment in the correct order.
 
+In a cloud session (`CLAUDE_CODE_REMOTE=true`), steps 1–4 are `webapp/scripts/cloud-setup.sh` (it also handles a Docker daemon `service docker start` cannot start there); then step 5.
+
 Run each step sequentially, stopping if any step fails:
 
 1. **Docker check**: Run `docker info` to verify Docker is running. If it isn't, run sudo service docker start. If this fails, report the issue and return early.
