@@ -35,19 +35,26 @@ run() { "$@" >>"$LOG" 2>&1 || { echo "cloud-setup: FAILED: $* (log: $LOG)" >&2; 
 # 1. JDK 25 — webapp/pom.xml's java.version. The image ships an older JDK.
 if [[ ! -x "$JDK_DIR/bin/java" ]]; then
     step "installing Temurin JDK 25 into $JDK_DIR"
-    mkdir -p "$JDK_DIR"
-    run bash -c "curl -fsSL 'https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse' | tar -xz -C '$JDK_DIR' --strip-components=1"
+    # Extract beside the target and move it into place, so an interrupted download never
+    # leaves a $JDK_DIR with a bin/java that the check above would take for a working JDK.
+    tmp="$(mktemp -d /opt/jdk25.partial.XXXXXX)"
+    run bash -o pipefail -c "curl -fsSL 'https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse' | tar -xz -C '$tmp' --strip-components=1"
+    run "$tmp/bin/java" -version
+    rm -rf "$JDK_DIR" && mv "$tmp" "$JDK_DIR"
 fi
 export JAVA_HOME="$JDK_DIR" PATH="$JDK_DIR/bin:$PATH"
 
-# 2. Maven cache — `install` so -pl builds resolve siblings (MCO-285). Re-run only when a pom
-#    or this script changed; the hash lives in ~/.m2 so it disappears with the cache.
-hashes="$HOME/.m2/.seam-cloud-setup.sha256"
-if ! (cd "$WEBAPP_DIR" && sha256sum --check --status "$hashes" 2>/dev/null); then
-    rm -f "$hashes"
+# 2. Maven cache — `install` so -pl builds resolve siblings (MCO-285). Re-run only when a pom,
+#    the set of modules, or this script changed; the stamp lives in ~/.m2 so it disappears with
+#    the cache. This warms dependencies: run.sh and ingest-locally.sh install source changes
+#    themselves, as they do locally.
+stamp="$HOME/.m2/.seam-cloud-setup.sha256"
+current="$(cd "$WEBAPP_DIR" && sha256sum scripts/cloud-setup.sh pom.xml */pom.xml | sha256sum | cut -d' ' -f1)"
+if [[ "$(cat "$stamp" 2>/dev/null)" != "$current" ]]; then
+    rm -f "$stamp"
     step "building and installing all modules (warms ~/.m2; ~2 min cold)"
     (cd "$WEBAPP_DIR" && run mvn -q -B install -DskipTests)
-    (cd "$WEBAPP_DIR" && sha256sum scripts/cloud-setup.sh pom.xml */pom.xml > "$hashes")
+    echo "$current" > "$stamp"
 fi
 
 # 3. local.env — the template's localhost DB, with docker-compose-local.yaml's password.
@@ -62,7 +69,8 @@ if ! docker info >/dev/null 2>&1; then
     # A resumed session keeps the filesystem but not the processes, so the previous dockerd's
     # pid file survives and the init script takes it for a running daemon and does nothing.
     pid=$(cat /var/run/docker.pid 2>/dev/null || true)
-    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+    # Check the name, not just liveness: after a resume the old pid can belong to anything.
+    if [[ -n "$pid" ]] && [[ "$(cat /proc/"$pid"/comm 2>/dev/null)" != "dockerd" ]]; then
         rm -f /var/run/docker.pid
     fi
     # Not `service docker start`: its init script cannot raise ulimit in the sandbox and leaves
@@ -78,12 +86,16 @@ fi
 export PGPASSWORD=supersecret
 for _ in $(seq 1 30); do psql -h localhost -U postgres -tAc 'select 1' >/dev/null 2>&1 && break; sleep 1; done
 
-# 5. Migrations — only when the DB is behind the files on disk.
-on_disk=$(ls "$WEBAPP_DIR"/mc-web/src/main/resources/db/migration/V*.sql | wc -l)
-applied=$(psql -h localhost -U postgres -tAc \
-    "select count(*) from flyway_schema_history where success and version is not null" 2>/dev/null || echo 0)
-if [[ "$applied" -lt "$on_disk" ]]; then
-    step "applying migrations ($applied of $on_disk applied)"
+# 5. Migrations — only when the applied versions differ from the files on disk. Compares the
+#    sets, not counts, so a renumbered migration is not missed. A DB that has a version the
+#    branch lacks makes flyway fail validation: that is reported, not papered over.
+on_disk_versions=$(ls "$WEBAPP_DIR"/mc-web/src/main/resources/db/migration/ \
+    | sed -n 's/^V\([0-9_]*\)__.*\.sql$/\1/p' | tr '_' '.' | sort)
+on_disk=$(echo "$on_disk_versions" | wc -l)
+applied_versions=$(psql -h localhost -U postgres -tAc \
+    "select version from flyway_schema_history where success and version is not null" 2>/dev/null | sort || true)
+if [[ "$applied_versions" != "$on_disk_versions" ]]; then
+    step "applying migrations ($(echo "$applied_versions" | grep -c . || true) applied, $on_disk on disk)"
     run "$WEBAPP_DIR/scripts/migrate-locally.sh"
 fi
 

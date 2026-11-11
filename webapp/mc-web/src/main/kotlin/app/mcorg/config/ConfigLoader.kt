@@ -41,7 +41,7 @@ data class Config(
     val seamDiscordUrl: String?,
     val webhookSharedSecret: String?,
     val forceReingest: String?,
-    val ingestVersions: String? = null,
+    val ingestVersions: String?,
 )
 
 /**

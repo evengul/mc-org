@@ -7,7 +7,8 @@
 //     → /tmp/shots/worlds-375.png, /tmp/shots/worlds-1440.png
 //
 // Prints the final URL and title per width, so a redirect to sign-in or an error page shows
-// up in the output and not only in the image. Exits non-zero on a 4xx/5xx page response.
+// up in the output and not only in the image. Exit 2: a 4xx/5xx page or a page that bounced
+// to sign-in. Exit 3: the demo sign-in itself failed.
 const { chromium } = require('playwright');
 
 (async () => {
@@ -23,8 +24,16 @@ const { chromium } = require('playwright');
         const context = await browser.newContext();
         const signIn = await context.newPage();
         await signIn.goto(`${base}/auth/oidc/demo-redirect`, { waitUntil: 'networkidle' });
+        // A failed demo sign-in lands back on a sign-in page with a 200; every screenshot after
+        // it would be of the wrong page and still "succeed".
+        if (new URL(signIn.url()).pathname.startsWith('/auth') || signIn.url() === `${base}/`) {
+            console.error(`demo sign-in did not sign in (ended on ${signIn.url()}); is DEMO_USER set in local.env?`);
+            process.exitCode = 3;
+            return;
+        }
         await signIn.close();
-        for (const width of widthsArg.split(',').map(Number)) {
+        const widths = widthsArg.split(',').map(Number).filter((w) => Number.isInteger(w) && w > 0);
+        for (const width of widths) {
             const page = await context.newPage();
             await page.setViewportSize({ width, height: 900 });
             const response = await page.goto(base + path, { waitUntil: 'networkidle' });
@@ -33,10 +42,14 @@ const { chromium } = require('playwright');
             await page.screenshot({ path: file, fullPage: true });
             console.log(`${width}px  ${status}  ${page.url()}  "${await page.title()}"  → ${file}`);
             if (status >= 400) failed = true;
+            if (new URL(page.url()).pathname.startsWith('/auth')) {
+                console.error(`  redirected to sign-in: the session was lost`);
+                failed = true;
+            }
             await page.close();
         }
     } finally {
         await browser.close();
     }
-    process.exit(failed ? 2 : 0);
+    if (failed) process.exitCode = 2;
 })();
