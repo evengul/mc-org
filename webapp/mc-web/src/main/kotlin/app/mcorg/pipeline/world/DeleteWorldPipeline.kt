@@ -22,7 +22,7 @@ suspend fun ApplicationCall.handleDeleteWorld() {
             if (this.request.header("HX-Current-URL")?.contains("/admin") == true) {
                 respondEmptyHtml()
             } else {
-                clientRedirect(Link.Home.to)
+                clientRedirect(Link.Worlds.to)
             }
         }
     ) {
