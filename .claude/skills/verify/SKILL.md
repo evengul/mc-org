@@ -28,9 +28,10 @@ localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
    send them with `SendUserFile`. Exit 2 or 3 from the script is a failed
    verification, not a flaky one.
 
-Cleanup: `pkill -f 'exec:java -pl mc-web'` for the app you started. The app
+Cleanup: `pkill -f 'exec:java -pl [m]c-web'` for the app you started. The app
 runs inside `mvn exec:java`, so neither `mcorg` nor `ApplicationKt` is on its
-command line and `pkill -f mcorg` matches nothing.
+command line and `pkill -f mcorg` matches nothing. The `[m]` keeps the pattern
+from matching the shell that runs it.
 
 ## 1. Make sure the app can run
 

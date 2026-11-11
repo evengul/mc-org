@@ -76,16 +76,15 @@ label on the PR for a Fly preview.
 ```bash
 ./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080, after its own build (~1 min)
 until curl -s -o /dev/null localhost:8080; do sleep 5; done   # in one Bash call, with a timeout
-pkill -f 'exec:java -pl mc-web'                        # stop it: not `mcorg`, which matches nothing
+pkill -f 'exec:java -pl [m]c-web'                        # stop it: not `mcorg`, which matches nothing
 node webapp/scripts/screenshot.js /worlds <scratchpad>/shots/worlds            # 375 + 1440
 node webapp/scripts/screenshot.js /worlds/<id> <scratchpad>/shots/world 375,768,1440
 ```
 
 `screenshot.js` signs in through the demo sign-in. It prints status, final URL and title per
 width; exit 2 means a 4xx/5xx or a page that bounced to sign-in, exit 3 that the demo sign-in
-itself failed; the message says which: a 5xx is the server (read `/tmp/seam-run.log`; missing JWT
-keys did it once, and `cloud-setup.sh` now generates them), anything else is usually `DEMO_USER`
-unset. Read the images yourself before sending them with
+itself failed; the message says which: `DEMO_USER` unset, or the server failing (read
+`/tmp/seam-run.log`; missing JWT keys did it once, and `cloud-setup.sh` now generates them). Read the images yourself before sending them with
 `SendUserFile`. Interactions need their own short Node script: `require('playwright')` works
 from any directory, and the browser is preinstalled. Call `report_preview_port` with 8080 once
 the app is up.
