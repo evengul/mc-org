@@ -174,6 +174,20 @@
                         </configuration>
                     </execution>
                     <!--
+                        Writes: the demo user's "Demo World" and a few public ideas, for looking at
+                        pages in a cloud session (MCO-657). Idempotent; refuses ENV=PRODUCTION.
+                        mvn -pl mc-web exec:java@seed-demo -Dexec.args="version=26.3.0"
+                    -->
+                    <execution>
+                        <id>seed-demo</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>app.mcorg.cli.SeedDemoKt</mainClass>
+                        </configuration>
+                    </execution>
+                    <!--
                         Read-only: which items a farm can make (MCO-565), against the ingested data.
                         Diffs against the committed snapshot, explains a verdict, and writes the
                         review page's data and new snapshots.

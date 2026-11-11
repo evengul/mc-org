@@ -14,7 +14,10 @@ No Neon branch, no `playwright-cli`, and the owner can't open the container's
 localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
 "Looking at the app"). Steps 4–5 are unchanged; 1–3 become:
 
-1. `webapp/scripts/cloud-setup.sh --ingest` when the page needs Minecraft data.
+1. `webapp/scripts/cloud-setup.sh --seed` when the page needs a world to show
+   (it ingests first): the demo user's "Demo World", with projects, an ordering
+   and public ideas — the table is in `cloud-session`. `--ingest` alone when
+   the page only needs Minecraft data.
 2. `run.sh` on port 8080, then `report_preview_port` 8080.
 3. `node webapp/scripts/screenshot.js <path> <out-prefix>` at 375 and 1440; a
    Node Playwright script for the interaction itself. Read the images, then

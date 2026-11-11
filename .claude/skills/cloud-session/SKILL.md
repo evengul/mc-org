@@ -32,6 +32,7 @@ throwaway localhost Docker postgres. None of `worktree-infrastructure` applies.
 | `dockerd`, then `mcorg-db` (`start-db.sh`) | Docker answers / the container runs |
 | `migrate-locally.sh` | applied version set equals `db/migration/` |
 | `--ingest`: `ingest-locally.sh` | only with the flag; the ledger makes a repeat a no-op |
+| `--seed`: `--ingest`, then `exec:java@seed-demo` (`cli/SeedDemo.kt`) | only with the flag; an existing "Demo World" is left alone |
 
 Cold: about 2 minutes. Warm: under a second. The script also runs fine by hand, and it does not
 install your source changes: `run.sh`, `ingest-locally.sh` and `test.sh` (`-am`) do that, as
@@ -85,9 +86,23 @@ itself failed (`DEMO_USER` unset). Read the images yourself before sending them 
 from any directory, and the browser is preinstalled. Call `report_preview_port` with 8080 once
 the app is up.
 
-The demo user starts with no worlds. Create the data a page needs through the app, or with
+The demo user starts with no worlds. `webapp/scripts/cloud-setup.sh --seed` gives it one (run it
+before `run.sh`: the seed writes to the DB directly and a running server keeps its caches):
+
+| In "Demo World" | Shows on |
+|-----------------|----------|
+| Iron Farm: COMPLETED/DONE, produces iron ingots | roadmap "Producing", SUPPLIED iron lines |
+| Storage Hall: RESOURCE_GATHERING/ACTIVE, chests, hoppers, comparators | planner with crafted lines |
+| Sugar Cane Farm: PLANNING, observers, pistons | a second final project |
+| Main Base: DESIGN, 3,000 stone bricks, 8,000 planks, 2,000 glass | "Worth a farm", open questions (sand) |
+| Nether Hub: IDEA, nothing in it | roadmap "Not in any chain" |
+| Storage Hall → Main Base, by hand | roadmap manual ordering |
+| Ideas: Stone Generator, Oak Tree Farm, Sand Duper (public) | "Worth a farm" designs, the idea bank |
+
+The world's id is printed (`seed-demo: created 'Demo World' (id 1, …)`); on a fresh DB it is 1,
+and Main Base is project 4. Anything a page needs beyond that: create it through the app, or with
 `psql -h localhost -U postgres` (`PGPASSWORD=supersecret`; the DB is disposable), and say what
-you added.
+you added. The dataset is `SEED_PROJECTS` / `SEED_IDEAS` in `cli/SeedDemo.kt`.
 
 ## Tools that are not here
 

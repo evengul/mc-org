@@ -43,7 +43,7 @@ suspend fun ApplicationCall.handlePublishIdeaToHub() {
     }
 }
 
-private val PublishIdeaToHubStep = DatabaseSteps.update<Int>(
+internal val PublishIdeaToHubStep = DatabaseSteps.update<Int>(
     sql = SafeSQL.update("UPDATE ideas SET visibility = 'PUBLIC', updated_at = NOW() WHERE id = ?"),
     parameterSetter = { statement, ideaId -> statement.setInt(1, ideaId) }
 )

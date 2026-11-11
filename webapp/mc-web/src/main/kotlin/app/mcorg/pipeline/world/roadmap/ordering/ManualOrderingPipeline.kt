@@ -137,6 +137,27 @@ suspend fun ApplicationCall.handlePickOrderingProject() {
 
 // ---- writing -----------------------------------------------------------------------------------
 
+/**
+ * Records "[firstId] comes before [thenId]" as an editor-declared ordering. Answers the number of
+ * rows written: 0 when the pair is already ordered, since the pair is unique in the table.
+ *
+ * Shared with the demo seed (`cli/SeedDemo.kt`), so its ordering is written the way the editor
+ * writes one rather than by a copy of this SQL that a migration could leave behind.
+ */
+internal suspend fun insertManualOrdering(firstId: Int, thenId: Int, reason: String): Result<AppFailure.DatabaseError, Int> =
+    DatabaseSteps.update<Unit>(
+        sql = SafeSQL.insert("""
+            INSERT INTO project_dependencies (project_id, depends_on_project_id, reason, declared_by)
+            VALUES (?, ?, ?, 'EDITOR')
+            ON CONFLICT (project_id, depends_on_project_id) DO NOTHING
+        """.trimIndent()),
+        parameterSetter = { statement, _ ->
+            statement.setInt(1, thenId)
+            statement.setInt(2, firstId)
+            statement.setString(3, reason)
+        }
+    ).process(Unit)
+
 /** `POST .../ordering` — record a new hand-made ordering. */
 suspend fun ApplicationCall.handleAddManualOrdering() {
     val worldId = getWorldId()
@@ -172,18 +193,7 @@ suspend fun ApplicationCall.handleAddManualOrdering() {
         )
     }
 
-    val inserted = DatabaseSteps.update<Unit>(
-        sql = SafeSQL.insert("""
-            INSERT INTO project_dependencies (project_id, depends_on_project_id, reason, declared_by)
-            VALUES (?, ?, ?, 'EDITOR')
-            ON CONFLICT (project_id, depends_on_project_id) DO NOTHING
-        """.trimIndent()),
-        parameterSetter = { statement, _ ->
-            statement.setInt(1, thenId)
-            statement.setInt(2, firstId)
-            statement.setString(3, reason)
-        }
-    ).process(Unit)
+    val inserted = insertManualOrdering(firstId = firstId, thenId = thenId, reason = reason)
 
     when (inserted) {
         is Result.Failure -> return defaultHandleError(inserted.error)

@@ -10,16 +10,20 @@
 #
 #   webapp/scripts/cloud-setup.sh            # JDK, Maven cache, local.env, Docker DB, migrations
 #   webapp/scripts/cloud-setup.sh --ingest   # + Minecraft data, INGEST_VERSIONS (default: latest)
+#   webapp/scripts/cloud-setup.sh --seed     # + --ingest, then the demo user's "Demo World" (MCO-657)
 #
 # After it, in a fresh shell: export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH
 # (the hook does this for the session through $CLAUDE_ENV_FILE).
 set -euo pipefail
 
 INGEST=false
+SEED=false
 for arg in "$@"; do
     case "$arg" in
         --ingest) INGEST=true ;;
-        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        # The seed's resource lines name items, so it needs a version's data first.
+        --seed) INGEST=true; SEED=true ;;
+        -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
 done
@@ -104,6 +108,14 @@ if [[ "$INGEST" == true ]]; then
     export INGEST_VERSIONS="${INGEST_VERSIONS:-latest}"
     step "ingesting Minecraft data (INGEST_VERSIONS=$INGEST_VERSIONS)"
     run "$WEBAPP_DIR/scripts/ingest-locally.sh"
+fi
+
+# 7. The demo world, opt-in (MCO-657). Idempotent: an existing "Demo World" is left alone.
+#    The ingest above has just installed the modules, so the -pl run sees current code.
+if [[ "$SEED" == true ]]; then
+    step "seeding the demo user's world"
+    (cd "$WEBAPP_DIR" && set -a && . ./local.env && set +a && run mvn -q -B -pl mc-web exec:java@seed-demo)
+    grep '^seed-demo:' "$LOG" | tail -1
 fi
 
 step "ready (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"
