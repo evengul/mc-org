@@ -216,33 +216,12 @@ each) from finished worktrees are the usual cause, and each has its own reaper.
 
 ## Cloud Sessions (claude.ai/code)
 
-A cloud session (`CLAUDE_CODE_REMOTE=true`) is **not** a worktree, and none of the worktree
-machinery applies: the container is the isolation, the session's assigned `claude/*` branch
-satisfies "worktree first", and the database is a throwaway localhost Docker postgres, not a
-Neon branch. No `EnterWorktree`, `worktree-*.sh`, `neonctl` or `playwright-cli` here.
-
-The SessionStart hook (`.claude/hooks/cloud-session-start.sh`) runs
-`webapp/scripts/cloud-setup.sh`, which installs JDK 25 (the image ships an older one), warms
-`~/.m2`, seeds `local.env`, starts Docker and the DB, and applies migrations. It is idempotent
-(~2 min cold, under a second warm); run it by hand if a step looks missing. For anything
-that needs Minecraft data (the planner, `/verify`, `cost-diagnostics`):
-
-```bash
-webapp/scripts/cloud-setup.sh --ingest   # INGEST_VERSIONS=latest unless set: one version, ~1 min
-```
-
-Leave `INGEST_VERSIONS` broader (a version list, or `all`) when the change is about how
-versions differ — `mc-data` extraction, or a cost question about an older version.
-
-If `java -version` says 21 or Docker is down (a resume restarts processes but keeps the
-filesystem, and the hook may not have run), run `.claude/hooks/cloud-session-start.sh` by hand
-and `export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH`. `service docker start` does not
-work in the sandbox; the script starts `dockerd` directly.
-
-PRs go through the `mcp__github__*` tools; there is no `gh` CLI here except for search. Visual
-checks: `run.sh`, then `node webapp/scripts/screenshot.js <path> <out-prefix>` (demo sign-in,
-375 + 1440) and send the images to the chat — or put the `preview` label on the PR for a Fly
-preview. `start`, `commit`, `verify` and `deliver` each have a "Cloud session" section.
+A cloud session (`CLAUDE_CODE_REMOTE=true`) is **not** a worktree: the container is the
+isolation, the database is a throwaway localhost Docker postgres, and none of the worktree
+machinery applies. A SessionStart hook runs `webapp/scripts/cloud-setup.sh` (JDK 25, Maven
+cache, Docker, DB, migrations). **Load the `cloud-session` skill** for Minecraft data
+(`--ingest`, `INGEST_VERSIONS`), screenshots without `playwright-cli`, the GitHub MCP tools that
+replace `gh`, and the fixes when the JDK is 21 or Docker is down after a resume.
 
 ## Issue Tracking
 
@@ -261,7 +240,9 @@ checkout. If `git rev-parse --abbrev-ref HEAD` is `master`, STOP and start a wor
 files on `master`. If a worktree is impractical, at minimum create a feature branch first
 (`git checkout -b <linear-branch>`); never commit work directly onto `master`. See
 the `worktree-infrastructure` skill for the mechanics. This is the FIRST thing to
-check when work begins, not an afterthought at commit time.
+check when work begins, not an afterthought at commit time. **Cloud session** (`CLAUDE_CODE_REMOTE=true`):
+no worktree — the session's assigned `claude/*` branch is the feature branch; confirm you are on
+it, not on `master`.
 
 **Imports:** `import kotlinx.html.stream.createHTML` — NOT `import kotlinx.html.createHTML`
 

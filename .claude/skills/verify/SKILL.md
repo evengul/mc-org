@@ -10,33 +10,18 @@ is verified when you have *seen* the new behaviour, not when tests pass.
 
 ## Cloud session (`CLAUDE_CODE_REMOTE=true`)
 
-No Neon branch, no `playwright-cli`, and the owner can't open the
-container's localhost. Steps 4–5 are unchanged; 1–3 become:
+No Neon branch, no `playwright-cli`, and the owner can't open the container's
+localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
+"Looking at the app"). Steps 4–5 are unchanged; 1–3 become:
 
-1. `webapp/scripts/cloud-setup.sh --ingest` when the page needs Minecraft
-   data (planner, resources, roadmap). `INGEST_VERSIONS=latest` by default;
-   set a list when the world under test is on another version.
-2. Port 8080. `./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &`, then wait
-   for `curl -s -o /dev/null -w '%{http_code}' localhost:8080` to stop
-   answering `000`. Call `report_preview_port` with 8080 so an app that shows
-   previews can.
-3. Screenshots, signed in through the demo sign-in:
+1. `webapp/scripts/cloud-setup.sh --ingest` when the page needs Minecraft data.
+2. `run.sh` on port 8080, then `report_preview_port` 8080.
+3. `node webapp/scripts/screenshot.js <path> <out-prefix>` at 375 and 1440; a
+   Node Playwright script for the interaction itself. Read the images, then
+   send them with `SendUserFile`. Exit 2 or 3 from the script is a failed
+   verification, not a flaky one.
 
-   ```bash
-   node webapp/scripts/screenshot.js /worlds/<id>/... <scratchpad>/shots/<name>   # 375 + 1440
-   ```
-
-   It prints status, final URL and title per width, and exits 2 on a 4xx/5xx,
-   so a redirect to sign-in shows in the output and not only in the picture.
-   Look at the images yourself (Read), then send them to the owner with
-   `SendUserFile`. An interaction (submit, toggle, HTMX swap) needs its own
-   short Node Playwright script; `require('playwright')` works from any
-   directory. The demo user's world starts empty. Create the data the page
-   needs through the app's own routes, or with `psql` (the DB is
-   disposable), and say what you added.
-
-Cleanup: `pkill -f mcorg` for the app you started. No browser to close; the
-script closes its own.
+Cleanup: `pkill -f mcorg` for the app you started.
 
 ## 1. Make sure the app can run
 

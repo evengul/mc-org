@@ -19,7 +19,7 @@ or when the issue needs a decision that is the owner's to make.
 
 ## Cloud session (`CLAUDE_CODE_REMOTE=true`)
 
-The container is the worktree (CLAUDE.md → "Cloud Sessions"). Steps 3, 4, 6
+The container is the worktree; load the `cloud-session` skill. Steps 3, 4, 6
 and 7 are unchanged; the others become:
 
 - **0–1.** No main checkout. The session cloned onto its assigned

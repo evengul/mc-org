@@ -16,7 +16,7 @@ user-invocable: false
 ---
 
 > **Cloud sessions (`CLAUDE_CODE_REMOTE=true`) are not worktrees.** None of this applies
-> there; see CLAUDE.md → "Cloud Sessions" and `webapp/scripts/cloud-setup.sh`.
+> there; load the `cloud-session` skill.
 
 # Worktree Infrastructure
 
