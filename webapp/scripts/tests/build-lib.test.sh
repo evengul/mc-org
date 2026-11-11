@@ -8,6 +8,7 @@ set -uo pipefail
 
 LIB="$(cd "$(dirname "$0")/.." && pwd)/lib/build.sh"
 ROOT="$(mktemp -d)"
+export ROOT   # the fake mvn below reads it
 trap 'rm -rf "$ROOT"' EXIT
 FAILURES=0
 
@@ -23,6 +24,7 @@ new_checkout() {
     echo '<project/>' > "$dir/mc-web/pom.xml"
     echo 'class A' > "$dir/mc-domain/src/main/kotlin/A.kt"
     echo 'class B' > "$dir/mc-web/src/main/kotlin/B.kt"
+    mkdir -p "$dir/scripts/lib" && echo '# lib' > "$dir/scripts/lib/build.sh"
     echo "$dir"
 }
 
@@ -31,8 +33,10 @@ cat > "$ROOT/bin/mvn" <<'MVN'
 #!/usr/bin/env bash
 echo install >> "$FAKE_MVN_CALLS"
 [[ "${FAKE_MVN_FAIL:-}" == 1 ]] && exit 1
-mkdir -p "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1"
-touch "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1/mc-web-0.0.1.jar"
+for m in mc-domain mc-web; do
+    mkdir -p "$HOME/.m2/repository/app/mcorg/$m/0.0.1" && touch "$HOME/.m2/repository/app/mcorg/$m/0.0.1/$m-0.0.1.jar"
+done
+mkdir -p "$PWD/mc-web/target/classes"
 MVN
 chmod +x "$ROOT/bin/mvn"
 export PATH="$ROOT/bin:$PATH" HOME="$ROOT/home" FAKE_MVN_CALLS="$ROOT/calls"
@@ -73,38 +77,52 @@ B="$(new_checkout b)"
 install_in "$B";                 expect_installs 6 "another checkout sharing the repository installs"
 install_in "$A";                 expect_installs 7 "...and then the first checkout installs again"
 
-rm -rf "$HOME/.m2/repository/app/mcorg/mc-web"
-install_in "$A";                 expect_installs 8 "a missing installed jar installs"
+rm -rf "$HOME/.m2/repository/app/mcorg/mc-domain"
+install_in "$A";                 expect_installs 8 "a sibling module's missing jar installs"
 
 sleep 0.05; echo 'class A3' >> "$A/mc-domain/src/main/kotlin/A.kt"
 FAKE_MVN_FAIL=1 install_in "$A"; rc=$?
 [[ $rc != 0 ]] && pass "a failed install fails the caller" || fail "a failed install returned 0"
 install_in "$A";                 expect_installs 10 "after a failed install the next run installs"
 
+rm -rf "$A/mc-web/target/classes"
+install_in "$A";                 expect_installs 11 "mc-web/target/classes gone (mvn clean) installs"
+
+sleep 0.05; touch "$A/scripts/lib/build.sh"
+install_in "$A";                 expect_installs 12 "a change to the install command (lib/build.sh) installs"
+
 # An edit made while the build runs counts: the stamp is taken before the build.
 cat > "$ROOT/bin/mvn" <<'MVN'
 #!/usr/bin/env bash
 echo install >> "$FAKE_MVN_CALLS"
 sleep 0.05; echo 'class During' >> "$EDIT_DURING"
-mkdir -p "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1"
-touch "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1/mc-web-0.0.1.jar"
+for m in mc-domain mc-web; do
+    mkdir -p "$HOME/.m2/repository/app/mcorg/$m/0.0.1" && touch "$HOME/.m2/repository/app/mcorg/$m/0.0.1/$m-0.0.1.jar"
+done
+mkdir -p "$PWD/mc-web/target/classes"
 MVN
 sleep 0.05; touch "$A/pom.xml"
 EDIT_DURING="$A/mc-domain/src/main/kotlin/A.kt" install_in "$A"
 EDIT_DURING="$ROOT/elsewhere.txt" install_in "$A"
-expect_installs 12 "an edit made during the install makes the next run install"
+expect_installs 14 "an edit made during the install makes the next run install"
 
 # Two concurrent callers: the second waits for the first, then finds the stamp fresh.
 cat > "$ROOT/bin/mvn" <<'MVN'
 #!/usr/bin/env bash
 echo install >> "$FAKE_MVN_CALLS"
-sleep 0.5
-mkdir -p "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1"
-touch "$HOME/.m2/repository/app/mcorg/mc-web/0.0.1/mc-web-0.0.1.jar"
+touch "$ROOT/installing"; sleep 0.5
+for m in mc-domain mc-web; do
+    mkdir -p "$HOME/.m2/repository/app/mcorg/$m/0.0.1" && touch "$HOME/.m2/repository/app/mcorg/$m/0.0.1/$m-0.0.1.jar"
+done
+mkdir -p "$PWD/mc-web/target/classes"
 MVN
 sleep 0.05; touch "$A/pom.xml"
-install_in "$A" & sleep 0.1; install_in "$A"; wait
-expect_installs 13 "a concurrent second caller waits and skips"
+rm -f "$ROOT/installing"
+install_in "$A" &
+# The first holds the lock and is building. Bounded, so a broken test fails rather than hangs.
+for _ in $(seq 1 250); do [[ -e "$ROOT/installing" ]] && break; sleep 0.02; done
+install_in "$A"; wait
+expect_installs 15 "a concurrent second caller waits and skips"
 
 # --- seam_wait_for_cloud_setup -----------------------------------------------------------------
 export TMPDIR="$ROOT/tmp"; mkdir -p "$TMPDIR"
@@ -114,16 +132,21 @@ CLAUDE_CODE_REMOTE= wait_cloud && pass "outside a cloud session it returns at on
 
 export CLAUDE_CODE_REMOTE=true
 touch "$TMPDIR/seam-cloud-setup.lock"; echo running > "$TMPDIR/seam-cloud-setup.status"
-( exec 9>"$TMPDIR/seam-cloud-setup.lock"; flock -x 9; sleep 0.6; echo ok > "$TMPDIR/seam-cloud-setup.status" ) &
-sleep 0.1; start=$(date +%s%N); wait_cloud; rc=$?; waited=$(( ($(date +%s%N) - start) / 1000000 )); wait
+( exec 9>"$TMPDIR/seam-cloud-setup.lock"; flock -x 9; touch "$ROOT/held1"; sleep 0.6; echo ok > "$TMPDIR/seam-cloud-setup.status" ) &
+for _ in $(seq 1 250); do [[ -e "$ROOT/held1" ]] && break; sleep 0.02; done; start=$(date +%s%N); wait_cloud; rc=$?; waited=$(( ($(date +%s%N) - start) / 1000000 )); wait
 [[ $rc == 0 && $waited -ge 300 ]] && pass "it waits for a running background build (${waited} ms)" \
     || fail "it did not wait (rc $rc, ${waited} ms)"
 
 echo "failed at: mvn install" > "$TMPDIR/seam-cloud-setup.status"
 wait_cloud && fail "a failed background build was not reported" || pass "a failed background build fails the caller"
 
-( exec 9>"$TMPDIR/seam-cloud-setup.lock"; flock -x 9; sleep 0.6 ) &
-sleep 0.1; start=$(date +%s%N); SEAM_CLOUD_SETUP_RUNNING=1 wait_cloud
+echo running > "$TMPDIR/seam-cloud-setup.status"
+wait_cloud && fail "a killed background build (status left 'running') read as done" \
+    || pass "a killed background build (status left 'running', lock free) fails the caller"
+echo ok > "$TMPDIR/seam-cloud-setup.status"
+
+( exec 9>"$TMPDIR/seam-cloud-setup.lock"; flock -x 9; touch "$ROOT/held2"; sleep 0.6 ) &
+for _ in $(seq 1 250); do [[ -e "$ROOT/held2" ]] && break; sleep 0.02; done; start=$(date +%s%N); SEAM_CLOUD_SETUP_RUNNING=1 wait_cloud
 waited=$(( ($(date +%s%N) - start) / 1000000 )); wait
 [[ $waited -lt 300 ]] && pass "cloud-setup's own children do not wait for its lock" || fail "a child waited (${waited} ms): deadlock"
 

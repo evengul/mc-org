@@ -52,7 +52,9 @@ CURRENT_STEP=""
 [[ "$PHASE_B_ONLY" == true ]] || echo "=== $(date -u +%FT%TZ) cloud-setup.sh $* ===" >> "$LOG"
 
 step() { CURRENT_STEP="$*"; echo "cloud-setup: $*"; }
-run() { "$@" >>"$LOG" 2>&1 || { echo "cloud-setup: FAILED: $* (log: $LOG)" >&2; tail -20 "$LOG" >&2; exit 1; }; }
+# 9>&-: a command (and anything it leaves running) must not inherit cloud-setup's lock. On a
+# function, bash keeps a private copy for the duration, so the lock itself stays held.
+run() { "$@" 9>&- >>"$LOG" 2>&1 || { echo "cloud-setup: FAILED: $* (log: $LOG)" >&2; tail -20 "$LOG" >&2; exit 1; }; }
 
 
 # Phase B: everything that needs Maven. In the foreground, or detached with --background.
@@ -69,12 +71,10 @@ phase_b() {
     # 6. Migrations — only when the applied versions differ from the files on disk. Compares the
     #    sets, not counts, so a renumbered migration is not missed. A DB that has a version the
     #    branch lacks makes flyway fail validation: that is reported, not papered over.
-    local on_disk_versions applied_versions
-    on_disk_versions=$(ls "$WEBAPP_DIR"/mc-web/src/main/resources/db/migration/ \
-        | sed -n 's/^V\([0-9_]*\)__.*\.sql$/\1/p' | tr '_' '.' | sort)
+    local applied_versions
     applied_versions=$(psql -h localhost -U postgres -tAc \
         "select version from flyway_schema_history where success and version is not null" 2>/dev/null | sort || true)
-    if [[ "$applied_versions" != "$on_disk_versions" ]]; then
+    if [[ "$applied_versions" != "$ON_DISK_VERSIONS" ]]; then
         step "applying migrations ($(echo "$applied_versions" | grep -c . || true) applied, $ON_DISK on disk)"
         run "$WEBAPP_DIR/scripts/migrate-locally.sh"
     fi
@@ -97,7 +97,9 @@ phase_b() {
     fi
 }
 
-ON_DISK=$(ls "$WEBAPP_DIR"/mc-web/src/main/resources/db/migration/ | grep -c '^V.*\.sql$' || true)
+ON_DISK_VERSIONS=$(ls "$WEBAPP_DIR"/mc-web/src/main/resources/db/migration/ \
+    | sed -n 's/^V\([0-9_]*\)__.*\.sql$/\1/p' | tr '_' '.' | sort)
+ON_DISK=$(echo "$ON_DISK_VERSIONS" | grep -c . || true)
 export PGPASSWORD=supersecret
 
 if [[ "$PHASE_B_ONLY" == true ]]; then
@@ -111,9 +113,19 @@ fi
 # phase inherits fd 9, so the lock outlives this script until the build is done.
 exec 9>"$SEAM_CLOUD_LOCK"
 if ! flock -n -x 9; then
+    # A second SessionStart (compact, clear) while the first's build runs: that build is already
+    # doing everything this would, and waiting here would hold the session for the whole of it.
+    if [[ "$BACKGROUND" == true ]]; then
+        step "a background build is already running; nothing to do (progress: tail -f $LOG)"
+        exit 0
+    fi
     step "waiting for a cloud-setup that is already running (log: $LOG)"
     flock -x 9
 fi
+# A failure in the quick phase is recorded too, so nothing that waits later reads an older "ok".
+trap 'rc=$?; [[ $rc == 0 ]] || echo "failed at: $CURRENT_STEP" > "$SEAM_CLOUD_STATUS"' EXIT
+# The stamp the install used before MCO-658; lib/build.sh keeps its own.
+rm -f "$HOME/.m2/.seam-cloud-setup.sha256"
 # Its children (ingest-locally.sh, migrate-locally.sh) must not wait for the lock it holds.
 export SEAM_CLOUD_SETUP_RUNNING=1
 
@@ -156,7 +168,8 @@ if ! docker info >/dev/null 2>&1; then
     fi
     # Not `service docker start`: its init script cannot raise ulimit in the sandbox and leaves
     # no daemon behind. The platform starts dockerd on a fresh container; this covers a resume.
-    setsid nohup dockerd >/var/log/dockerd-cloud-setup.log 2>&1 < /dev/null &
+    # 9>&-: dockerd outlives this script, and must not keep its lock.
+    setsid nohup dockerd >/var/log/dockerd-cloud-setup.log 2>&1 < /dev/null 9>&- &
     for _ in $(seq 1 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
     docker info >/dev/null 2>&1 || { echo "cloud-setup: Docker did not start (log: /var/log/dockerd-cloud-setup.log)" >&2; exit 1; }
 fi
@@ -173,7 +186,9 @@ if [[ "$BACKGROUND" == true ]]; then
     phase_b_args=(--phase-b)
     [[ "$INGEST" == true ]] && phase_b_args+=(--ingest)
     [[ "$SEED" == true ]] && phase_b_args+=(--seed)
+    # The one child that does keep fd 9: it holds the lock until the build is done.
     setsid nohup "$0" "${phase_b_args[@]}" >>"$LOG" 2>&1 < /dev/null &
+    trap - EXIT
     step "ready in ${SECONDS}s; mvn install and migrations continue in the background (run.sh, test.sh and the ingest wait for them; progress: tail -f $LOG)"
     exit 0
 fi

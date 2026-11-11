@@ -25,9 +25,8 @@ set -a
 source "$ENV_FILE"
 set +a
 
+. "$SCRIPT_DIR/lib/build.sh"
 cd "$WEBAPP_DIR"
-WEBAPP_DIR="$(pwd)"
-. "$WEBAPP_DIR/scripts/lib/build.sh"
 seam_wait_for_cloud_setup
 # `install`, not `compile`: the run below is `-pl mc-web`, which resolves sibling modules
 # (mc-data, mc-engine, ...) from ~/.m2 rather than the reactor. With a bare `compile` an
