@@ -88,6 +88,7 @@ class GetSignInIT : WithUser() {
         assertContains(body, "id=\"sign-in-error\"")
         assertContains(body, error.message)
         assertTrue(body.indexOf(error.message) < body.indexOf("Sign in with Microsoft"), "reason must sit above the button")
+        assertFalse(body.contains("landing-hero__tagline"), "the reason takes the tagline's place")
     }
 
     @Test
@@ -108,6 +109,7 @@ class GetSignInIT : WithUser() {
         listOf("/auth/sign-in", "/auth/sign-in?error=").forEach { url ->
             val body = client.get(url).bodyAsText()
             assertFalse(body.contains("sign-in-error"), url)
+            assertContains(body, "landing-hero__tagline")
         }
     }
 

@@ -36,18 +36,18 @@ private fun kotlinx.html.FlowContent.landingHero(microsoftUrl: String, error: Si
         h1("landing-hero__title") {
             +"Organize your Minecraft projects."
         }
-        p("landing-hero__tagline") {
-            +"Plan builds, track resources, and turn farms into project dependencies — without leaving the field."
-        }
+        // After a failed sign-in the reason takes the pitch's place: whoever comes back from one
+        // already knows what Seam is, and this is the line they read first (MCO-625).
         if (error != null) {
-            div("callout callout--error landing-hero__error") {
+            div("landing-hero__error") {
                 id = "sign-in-error"
                 attributes["role"] = "alert"
-                span("callout__icon") {
-                    attributes["aria-hidden"] = "true"
-                    +"⚠"
-                }
-                span("callout__body") { +error.message }
+                span("landing-hero__error-label") { +"Sign-in stopped" }
+                p("landing-hero__error-body") { +error.message }
+            }
+        } else {
+            p("landing-hero__tagline") {
+                +"Plan builds, track resources, and turn farms into project dependencies — without leaving the field."
             }
         }
         a(classes = "btn-microsoft landing-hero__cta") {
