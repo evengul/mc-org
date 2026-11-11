@@ -18,7 +18,8 @@ localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
    (it ingests first): the demo user's "Demo World", with projects, an ordering
    and public ideas — the table is in `cloud-session`. `--ingest` alone when
    the page only needs Minecraft data.
-2. `run.sh` on port 8080, then `report_preview_port` 8080. It waits for the
+2. `run.sh` on port 8080 (no `report_preview_port`: the owner's app shows no
+   preview pane; see `cloud-session` → "Looking at the app"). It waits for the
    hook's background build, and installs first when source changed (about 40 s),
    so wait for the port with curl rather than a fixed sleep (`ss` is not
    installed here). One server only: a second

@@ -80,7 +80,9 @@ Run it in the background while you read code; it is 7 s per version plus the bui
 ## Looking at the app
 
 The owner cannot open the container's localhost. Show them screenshots, or put the `preview`
-label on the PR for a Fly preview.
+label on the PR for a Fly preview. Those are the two ways: don't offer a tunnel or the app's
+preview pane. `report_preview_port` was tried with the seeded world running and the owner's
+Claude app showed nothing (MCO-657 session), and a tunnel would expose a writable demo sign-in.
 
 ```bash
 ./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080: seconds, or after a build if src changed
@@ -95,8 +97,7 @@ width; exit 2 means a 4xx/5xx or a page that bounced to sign-in, exit 3 that the
 itself failed; the message says which: `DEMO_USER` unset, or the server failing (read
 `/tmp/seam-run.log`; missing JWT keys did it once, and `cloud-setup.sh` now generates them). Read the images yourself before sending them with
 `SendUserFile`. Interactions need their own short Node script: `require('playwright')` works
-from any directory, and the browser is preinstalled. Call `report_preview_port` with 8080 once
-the app is up.
+from any directory, and the browser is preinstalled.
 
 The demo user starts with no worlds. `webapp/scripts/cloud-setup.sh --seed` gives it one (run it
 before `run.sh`: the seed writes to the DB directly and a running server keeps its caches):
