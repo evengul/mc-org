@@ -3,6 +3,7 @@ package app.mcorg.presentation.router
 import app.mcorg.api.apiV1Routes
 import app.mcorg.pipeline.auth.handleDeleteAccount
 import app.mcorg.presentation.handler.handleGetLanding
+import app.mcorg.presentation.handler.handleGetPrivacy
 import app.mcorg.presentation.handler.handleReadinessProbe
 import app.mcorg.presentation.handler.link.handleApproveLinkPage
 import app.mcorg.presentation.handler.link.handleGetLinkPage
@@ -52,6 +53,12 @@ fun Application.configureAppRouter() {
                     call.handleReadinessProbe()
                 }
             }
+        }
+        // Public, signed in or not (MCO-662): Microsoft's sign-in, the Modrinth listing and seam.gg
+        // all link here, and a privacy page behind a sign-in is no privacy page. A constant — no
+        // database read, no outbound call — so it needs no rate limit (rate-limiting.md).
+        get("/privacy") {
+            call.handleGetPrivacy()
         }
         route("/account") {
             delete {

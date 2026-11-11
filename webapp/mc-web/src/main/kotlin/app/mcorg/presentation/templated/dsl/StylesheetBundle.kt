@@ -29,12 +29,12 @@ object StylesheetBundle : AssetBundle(dir = "/static/styles", extension = "css")
         "alert", "app-header", "avatar", "badge", "btn", "callout", "danger-zone", "data-table",
         "drill", "empty-state", "error-page", "farm-panel", "form", "item-glyph", "item-search",
         "modal", "np-menu", "page-heading", "pending-invitations", "person-row", "progress",
-        "project-card", "resource-panel", "resource-row", "resource-search", "section", "tabs",
+        "project-card", "resource-panel", "resource-row", "resource-search", "section", "site-footer", "tabs",
         "task-list", "work-row", "world-tabs", "world-tally",
     )
 
     val PAGES = listOf(
-        "admin-page", "draft-list", "idea-hub", "idea-wizard", "import-review", "landing-page",
+        "admin-page", "draft-list", "idea-hub", "idea-wizard", "import-review", "landing-page", "legal-page",
         "profile-page", "project-detail", "project-list", "roadmap", "roadmap-graph",
         "settings-page", "worlds",
     )

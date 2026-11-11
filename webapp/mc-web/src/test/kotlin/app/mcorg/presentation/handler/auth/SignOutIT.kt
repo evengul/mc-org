@@ -117,13 +117,14 @@ class SignOutIT {
         val client = setup()
 
         val body = client.get(
-            "/auth/sign-out?error=misconfigured&message=Call+0800+PHISH&microsoft_error=Visit+evil.example&claim=sub"
+            "/auth/sign-out?error=misconfigured&message=Call+0800+PHISH&microsoft_error=Visit+evil.example&forged_claim=sub"
         ).bodyAsText()
 
         assertContains(body, SignOutReason.MISCONFIGURED.body)
         // "Call 0800", not "0800" alone: a bare run of digits turns up in the stylesheet's content
         // hash (seam.85613e080014.css) and would fail this for a reason that has nothing to do with it.
-        listOf("message", "Call 0800", "PHISH", "microsoft_error", "evil.example", "claim").forEach {
+        // "forged_claim" for the same reason: a bare "claim" is in the footer's `__disclaimer` class.
+        listOf("message", "Call 0800", "PHISH", "microsoft_error", "evil.example", "forged_claim").forEach {
             assertFalse(body.contains(it), "'$it' is not reflected")
         }
     }

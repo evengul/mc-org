@@ -97,6 +97,10 @@ sealed interface Link {
         override val to: String = "/profile"
     }
 
+    object Privacy : Link {
+        override val to: String = "/privacy"
+    }
+
     object AdminDashboard : Link {
         override val to: String = "/admin"
     }

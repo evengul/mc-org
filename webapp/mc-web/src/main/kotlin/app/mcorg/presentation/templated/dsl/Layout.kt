@@ -85,6 +85,7 @@ fun pageShell(
             confirmDeleteModal()
             alertContainer()
             body()
+            siteFooter()
         }
     }
 }
