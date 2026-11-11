@@ -48,6 +48,13 @@ if [[ ! -x "$JDK_DIR/bin/java" ]]; then
 fi
 export JAVA_HOME="$JDK_DIR" PATH="$JDK_DIR/bin:$PATH"
 
+# 1b. JWT signing keys — gitignored, so a fresh clone has none, and without them the demo sign-in
+#     answers 500 and screenshot.js exits 3. Before the build: they are read off the classpath.
+if [[ ! -f "$WEBAPP_DIR/mc-web/src/main/resources/keys/private_key.pem" ]]; then
+    step "generating JWT signing keys"
+    (cd "$WEBAPP_DIR/mc-web" && run bash create-keys.sh)
+fi
+
 # 2. Maven cache — `install` so -pl builds resolve siblings (MCO-285). Re-run only when a pom,
 #    the set of modules, or this script changed; the stamp lives in ~/.m2 so it disappears with
 #    the cache. This warms dependencies: run.sh and ingest-locally.sh install source changes
