@@ -74,7 +74,9 @@ The owner cannot open the container's localhost. Show them screenshots, or put t
 label on the PR for a Fly preview.
 
 ```bash
-./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080
+./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080, after its own build (~1 min)
+until curl -s -o /dev/null localhost:8080; do sleep 5; done   # in one Bash call, with a timeout
+pkill -f 'exec:java -pl mc-web'                        # stop it: not `mcorg`, which matches nothing
 node webapp/scripts/screenshot.js /worlds <scratchpad>/shots/worlds            # 375 + 1440
 node webapp/scripts/screenshot.js /worlds/<id> <scratchpad>/shots/world 375,768,1440
 ```
@@ -116,6 +118,8 @@ you added. The dataset is `SEED_PROJECTS` / `SEED_IDEAS` in `cli/SeedDemo.kt`.
 | `gh run watch`, polling | `subscribe_pr_activity`; `send_later` for a later check |
 | `playwright-cli` | `screenshot.js`, or a Node Playwright script |
 | `neonctl`, `flyctl` | not installed and not needed |
+| `ss` | not installed; `curl -s -o /dev/null -w '%{http_code}' localhost:8080` (000 = nothing listening) |
+| the `postgres` MCP server (`.mcp.json`) | fails to connect: it `docker run`s before the hook has started Docker, and its `localhost` is the MCP container's own. Use `psql -h localhost -U postgres` (`PGPASSWORD=supersecret`) |
 
 The `start`, `commit`, `verify` and `deliver` skills each have a "Cloud session" section that
 maps their own steps.

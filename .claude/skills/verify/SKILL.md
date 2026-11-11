@@ -18,13 +18,19 @@ localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
    (it ingests first): the demo user's "Demo World", with projects, an ordering
    and public ideas — the table is in `cloud-session`. `--ingest` alone when
    the page only needs Minecraft data.
-2. `run.sh` on port 8080, then `report_preview_port` 8080.
+2. `run.sh` on port 8080, then `report_preview_port` 8080. `run.sh` builds and
+   installs first, so the port opens after about a minute, not 15 s; wait for
+   it with curl (`ss` is not installed here). One server only: a second
+   `run.sh` dies on "Address already in use" in its log while the first keeps
+   answering, so stop the old one before restarting.
 3. `node webapp/scripts/screenshot.js <path> <out-prefix>` at 375 and 1440; a
    Node Playwright script for the interaction itself. Read the images, then
    send them with `SendUserFile`. Exit 2 or 3 from the script is a failed
    verification, not a flaky one.
 
-Cleanup: `pkill -f mcorg` for the app you started.
+Cleanup: `pkill -f 'exec:java -pl mc-web'` for the app you started. The app
+runs inside `mvn exec:java`, so neither `mcorg` nor `ApplicationKt` is on its
+command line and `pkill -f mcorg` matches nothing.
 
 ## 1. Make sure the app can run
 
