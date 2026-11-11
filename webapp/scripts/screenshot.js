@@ -23,11 +23,17 @@ const { chromium } = require('playwright');
     try {
         const context = await browser.newContext();
         const signIn = await context.newPage();
-        await signIn.goto(`${base}/auth/oidc/demo-redirect`, { waitUntil: 'networkidle' });
+        const signInResponse = await signIn.goto(`${base}/auth/oidc/demo-redirect`, { waitUntil: 'networkidle' });
         // A failed demo sign-in lands back on a sign-in page with a 200; every screenshot after
         // it would be of the wrong page and still "succeed".
         if (new URL(signIn.url()).pathname.startsWith('/auth') || signIn.url() === `${base}/`) {
-            console.error(`demo sign-in did not sign in (ended on ${signIn.url()}); is DEMO_USER set in local.env?`);
+            const status = signInResponse ? signInResponse.status() : 0;
+            // A 5xx is the server failing, not configuration: missing JWT signing keys did this
+            // in the first cloud session (MCO-657), and the old message blamed DEMO_USER.
+            const hint = status >= 500
+                ? 'the server failed; read the app log (/tmp/seam-run.log) — no JWT keys? run cloud-setup.sh'
+                : 'is DEMO_USER set in local.env?';
+            console.error(`demo sign-in did not sign in (HTTP ${status}, ended on ${signIn.url()}); ${hint}`);
             process.exitCode = 3;
             return;
         }

@@ -81,7 +81,9 @@ node webapp/scripts/screenshot.js /worlds/<id> <scratchpad>/shots/world 375,768,
 
 `screenshot.js` signs in through the demo sign-in. It prints status, final URL and title per
 width; exit 2 means a 4xx/5xx or a page that bounced to sign-in, exit 3 that the demo sign-in
-itself failed (`DEMO_USER` unset). Read the images yourself before sending them with
+itself failed; the message says which: a 5xx is the server (read `/tmp/seam-run.log`; missing JWT
+keys did it once, and `cloud-setup.sh` now generates them), anything else is usually `DEMO_USER`
+unset. Read the images yourself before sending them with
 `SendUserFile`. Interactions need their own short Node script: `require('playwright')` works
 from any directory, and the browser is preinstalled. Call `report_preview_port` with 8080 once
 the app is up.
