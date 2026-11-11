@@ -124,7 +124,9 @@ fi
 if [[ "$SEED" == true ]]; then
     step "seeding the demo user's world"
     (cd "$WEBAPP_DIR" && set -a && . ./local.env && set +a && run mvn -q -B -pl mc-web exec:java@seed-demo)
-    grep '^seed-demo:' "$LOG" | tail -1
+    # This run's line is the last one: the log is appended to. `|| true`: a missing line is not
+    # worth failing a seed that succeeded.
+    grep '^seed-demo:' "$LOG" | tail -1 || true
 fi
 
 step "ready in ${SECONDS}s (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"

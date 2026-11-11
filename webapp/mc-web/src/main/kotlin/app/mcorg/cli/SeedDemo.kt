@@ -12,6 +12,7 @@ import app.mcorg.domain.model.project.ProjectStage
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.MinecraftProfile
+import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -44,15 +45,22 @@ import kotlin.system.exitProcess
  * own insert steps rather than SQL of its own, so a migration that changes a column changes the
  * seed with it instead of breaking it silently.
  *
+ * Only the inserts: not what the HTTP handlers do around them. Cache invalidation is in-process
+ * (this is its own process, run before the server starts), the events they publish have no
+ * subscriber in a fresh world, and no seeded project tracks storage, so there is nothing for
+ * `FollowMeasurementStep` to recount.
+ *
  * ```
  * mvn -pl mc-web exec:java@seed-demo                         # latest ingested version
  * mvn -pl mc-web exec:java@seed-demo -Dexec.args="version=26.3.0"
  * webapp/scripts/cloud-setup.sh --seed                       # the usual way in: ingest, then this
  * ```
  *
- * **Idempotent.** The world is keyed on [DEMO_WORLD_NAME] among the demo user's worlds, each idea
- * on its name and author; whatever exists is left alone. A run that fails part-way removes what it
- * wrote, so a half-built world never satisfies the key.
+ * **Idempotent.** The world is keyed on [DEMO_WORLD_NAME] among the worlds the demo user owns, each
+ * idea on its name and author; whatever exists is left alone. A world counts as seeded only when it
+ * holds every seeded project and ordering: the writes are not one transaction (the steps open their
+ * own), so a run that was killed part-way leaves a world that is rebuilt on the next run rather
+ * than taken for a finished one. A run that fails with an exception removes what it wrote.
  *
  * **Refuses to run with `ENV=PRODUCTION`.** It writes as whoever `DEMO_USER` names.
  *
@@ -78,6 +86,10 @@ fun main(args: Array<String>) {
         } catch (e: SeedFailure) {
             System.err.println("seed-demo: ${e.message}")
             1
+        } catch (e: Throwable) {
+            // The class only: a driver or serialization message can carry row values (logging.md).
+            System.err.println("seed-demo: failed with ${e::class.qualifiedName}")
+            2
         } finally {
             Database.shutdown()
         }
@@ -91,10 +103,12 @@ data class SeedOutcome(
     val worldId: Int,
     val worldCreated: Boolean,
     val version: String,
+    /** An earlier, incomplete "Demo World" was removed before this one was written. */
+    val rebuilt: Boolean,
     val ideasCreated: Int,
 ) {
     fun summary(): String =
-        (if (worldCreated) "created" else "already seeded:") +
+        (if (!worldCreated) "already seeded:" else if (rebuilt) "rebuilt an incomplete" else "created") +
             " '$DEMO_WORLD_NAME' (id $worldId, $version), $ideasCreated new idea(s)"
 }
 
@@ -103,7 +117,12 @@ class SeedFailure(message: String) : RuntimeException(message)
 /**
  * Seeds the demo user's world and ideas. [version] null means the newest ingested version.
  */
-suspend fun seedDemo(username: String, version: String? = null): SeedOutcome {
+suspend fun seedDemo(
+    username: String,
+    version: String? = null,
+    projects: List<SeedProject> = SEED_PROJECTS,
+    orderings: List<Triple<String, String, String>> = SEED_ORDERINGS,
+): SeedOutcome {
     // The same profile DemoSignInPipeline builds, so the first sign-in finds this user.
     val user = CreateUserIfNotExistsStep.process(MinecraftProfile("$username-uuid", username, isDemoUser = true))
         .orFail("could not create the demo user")
@@ -125,24 +144,29 @@ suspend fun seedDemo(username: String, version: String? = null): SeedOutcome {
             PublishIdeaToHubStep.process(id).orFail("could not publish idea '${idea.name}'")
         }
 
-        existingWorld(user.id)?.let { return SeedOutcome(it, false, worldVersion.toString(), createdIdeas.size) }
+        val existing = existingWorld(user.id)
+        if (existing != null && existing.projects >= projects.size && existing.orderings >= orderings.size) {
+            return SeedOutcome(existing.id, false, worldVersion.toString(), false, createdIdeas.size)
+        }
+        if (existing != null) deleteWorld.process(existing.id).orFail("could not remove the incomplete demo world")
 
         val worldId = CreateWorldStep(user)
             .process(CreateWorldInput(DEMO_WORLD_NAME, "Seeded by cloud-setup.sh --seed (MCO-657).", worldVersion))
             .orFail("could not create the world")
         createdWorld = worldId
 
-        val projectIds = SEED_PROJECTS.associate { project -> project.name to seedProject(worldId, project, items) }
-        for ((first, then, reason) in SEED_ORDERINGS) {
+        val projectIds = projects.associate { project -> project.name to seedProject(worldId, project, items) }
+        for ((first, then, reason) in orderings) {
             insertManualOrdering(projectIds.getValue(first), projectIds.getValue(then), reason)
                 .orFail("could not order '$first' before '$then'")
         }
-        return SeedOutcome(worldId, true, worldVersion.toString(), createdIdeas.size)
+        return SeedOutcome(worldId, true, worldVersion.toString(), existing != null, createdIdeas.size)
     } catch (e: Throwable) {
-        // Leave nothing half-built behind: the world is the idempotency key, and a world missing
-        // its projects would be taken for a finished seed on the next run.
-        createdWorld?.let { deleteWorld.process(it) }
-        createdIdeas.forEach { deleteIdea.process(it) }
+        // Leave nothing half-built behind. Best effort: a cleanup that fails as well is reported,
+        // and the completeness check above rebuilds whatever it left on the next run.
+        val leftovers = listOfNotNull(createdWorld?.let { deleteWorld.process(it) }) +
+            createdIdeas.map { deleteIdea.process(it) }
+        if (leftovers.any { it is Result.Failure }) System.err.println("seed-demo: cleanup after the failure failed too")
         throw e
     }
 }
@@ -154,7 +178,9 @@ private suspend fun seedProject(worldId: Int, project: SeedProject, items: Map<S
     if (project.stage != ProjectStage.IDEA) {
         UpdateProjectStageStep(id).process(project.stage).orFail("could not move '${project.name}' to ${project.stage}")
     }
-    if (project.state != ProjectState.PENDING) {
+    // COMPLETED already makes the state DONE (UpdateProjectStageStep); writing it again would
+    // re-stamp completed_at.
+    if (project.state != ProjectState.PENDING && project.stage != ProjectStage.COMPLETED) {
         UpdateProjectStateStep(id).process(project.state).orFail("could not set '${project.name}' to ${project.state}")
     }
     for ((itemId, amount) in project.resources) {
@@ -188,19 +214,27 @@ private suspend fun itemNames(version: MinecraftVersion.Release, ids: Set<String
         resultMapper = { rs -> buildMap { while (rs.next()) put(rs.getString("item_id"), rs.getString("item_name")) } },
     ).process(Unit).orFail("could not read item names")
 
-private suspend fun existingWorld(userId: Int): Int? =
-    DatabaseSteps.query<Unit, Int?>(
+private data class ExistingWorld(val id: Int, val projects: Int, val orderings: Int)
+
+/** The demo user's own "Demo World", with how much of the seed it holds. */
+private suspend fun existingWorld(userId: Int): ExistingWorld? =
+    DatabaseSteps.query<Unit, ExistingWorld?>(
         sql = SafeSQL.select("""
-            SELECT w.id FROM world w
+            SELECT w.id,
+                   (SELECT count(*) FROM projects p WHERE p.world_id = w.id) AS projects,
+                   (SELECT count(*) FROM project_dependencies d JOIN projects p ON p.id = d.project_id
+                     WHERE p.world_id = w.id) AS orderings
+            FROM world w
             JOIN world_members m ON m.world_id = w.id
-            WHERE w.name = ? AND m.user_id = ?
+            WHERE w.name = ? AND m.user_id = ? AND m.world_role = ?
             ORDER BY w.id LIMIT 1
         """.trimIndent()),
         parameterSetter = { statement, _ ->
             statement.setString(1, DEMO_WORLD_NAME)
             statement.setInt(2, userId)
+            statement.setInt(3, Role.OWNER.level)
         },
-        resultMapper = { rs -> if (rs.next()) rs.getInt("id") else null },
+        resultMapper = { rs -> if (rs.next()) ExistingWorld(rs.getInt("id"), rs.getInt("projects"), rs.getInt("orderings")) else null },
     ).process(Unit).orFail("could not look for an existing demo world")
 
 private suspend fun ideaExists(name: String, userId: Int): Boolean =

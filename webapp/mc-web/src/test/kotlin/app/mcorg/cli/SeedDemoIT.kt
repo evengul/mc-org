@@ -93,6 +93,51 @@ class SeedDemoIT {
     }
 
     @Test
+    fun `a run that fails after writing the world removes it, so the next run seeds in full`() = runBlocking {
+        val broken = listOf(Triple("Storage Hall", "No Such Project", "points at nothing"))
+
+        assertThrows<NoSuchElementException> { runBlocking { seedDemo("seed-erin", fullVersion, orderings = broken) } }
+        assertEquals(0, int("SELECT count(*) FROM world w JOIN world_members m ON m.world_id = w.id JOIN minecraft_profiles p ON p.user_id = m.user_id WHERE p.uuid = 'seed-erin-uuid'"))
+        assertEquals(0, int("SELECT count(*) FROM ideas i JOIN minecraft_profiles p ON p.user_id = i.created_by WHERE p.uuid = 'seed-erin-uuid'"))
+
+        val retry = seedDemo("seed-erin", fullVersion)
+        assertTrue(retry.worldCreated)
+        assertFalse(retry.rebuilt)
+    }
+
+    @Test
+    fun `a demo world left incomplete by a killed run is rebuilt, not taken for a finished one`() = runBlocking {
+        // What a run killed after its first project leaves behind: the world and one project.
+        val partial = seedDemo("seed-frank", fullVersion, projects = SEED_PROJECTS.take(1), orderings = emptyList())
+
+        val rebuilt = seedDemo("seed-frank", fullVersion)
+
+        assertTrue(rebuilt.worldCreated)
+        assertTrue(rebuilt.rebuilt)
+        assertEquals(0, int("SELECT count(*) FROM world WHERE id = ${partial.worldId}"))
+        assertEquals(SEED_PROJECTS.size, int("SELECT count(*) FROM projects WHERE world_id = ${rebuilt.worldId}"))
+    }
+
+    @Test
+    fun `a demo world the user only joins is not taken for theirs`() = runBlocking {
+        val owner = seedDemo("seed-gina", fullVersion)
+        // seed-hank exists already (signed in once) and is an ADMIN in gina's "Demo World".
+        DatabaseTestExtension.executeSQL("""
+            WITH u AS (INSERT INTO users (created_at, updated_at) VALUES (now(), now()) RETURNING id)
+            INSERT INTO minecraft_profiles (user_id, uuid, username) SELECT id, 'seed-hank-uuid', 'seed-hank' FROM u
+        """)
+        val guestId = int("SELECT user_id FROM minecraft_profiles WHERE uuid = 'seed-hank-uuid'")
+        DatabaseTestExtension.executeSQL(
+            "INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES ($guestId, ${owner.worldId}, 'seed-hank', 10)"
+        )
+
+        val own = seedDemo("seed-hank", fullVersion)
+
+        assertTrue(own.worldCreated)
+        assertTrue(own.worldId != owner.worldId)
+    }
+
+    @Test
     fun `a version that is not ingested is refused`() {
         val failure = assertThrows<SeedFailure> { runBlocking { seedDemo("seed-dave", "1.0.0") } }
         assertContains(failure.message!!, "not ingested")
