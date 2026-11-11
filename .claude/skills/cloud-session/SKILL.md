@@ -34,7 +34,7 @@ throwaway localhost Docker postgres. None of `worktree-infrastructure` applies.
 | `--ingest`: `ingest-locally.sh` | only with the flag; the ledger makes a repeat a no-op |
 | `--seed`: `--ingest`, then `exec:java@seed-demo` (`cli/SeedDemo.kt`) | only with the flag; an existing "Demo World" is left alone |
 
-Cold: about 2 minutes. Warm: under a second. The script also runs fine by hand, and it does not
+Cold: about 2 minutes (the `ready in Ns` line says how long it took). Warm: under a second. The script also runs fine by hand, and it does not
 install your source changes: `run.sh`, `ingest-locally.sh` and `test.sh` (`-am`) do that, as
 they do locally.
 
@@ -66,7 +66,7 @@ Run it in the background while you read code; it is 7 s per version plus the bui
 | `service docker start` returns but no daemon | its init script cannot raise ulimit in the sandbox | don't use it; the script starts `dockerd` directly |
 | dockerd refuses with "pid file found" | a stale `/var/run/docker.pid` | the script removes it when the pid is not `dockerd` |
 | Docker fails anyway | | `/var/log/dockerd-cloud-setup.log` |
-| Any other step fails | | the script names the step; its log is `/tmp/seam-cloud-setup.log` |
+| Any other step fails | | the script names the step; its log is `/tmp/seam-cloud-setup.log`, one dated section per run (the SessionStart run is the first) |
 
 ## Looking at the app
 

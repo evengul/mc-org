@@ -31,7 +31,9 @@ done
 WEBAPP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 JDK_DIR=/opt/jdk25
 LOG="${TMPDIR:-/tmp}/seam-cloud-setup.log"
-: > "$LOG"
+# Appended, not truncated: the SessionStart run's log is the record of the cold start, and a later
+# `--ingest` or `--seed` by hand would otherwise wipe it. Each run starts with a dated header.
+echo "=== $(date -u +%FT%TZ) cloud-setup.sh $* ===" >> "$LOG"
 
 step() { echo "cloud-setup: $*"; }
 run() { "$@" >>"$LOG" 2>&1 || { echo "cloud-setup: FAILED: $* (log: $LOG)" >&2; tail -20 "$LOG" >&2; exit 1; }; }
@@ -125,4 +127,4 @@ if [[ "$SEED" == true ]]; then
     grep '^seed-demo:' "$LOG" | tail -1
 fi
 
-step "ready (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"
+step "ready in ${SECONDS}s (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"
