@@ -61,6 +61,11 @@ if [[ ! -f "$WEBAPP_DIR/.mvn/maven.config" ]]; then
     bash "$SCRIPT_DIR/worktree-m2.sh" "$WEBAPP_DIR" >/dev/null 2>&1 || true
 fi
 
+# In a cloud session, the hook's background build must finish first: two Maven runs in one
+# checkout write the same target/ directories (MCO-658).
+. "$SCRIPT_DIR/lib/build.sh"
+seam_wait_for_cloud_setup
+
 cd "$WEBAPP_DIR"
 
 if [[ ! -f mc-web/src/main/resources/keys/private_key.pem ]]; then

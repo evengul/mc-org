@@ -15,4 +15,6 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
     echo 'export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH' >> "$CLAUDE_ENV_FILE"
 fi
 
-"$r/webapp/scripts/cloud-setup.sh"
+# --background: returns once Docker and the DB are up; the build and migrations carry on, and the
+# scripts that need them wait (MCO-658).
+"$r/webapp/scripts/cloud-setup.sh" --background

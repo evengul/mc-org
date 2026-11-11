@@ -22,21 +22,30 @@ throwaway localhost Docker postgres. None of `worktree-infrastructure` applies.
 
 `.claude/hooks/cloud-session-start.sh` runs on every SessionStart when
 `CLAUDE_CODE_REMOTE=true`. It writes `JAVA_HOME=/opt/jdk25` to `$CLAUDE_ENV_FILE`, then runs
-`webapp/scripts/cloud-setup.sh`:
+`webapp/scripts/cloud-setup.sh --background`. The first rows run before the hook returns; the
+rest carry on **in the background** (MCO-658):
 
 | Step | Skipped when |
 |------|--------------|
 | Temurin JDK 25 into `/opt/jdk25` (the image ships 21; `pom.xml` needs 25) | `/opt/jdk25/bin/java` exists |
-| `mvn install -DskipTests` (warms `~/.m2`; MCO-285) | stamp in `~/.m2` matches the poms, module list and script |
+| JWT signing keys (`create-keys.sh`) | `mc-web/src/main/resources/keys/` has them |
 | `local.env` from `local.env.example`, `DB_PASSWORD=supersecret` | `local.env` exists |
 | `dockerd`, then `mcorg-db` (`start-db.sh`) | Docker answers / the container runs |
-| `migrate-locally.sh` | applied version set equals `db/migration/` |
+| *background:* `mvn install -DskipTests` (`seam_install`, MCO-285) | nothing under `*/src/main` or a pom changed since this checkout's last install |
+| *background:* `migrate-locally.sh` | applied version set equals `db/migration/` |
 | `--ingest`: `ingest-locally.sh` | only with the flag; the ledger makes a repeat a no-op |
 | `--seed`: `--ingest`, then `exec:java@seed-demo` (`cli/SeedDemo.kt`) | only with the flag; an existing "Demo World" is left alone |
 
-Cold: about 2 minutes (the `ready in Ns` line says how long it took). Warm: under a second. The script also runs fine by hand, and it does not
-install your source changes: `run.sh`, `ingest-locally.sh` and `test.sh` (`-am`) do that, as
-they do locally.
+The hook returns in about 5 s. The background part takes about 105 s cold (the Maven downloads
+are most of it) and a second warm. It holds `/tmp/seam-cloud-setup.lock` until done, and
+`run.sh`, `test.sh`, `ingest-locally.sh` and `migrate-locally.sh` wait for it ("Waiting for the
+cloud setup's background build…"), then fail if it failed. `/tmp/seam-cloud-setup.status` says
+`running`, `ok` or `failed at: <step>`; the log is `/tmp/seam-cloud-setup.log`. A raw `mvn` does
+**not** wait: run it after a script has, or after the status says `ok`.
+
+`run.sh` and `ingest-locally.sh` install your source changes themselves, as they do locally, and
+skip the install when nothing changed (`Build: up to date…`; `SEAM_FORCE_INSTALL=1` forces it).
+A warm `run.sh` answers in about 4 s. The script also runs fine by hand, without `--background`.
 
 The hook is read from the checkout's `.claude/settings.json` when the session starts. A branch
 that changes it only gets the new hook in the next session.
@@ -74,7 +83,7 @@ The owner cannot open the container's localhost. Show them screenshots, or put t
 label on the PR for a Fly preview.
 
 ```bash
-./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080, after its own build (~1 min)
+./webapp/scripts/run.sh > /tmp/seam-run.log 2>&1 &     # port 8080: seconds, or after a build if src changed
 until curl -s -o /dev/null localhost:8080; do sleep 5; done   # in one Bash call, with a timeout
 pkill -f 'exec:java -pl [m]c-web'                        # stop it: not `mcorg`, which matches nothing
 node webapp/scripts/screenshot.js /worlds <scratchpad>/shots/worlds            # 375 + 1440
