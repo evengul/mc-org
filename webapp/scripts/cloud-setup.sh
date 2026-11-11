@@ -10,16 +10,20 @@
 #
 #   webapp/scripts/cloud-setup.sh            # JDK, Maven cache, local.env, Docker DB, migrations
 #   webapp/scripts/cloud-setup.sh --ingest   # + Minecraft data, INGEST_VERSIONS (default: latest)
+#   webapp/scripts/cloud-setup.sh --seed     # + --ingest, then the demo user's "Demo World" (MCO-657)
 #
 # After it, in a fresh shell: export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH
 # (the hook does this for the session through $CLAUDE_ENV_FILE).
 set -euo pipefail
 
 INGEST=false
+SEED=false
 for arg in "$@"; do
     case "$arg" in
         --ingest) INGEST=true ;;
-        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        # The seed's resource lines name items, so it needs a version's data first.
+        --seed) INGEST=true; SEED=true ;;
+        -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
 done
@@ -27,7 +31,9 @@ done
 WEBAPP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 JDK_DIR=/opt/jdk25
 LOG="${TMPDIR:-/tmp}/seam-cloud-setup.log"
-: > "$LOG"
+# Appended, not truncated: the SessionStart run's log is the record of the cold start, and a later
+# `--ingest` or `--seed` by hand would otherwise wipe it. Each run starts with a dated header.
+echo "=== $(date -u +%FT%TZ) cloud-setup.sh $* ===" >> "$LOG"
 
 step() { echo "cloud-setup: $*"; }
 run() { "$@" >>"$LOG" 2>&1 || { echo "cloud-setup: FAILED: $* (log: $LOG)" >&2; tail -20 "$LOG" >&2; exit 1; }; }
@@ -43,6 +49,13 @@ if [[ ! -x "$JDK_DIR/bin/java" ]]; then
     rm -rf "$JDK_DIR" && mv "$tmp" "$JDK_DIR"
 fi
 export JAVA_HOME="$JDK_DIR" PATH="$JDK_DIR/bin:$PATH"
+
+# 1b. JWT signing keys — gitignored, so a fresh clone has none, and without them the demo sign-in
+#     answers 500 and screenshot.js exits 3. Before the build: they are read off the classpath.
+if [[ ! -f "$WEBAPP_DIR/mc-web/src/main/resources/keys/private_key.pem" ]]; then
+    step "generating JWT signing keys"
+    (cd "$WEBAPP_DIR/mc-web" && run bash create-keys.sh)
+fi
 
 # 2. Maven cache — `install` so -pl builds resolve siblings (MCO-285). Re-run only when a pom,
 #    the set of modules, or this script changed; the stamp lives in ~/.m2 so it disappears with
@@ -106,4 +119,14 @@ if [[ "$INGEST" == true ]]; then
     run "$WEBAPP_DIR/scripts/ingest-locally.sh"
 fi
 
-step "ready (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"
+# 7. The demo world, opt-in (MCO-657). Idempotent: an existing "Demo World" is left alone.
+#    The ingest above has just installed the modules, so the -pl run sees current code.
+if [[ "$SEED" == true ]]; then
+    step "seeding the demo user's world"
+    (cd "$WEBAPP_DIR" && set -a && . ./local.env && set +a && run mvn -q -B -pl mc-web exec:java@seed-demo)
+    # This run's line is the last one: the log is appended to. `|| true`: a missing line is not
+    # worth failing a seed that succeeded.
+    grep '^seed-demo:' "$LOG" | tail -1 || true
+fi
+
+step "ready in ${SECONDS}s (JAVA_HOME=$JDK_DIR, DB localhost:5432, $on_disk migrations)"

@@ -23,11 +23,19 @@ const { chromium } = require('playwright');
     try {
         const context = await browser.newContext();
         const signIn = await context.newPage();
-        await signIn.goto(`${base}/auth/oidc/demo-redirect`, { waitUntil: 'networkidle' });
+        const signInResponse = await signIn.goto(`${base}/auth/oidc/demo-redirect`, { waitUntil: 'networkidle' });
         // A failed demo sign-in lands back on a sign-in page with a 200; every screenshot after
         // it would be of the wrong page and still "succeed".
         if (new URL(signIn.url()).pathname.startsWith('/auth') || signIn.url() === `${base}/`) {
-            console.error(`demo sign-in did not sign in (ended on ${signIn.url()}); is DEMO_USER set in local.env?`);
+            const status = signInResponse ? signInResponse.status() : 0;
+            // Only the sign-in's own marker means DEMO_USER is unset. Anything else is the server
+            // failing — a raw 500, or the pipeline's redirect to the internal-error page with a
+            // 200 — and missing JWT signing keys did exactly that in the first cloud session
+            // (MCO-657), while the old message blamed DEMO_USER.
+            const hint = signIn.url().includes('demo_sign_in_not_configured')
+                ? 'DEMO_USER is unset in local.env'
+                : 'the server failed; read the app log (/tmp/seam-run.log) — no JWT keys? run cloud-setup.sh';
+            console.error(`demo sign-in did not sign in (HTTP ${status}, ended on ${signIn.url()}); ${hint}`);
             process.exitCode = 3;
             return;
         }

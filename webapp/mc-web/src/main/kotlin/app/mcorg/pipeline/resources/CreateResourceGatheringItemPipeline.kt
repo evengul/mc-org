@@ -24,7 +24,7 @@ import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.tr
 
-private data class CreateResourceGatheringItemInput(
+internal data class CreateResourceGatheringItemInput(
     val name: String,
     val itemId: String,
     val requiredAmount: Int
@@ -100,7 +100,7 @@ private data class ValidateCreateResourceGatheringItemInputStep(val validItems: 
     }
 }
 
-private data class CreateResourceGatheringItemStep(val projectId: Int) : Step<CreateResourceGatheringItemInput, AppFailure.DatabaseError, Int> {
+internal data class CreateResourceGatheringItemStep(val projectId: Int) : Step<CreateResourceGatheringItemInput, AppFailure.DatabaseError, Int> {
     override suspend fun process(input: CreateResourceGatheringItemInput): Result<AppFailure.DatabaseError, Int> {
         return DatabaseSteps.update<CreateResourceGatheringItemInput>(
             sql = SafeSQL.insert("""
