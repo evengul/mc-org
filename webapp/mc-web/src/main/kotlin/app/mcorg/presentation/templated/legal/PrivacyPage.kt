@@ -184,6 +184,10 @@ private fun FlowContent.deleting() = legalSection("Deleting your data") {
         +"Deleting a world (world settings, owner only) removes everything in it: projects, tasks, tagged containers and their readings, "
         +"reporter tokens and Discord connections."
     }
+    // Neon's restore window on the project's plan, per the owner (MCO-662). A plan change changes this line.
+    p {
+        +"The database can be restored to any point in the last 7 days, so deleted data is gone for good 7 days after you delete it."
+    }
 }
 
 private fun FlowContent.contact() = legalSection("Contact") {
