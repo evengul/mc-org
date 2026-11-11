@@ -60,7 +60,7 @@ private fun kotlinx.html.FlowContent.deleteAccountSection() {
                 url = "/account",
                 title = "Delete Account",
                 description = "Are you sure you want to delete your account? This action cannot be undone.",
-                warning = "This will permanently delete your account and all associated data, including your worlds and projects.",
+                warning = "This permanently deletes your account, your ideas and comments, and any world you are the only member of. Worlds with other members are kept for them.",
                 confirmText = "DELETE MY ACCOUNT"
             )
             +"Delete account"
