@@ -90,7 +90,7 @@ private val ingestionLogger = LoggerFactory.getLogger("app.mcorg.pipeline.minecr
  */
 suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = withIngestionLock {
     pipelineResult {
-        val versions = GetAvailableVersionsStep.run(Unit)
+        val versions = SelectIngestVersionsStep.run(GetAvailableVersionsStep.run(Unit))
         val urls = GetServerUrlsStep.run(versions)
         val filtered = FilterAlreadyStoredVersionsStep.run(urls)
         ProcessServerFilesStep.run(filtered)
