@@ -139,6 +139,34 @@ class GetLandingIT : WithUser() {
         assertEquals("/worlds", landing.headers["Location"])
     }
 
+    @Test
+    fun `A user added back to their stale active world lands on it again`() = testApplication {
+        val client = createClient { followRedirects = false }
+        installLanding()
+        val worldId = createWorld()
+        val member = createExtraUser()
+        val staleToken = member.copy(activeWorldId = worldId)
+
+        // Not a member yet: `/` caches that "no".
+        assertEquals("/worlds", client.get("/") { addAuthCookie(this, staleToken) }.headers["Location"])
+
+        runBlocking {
+            DatabaseSteps.update<Unit>(
+                SafeSQL.insert("INSERT INTO world_members (user_id, world_id, display_name, world_role) VALUES (?, ?, ?, ?)"),
+                parameterSetter = { stmt, _ ->
+                    stmt.setInt(1, member.id)
+                    stmt.setInt(2, worldId)
+                    stmt.setString(3, "member-${member.id}")
+                    stmt.setInt(4, Role.MEMBER.level)
+                }
+            ).process(Unit)
+            // What AcceptInvitationPipeline calls after the insert.
+            CacheManager.onMemberAdded(member.id, worldId)
+        }
+
+        assertEquals("/worlds/$worldId/roadmap", client.get("/") { addAuthCookie(this, staleToken) }.headers["Location"])
+    }
+
     private fun ApplicationTestBuilder.installLanding() {
         routing {
             install(AuthPlugin)

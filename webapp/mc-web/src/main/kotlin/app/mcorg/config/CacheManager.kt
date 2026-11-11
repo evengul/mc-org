@@ -233,6 +233,11 @@ object CacheManager {
 
     fun onMemberAdded(userId: Int, worldId: Int) {
         worldMemberExists.put("$userId:$worldId", true)
+        // A "no" cached before they joined (by a membership gate, or by `/` checking a stale
+        // active world) would otherwise refuse them for up to five minutes.
+        worldMemberRole.asMap().keys
+            .filter { it.startsWith("$userId:$worldId:") }
+            .forEach { worldMemberRole.invalidate(it) }
         logger.debug("Cache: member {}:{} marked as existing", userId, worldId)
     }
 

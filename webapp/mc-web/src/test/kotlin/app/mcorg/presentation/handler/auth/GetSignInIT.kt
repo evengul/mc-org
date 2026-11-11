@@ -105,8 +105,10 @@ class GetSignInIT : WithUser() {
     fun `No error code shows no reason`() = testApplication {
         routing { route("/auth") { authRouter() } }
 
-        val body = client.get("/auth/sign-in").bodyAsText()
-        assertFalse(body.contains("sign-in-error"))
+        listOf("/auth/sign-in", "/auth/sign-in?error=").forEach { url ->
+            val body = client.get(url).bodyAsText()
+            assertFalse(body.contains("sign-in-error"), url)
+        }
     }
 
     @Test

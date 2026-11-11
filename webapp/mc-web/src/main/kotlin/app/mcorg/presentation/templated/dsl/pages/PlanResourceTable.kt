@@ -71,8 +71,11 @@ fun TR.planResourceRow(
         // One of the two glyph surfaces chosen for MCO-499 (the other is the /items/search
         // option). Row level, not group level: a group header names an ActivityGroup —
         // "Craft", "Loot" — which is not an item and has no glyph to draw.
-        itemGlyph(item.itemId)
-        +item.name
+        // One span, so the mobile card's flex row keeps glyph and name together beside the label.
+        span("plan-resource-table__item-name") {
+            itemGlyph(item.itemId)
+            +item.name
+        }
     }
     td("plan-resource-table__qty") {
         label(COL_QTY)
@@ -133,8 +136,11 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
 
     td("plan-resource-table__item") {
         label(COL_ITEM)
-        itemGlyph(item.itemId)
-        +item.name
+        // One span, so the mobile card's flex row keeps glyph and name together beside the label.
+        span("plan-resource-table__item-name") {
+            itemGlyph(item.itemId)
+            +item.name
+        }
     }
     td("plan-resource-table__qty") {
         label(COL_QTY)

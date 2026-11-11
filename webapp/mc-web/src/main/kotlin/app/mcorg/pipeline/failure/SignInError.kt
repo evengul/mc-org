@@ -28,8 +28,8 @@ enum class SignInError(val code: String, val message: String) {
         private const val PATH = "/auth/sign-in"
 
         /** `null` when there is no error to show; [GENERIC] for a code that is not listed. */
-        fun fromCode(code: String?): SignInError? = when (code) {
-            null -> null
+        fun fromCode(code: String?): SignInError? = when {
+            code.isNullOrBlank() -> null
             else -> entries.firstOrNull { it.code == code } ?: GENERIC
         }
     }
