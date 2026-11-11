@@ -32,7 +32,7 @@
         <kotlin.version>2.3.21</kotlin.version>
         <junit.version>6.1.3</junit.version>
         <flyway.version>13.9.0</flyway.version>
-        <surefire.version>3.6.0</surefire.version>
+        <surefire.version>3.6.1</surefire.version>
         <!--
           Extra JVM flags for surefire's forked test JVM, appended to the shared argLine below.
           Empty by default; mc-web sets it to load MockK's ByteBuddy agent up front (MCO-570).
