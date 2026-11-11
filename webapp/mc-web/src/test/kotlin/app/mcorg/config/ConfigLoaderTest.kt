@@ -322,6 +322,12 @@ class ConfigLoaderTest {
             assertEquals("all", readConfig(envOf("ENV" to "LOCAL", "FORCE_REINGEST" to "all")).config.forceReingest)
             assertNull(readConfig(envOf("ENV" to "LOCAL")).config.forceReingest)
         }
+
+        @JUnitTest
+        fun `INGEST_VERSIONS is read through the loader`() {
+            assertEquals("latest", readConfig(envOf("ENV" to "LOCAL", "INGEST_VERSIONS" to "latest")).config.ingestVersions)
+            assertNull(readConfig(envOf("ENV" to "LOCAL")).config.ingestVersions)
+        }
     }
 
     @Nested

@@ -8,6 +8,21 @@ description: Verify a change actually works by driving the running Seam app end-
 Exercise the affected flow in the real app and observe the result. A change
 is verified when you have *seen* the new behaviour, not when tests pass.
 
+## Cloud session (`CLAUDE_CODE_REMOTE=true`)
+
+No Neon branch, no `playwright-cli`, and the owner can't open the container's
+localhost. The `cloud-session` skill has the mechanics ("Minecraft data",
+"Looking at the app"). Steps 4–5 are unchanged; 1–3 become:
+
+1. `webapp/scripts/cloud-setup.sh --ingest` when the page needs Minecraft data.
+2. `run.sh` on port 8080, then `report_preview_port` 8080.
+3. `node webapp/scripts/screenshot.js <path> <out-prefix>` at 375 and 1440; a
+   Node Playwright script for the interaction itself. Read the images, then
+   send them with `SendUserFile`. Exit 2 or 3 from the script is a failed
+   verification, not a flaky one.
+
+Cleanup: `pkill -f mcorg` for the app you started.
+
 ## 1. Make sure the app can run
 
 - **Worktree** (the normal case): `webapp/local.env` was written by

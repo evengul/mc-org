@@ -85,4 +85,10 @@ class ShouldIngestDecisionTest {
         assertTrue(predicate(other))
         assertFalse(predicate(MinecraftVersion.Release(1, 20, 1)))
     }
+
+    @Test
+    fun `FORCE_REINGEST accepts the short form of a dot-zero release, as INGEST_VERSIONS does`() {
+        // Release.toString() is always three-part, so a string match against "1.21" missed 1.21.0.
+        assertTrue(FilterAlreadyStoredVersionsStep.forcedPredicate("1.21")(MinecraftVersion.Release(1, 21, 0)))
+    }
 }

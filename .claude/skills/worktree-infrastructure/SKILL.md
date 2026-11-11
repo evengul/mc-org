@@ -15,6 +15,9 @@ description: >-
 user-invocable: false
 ---
 
+> **Cloud sessions (`CLAUDE_CODE_REMOTE=true`) are not worktrees.** None of this applies
+> there; load the `cloud-session` skill.
+
 # Worktree Infrastructure
 
 A worktree is isolated on five axes — database, HTTP port, Maven repository, Kotlin

@@ -41,6 +41,7 @@ data class Config(
     val seamDiscordUrl: String?,
     val webhookSharedSecret: String?,
     val forceReingest: String?,
+    val ingestVersions: String?,
 )
 
 /**
@@ -208,6 +209,7 @@ internal fun readConfig(getenv: (String) -> String? = System::getenv): ConfigLoa
             seamDiscordUrl = getenv("SEAM_DISCORD_URL"),
             webhookSharedSecret = getenv("SEAM_WEBHOOK_SHARED_SECRET"),
             forceReingest = getenv("FORCE_REINGEST"),
+            ingestVersions = getenv("INGEST_VERSIONS"),
         ),
         fatal = fatal,
         errors = errors,

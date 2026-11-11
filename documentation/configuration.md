@@ -52,6 +52,7 @@ Legend: **S** = secret (never in a committed file; Fly secret or GitHub secret).
 | `MINECRAFT_BASE_URL` | | optional | optional | optional | `https://api.minecraftservices.com` | `fly.toml` |
 | `LAUNCHER_META_BASE_URL` | | optional | optional | optional | `https://launchermeta.mojang.com` | nowhere — default is the intended value |
 | `FORCE_REINGEST` | | optional | optional | optional | — | ad hoc, per ingestion run |
+| `INGEST_VERSIONS` | | optional | optional | optional | all supported versions | ad hoc: `latest` or a version list, for a fresh DB (cloud sessions); never in `fly.toml` |
 | `LOG_LEVEL` | | optional | optional | optional | `INFO` | nowhere — set ad hoc for a verbose local run⁸ |
 | `APP_LOG_LEVEL` | | optional | optional | optional | `INFO` | nowhere — set ad hoc for a verbose local run⁸ |
 

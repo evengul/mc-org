@@ -90,7 +90,7 @@ private val ingestionLogger = LoggerFactory.getLogger("app.mcorg.pipeline.minecr
  */
 suspend fun executeServerFilesPipeline(): Result<AppFailure, Unit> = withIngestionLock {
     pipelineResult {
-        val versions = GetAvailableVersionsStep.run(Unit)
+        val versions = SelectIngestVersionsStep.run(GetAvailableVersionsStep.run(Unit))
         val urls = GetServerUrlsStep.run(versions)
         val filtered = FilterAlreadyStoredVersionsStep.run(urls)
         ProcessServerFilesStep.run(filtered)
@@ -377,8 +377,12 @@ internal data object FilterAlreadyStoredVersionsStep : Step<List<ResolvedServerJ
             raw.isEmpty() || raw.equals("false", ignoreCase = true) -> { _ -> false }
             raw.equals("true", ignoreCase = true) || raw.equals("all", ignoreCase = true) -> { _ -> true }
             else -> {
-                val versions = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-                ({ version -> version.toString() in versions })
+                // Parsed, not string-compared: Release.toString() is always three-part, so the
+                // short form "1.21" never matched 1.21.0. Same parsing as INGEST_VERSIONS.
+                val versions = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+                    .mapNotNull { runCatching { MinecraftVersion.Release.fromString(it) }.getOrNull() }
+                    .toSet()
+                ({ version -> version in versions })
             }
         }
     }

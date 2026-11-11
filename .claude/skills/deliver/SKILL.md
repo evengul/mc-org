@@ -20,6 +20,31 @@ report where it says so.
 Merging is an outward action, and on master it is a production deploy
 (`prod.yml`). Run this only when the owner has asked for it in this session.
 
+## Cloud session (`CLAUDE_CODE_REMOTE=true`)
+
+Still owner-invoked only, with the same decisions (review, the three rebase
+cases, red CI, Linear). The machinery differs:
+
+- **0.** Not a worktree; the session's `claude/*` branch is the starting
+  point. Find the PR with `mcp__github__list_pull_requests` (`head` =
+  `evengul:<branch>`).
+- **2–3.** `mergeable` and check runs come from `mcp__github__pull_request_read`
+  (`get`, `get_check_runs`). Run lists: `mcp__github__actions_list`
+  (`list_workflow_runs`, `resource_id: dev.yml`, branch filter). Don't poll:
+  `subscribe_pr_activity` and wait for the CI event. Failed logs:
+  `mcp__github__get_job_logs` (`run_id`, `failed_only: true`). The one
+  flaky re-run: `mcp__github__actions_run_trigger` `rerun_failed_jobs`.
+- **4.** `mcp__github__merge_pull_request` with `merge_method: squash` and
+  `expectedHeadSha` = the commit CI tested, then `pull_request_read` `get`
+  and confirm it merged before doing anything else.
+- **5.** `actions_list` `list_workflow_runs` on `prod.yml` for the merge
+  commit; `actions_get` for its status. There is no background `gh run
+  watch`: check back with `send_later` instead of a loop.
+- **6.** Unchanged (Linear MCP).
+- **7–8.** Nothing to clean up: no worktree, no Neon branch, no main
+  checkout. Stop the dev server you started, `unsubscribe_pr_activity`, and
+  report. The container is discarded with the session.
+
 ## 0. Starting point
 
 - Not in a worktree under `.claude/worktrees/`: stop.

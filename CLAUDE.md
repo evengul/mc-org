@@ -214,6 +214,15 @@ that cannot resolve `app.mcorg` jars, playwright driving the wrong app), or **wh
 box is thrashing** — idle Kotlin daemons (~2.1 GB each) and Playwright browsers (~960 MB
 each) from finished worktrees are the usual cause, and each has its own reaper.
 
+## Cloud Sessions (claude.ai/code)
+
+A cloud session (`CLAUDE_CODE_REMOTE=true`) is **not** a worktree: the container is the
+isolation, the database is a throwaway localhost Docker postgres, and none of the worktree
+machinery applies. A SessionStart hook runs `webapp/scripts/cloud-setup.sh` (JDK 25, Maven
+cache, Docker, DB, migrations). **Load the `cloud-session` skill** for Minecraft data
+(`--ingest`, `INGEST_VERSIONS`), screenshots without `playwright-cli`, the GitHub MCP tools that
+replace `gh`, and the fixes when the JDK is 21 or Docker is down after a resume.
+
 ## Issue Tracking
 
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
@@ -231,7 +240,9 @@ checkout. If `git rev-parse --abbrev-ref HEAD` is `master`, STOP and start a wor
 files on `master`. If a worktree is impractical, at minimum create a feature branch first
 (`git checkout -b <linear-branch>`); never commit work directly onto `master`. See
 the `worktree-infrastructure` skill for the mechanics. This is the FIRST thing to
-check when work begins, not an afterthought at commit time.
+check when work begins, not an afterthought at commit time. **Cloud session** (`CLAUDE_CODE_REMOTE=true`):
+no worktree — the session's assigned `claude/*` branch is the feature branch; confirm you are on
+it, not on `master`.
 
 **Imports:** `import kotlinx.html.stream.createHTML` — NOT `import kotlinx.html.createHTML`
 

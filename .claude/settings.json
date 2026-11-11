@@ -2,6 +2,16 @@
   "hooks": {
     "SessionStart": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'r=\"$CLAUDE_PROJECT_DIR\"; [ -d \"$r/webapp\" ] || r=\"$r/mc-org\"; exec \"$r/.claude/hooks/cloud-session-start.sh\"'",
+            "statusMessage": "Provisioning cloud container (JDK 25, Maven cache, Docker DB)...",
+            "timeout": 600
+          }
+        ]
+      },
+      {
         "matcher": "compact|resume",
         "hooks": [
           {

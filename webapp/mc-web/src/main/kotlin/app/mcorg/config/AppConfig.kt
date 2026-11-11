@@ -84,6 +84,10 @@ object AppConfig {
     // Read by GetServerFilesPipeline; storage is idempotent, so forcing is safe.
     var forceReingest: String? = null
 
+    // `latest`, `all`, or a comma-separated version list limiting which versions an ingestion run
+    // considers at all. Unset in production. Read by SelectIngestVersionsStep.
+    var ingestVersions: String? = null
+
     /** Problems found while reading the environment. Empty once configuration is valid. */
     private var fatalProblems: List<String> = emptyList()
     private var problems: List<String> = emptyList()
@@ -122,6 +126,7 @@ object AppConfig {
         seamDiscordUrl = config.seamDiscordUrl
         webhookSharedSecret = config.webhookSharedSecret
         forceReingest = config.forceReingest
+        ingestVersions = config.ingestVersions
     }
 
     /**
