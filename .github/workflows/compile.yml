@@ -27,6 +27,9 @@ jobs:
       # Cheap, and runs before the build so a stdout write fails fast (MCO-342).
       - name: Check for direct stdout writes in main source
         run: bash scripts/check-no-stdout.sh
+      # When the dev scripts may skip `mvn install` (MCO-658). A second, no JDK needed.
+      - name: Test the dev scripts' build library
+        run: bash scripts/tests/build-lib.test.sh
       - name: Compile and install modules
         run: mvn install -DskipTests -B
       # The jar uploaded below is the one that ships — prod.yml downloads this artifact and

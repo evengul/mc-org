@@ -128,14 +128,15 @@ fi
 # Why `install` and not `compile` (MCO-285): `exec:java -pl mc-web` narrows the reactor to one
 # module, so mc-domain and the other siblings resolve from ~/.m2 — the last INSTALLED jars,
 # which `compile` never updates. Skip the install and you get a NoSuchMethodError at runtime
-# somewhere that looks unrelated to what you changed.
+# somewhere that looks unrelated to what you changed. seam_install (lib/build.sh) skips it only
+# when nothing under src/main or a pom changed since this checkout's last install (MCO-658).
 #
 # `clean` is deliberately NOT here (MCO-378). It was only ever compensating for Kotlin's
-# incremental compilation, which is now off in pom.xml — Maven's own staleness check rebuilds
-# everything it needs and takes ~13s from cold.
+# incremental compilation, which is now off in pom.xml.
+. "$SCRIPT_DIR/lib/build.sh"
+seam_wait_for_cloud_setup
 cd "$WEBAPP_DIR"
-echo "Building..."
-mvn install -DskipTests -q
+seam_install
 
 echo "Starting application with $ENV_NAME environment on http://localhost:$PORT"
 MAVEN_OPTS="$MAVEN_OPTS" exec mvn exec:java -pl mc-web

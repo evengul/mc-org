@@ -104,8 +104,10 @@ constructor that plainly exists in your working tree, from a file you did not to
 build runs against the last *installed* jars. Add `-am` to pull the siblings into the reactor,
 or `mvn install` the whole thing first. Local-only — CI always builds the full reactor.
 
-`run.sh` installs before it runs, and `test.sh`'s module-scoped tiers pass `-am`. If you bypass
-the scripts, remember the rule yourself.
+`run.sh` and `ingest-locally.sh` install before they run, skipping it only when nothing under
+`*/src/main` or a pom changed since this checkout's last install (`scripts/lib/build.sh`,
+MCO-658; `SEAM_FORCE_INSTALL=1` forces it). `test.sh`'s module-scoped tiers pass `-am`. If you
+bypass the scripts, remember the rule yourself.
 
 In a worktree those installs go to the worktree's **own** Maven repository, so a sibling
 worktree's build can't swap the jars underneath you — see
