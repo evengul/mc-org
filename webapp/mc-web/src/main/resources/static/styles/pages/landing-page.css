@@ -50,6 +50,31 @@
     line-height: 1.2;
 }
 
+/* Replaces the tagline after a failed sign-in: a section-style label over the reason. */
+.landing-hero__error {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    max-width: 60ch;
+}
+
+.landing-hero__error-label {
+    font-family: var(--font-ui);
+    font-size: var(--text-label);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--red);
+}
+
+.landing-hero__error-body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.5;
+}
+
 .landing-hero__tagline {
     font-family: var(--font-body);
     font-size: var(--text-base);

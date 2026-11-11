@@ -13,6 +13,7 @@ import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.InputType
 import kotlinx.html.TABLE
+import kotlinx.html.TD
 import kotlinx.html.TR
 import kotlinx.html.button
 import kotlinx.html.classes
@@ -35,6 +36,19 @@ import kotlinx.html.th
 import kotlinx.html.thead
 import kotlinx.html.tr
 
+/**
+ * Column names, shared by the header and each cell's `data-label`: below 768 px `.data-table`
+ * stacks every row into a card and labels each cell from that attribute (MCO-622).
+ */
+private const val COL_ITEM = "Item"
+private const val COL_QTY = "Qty"
+private const val COL_CHESTS = "Chests"
+private const val COL_ACTIONS = "Actions"
+
+private fun TD.label(text: String) {
+    attributes["data-label"] = text
+}
+
 fun TR.planResourceRow(
     worldId: Int,
     projectId: Int,
@@ -53,13 +67,18 @@ fun TR.planResourceRow(
     attributes["data-resource-id"] = item.id.toString()
 
     td("plan-resource-table__item") {
+        label(COL_ITEM)
         // One of the two glyph surfaces chosen for MCO-499 (the other is the /items/search
         // option). Row level, not group level: a group header names an ActivityGroup —
         // "Craft", "Loot" — which is not an item and has no glyph to draw.
-        itemGlyph(item.itemId)
-        +item.name
+        // One span, so the mobile card's flex row keeps glyph and name together beside the label.
+        span("plan-resource-table__item-name") {
+            itemGlyph(item.itemId)
+            +item.name
+        }
     }
     td("plan-resource-table__qty") {
+        label(COL_QTY)
         attributes["data-resource-id"] = item.id.toString()
         attributes["data-current-qty"] = item.required.toString()
         span("plan-resource-table__qty-display") {
@@ -79,6 +98,7 @@ fun TR.planResourceRow(
         }
     }
     td("plan-resource-table__chests") {
+        label(COL_CHESTS)
         if (followed != null) {
             followedLabel(measured, followed)
         } else {
@@ -86,6 +106,7 @@ fun TR.planResourceRow(
         }
     }
     td("plan-resource-table__action") {
+        label(COL_ACTIONS)
         div("plan-resource-table__action-group") {
             button(classes = "btn btn--ghost btn--sm plan-resource-table__ignore-btn") {
                 type = ButtonType.button
@@ -114,16 +135,22 @@ fun TR.ignoredResourceRow(worldId: Int, projectId: Int, item: ResourceGatheringI
     attributes["data-resource-id"] = item.id.toString()
 
     td("plan-resource-table__item") {
-        itemGlyph(item.itemId)
-        +item.name
+        label(COL_ITEM)
+        // One span, so the mobile card's flex row keeps glyph and name together beside the label.
+        span("plan-resource-table__item-name") {
+            itemGlyph(item.itemId)
+            +item.name
+        }
     }
     td("plan-resource-table__qty") {
+        label(COL_QTY)
         span("plan-resource-table__qty-display") {
             +item.required.toString()
         }
     }
-    td("plan-resource-table__chests") {}
+    td("plan-resource-table__chests") { label(COL_CHESTS) }
     td("plan-resource-table__action") {
+        label(COL_ACTIONS)
         button(classes = "btn btn--ghost btn--sm plan-resource-table__unignore-btn") {
             type = ButtonType.button
             attributes["title"] = "Un-ignore — include back in the material list and gathering plan"
@@ -183,9 +210,9 @@ fun planResourceTableFragment(
 private fun TABLE.planResourceTableHead() {
     thead {
         tr {
-            th { classes = setOf("plan-resource-table__col-item"); +"Item" }
-            th { classes = setOf("plan-resource-table__col-qty"); +"Qty" }
-            th { classes = setOf("plan-resource-table__col-chests"); +"Chests" }
+            th { classes = setOf("plan-resource-table__col-item"); +COL_ITEM }
+            th { classes = setOf("plan-resource-table__col-qty"); +COL_QTY }
+            th { classes = setOf("plan-resource-table__col-chests"); +COL_CHESTS }
             th { classes = setOf("plan-resource-table__col-action") }
         }
     }

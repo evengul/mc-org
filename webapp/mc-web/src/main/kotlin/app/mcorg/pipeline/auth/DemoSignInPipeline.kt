@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.pipeline.failure.SignInError
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Env
 import app.mcorg.domain.Production
@@ -71,7 +72,7 @@ suspend fun ApplicationCall.handleDemoSignIn() {
     val demoUsername = resolveDemoUsername(AppConfig.env, request.queryParameters["username"], AppConfig.demoUser)
     if (demoUsername == null) {
         // DEMO_USER is unset — the feature is off, not misconfigured mid-request.
-        respondRedirect("/auth/sign-in?error=demo_sign_in_not_configured")
+        respondRedirect(SignInError.DEMO_SIGN_IN_NOT_CONFIGURED.url)
         return
     }
     val demoUuid = "${demoUsername}-uuid"

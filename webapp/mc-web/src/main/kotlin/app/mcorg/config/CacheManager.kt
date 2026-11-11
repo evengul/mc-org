@@ -181,6 +181,14 @@ object CacheManager {
 
     fun onWorldDeleted(worldId: Int) {
         worldExists.invalidate(worldId)
+        // Membership rows go with the world (ON DELETE CASCADE), so their cached answers must too:
+        // a cached "is a member" would otherwise outlive the world by up to five minutes.
+        worldMemberRole.asMap().keys
+            .filter { it.split(':').getOrNull(1) == worldId.toString() }
+            .forEach { worldMemberRole.invalidate(it) }
+        worldMemberExists.asMap().keys
+            .filter { it.substringAfter(':') == worldId.toString() }
+            .forEach { worldMemberExists.invalidate(it) }
         logger.debug("Cache: world {} invalidated", worldId)
     }
 
@@ -225,6 +233,11 @@ object CacheManager {
 
     fun onMemberAdded(userId: Int, worldId: Int) {
         worldMemberExists.put("$userId:$worldId", true)
+        // A "no" cached before they joined (by a membership gate, or by `/` checking a stale
+        // active world) would otherwise refuse them for up to five minutes.
+        worldMemberRole.asMap().keys
+            .filter { it.startsWith("$userId:$worldId:") }
+            .forEach { worldMemberRole.invalidate(it) }
         logger.debug("Cache: member {}:{} marked as existing", userId, worldId)
     }
 

@@ -299,6 +299,13 @@
     margin-right: var(--space-2);
 }
 
+/* A mobile card labels every cell (MCO-622); a cell with nothing in it would be a bare label. */
+@media (max-width: 768px) {
+    .plan-resource-table td:empty {
+        display: none;
+    }
+}
+
 .plan-resource-table__col-item {
     flex: 1;
 }
