@@ -50,6 +50,10 @@
     line-height: 1.2;
 }
 
+.landing-hero__error {
+    max-width: 60ch;
+}
+
 .landing-hero__tagline {
     font-family: var(--font-body);
     font-size: var(--text-base);

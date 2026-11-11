@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.pipeline.failure.SignInError
 import app.mcorg.config.AppConfig
 import app.mcorg.domain.Local
 import app.mcorg.domain.Production
@@ -37,7 +38,12 @@ suspend fun ApplicationCall.handleGetSignIn() {
         onSuccess = { url: String -> respondRedirect(url) },
         onFailure = { error: AppFailure ->
             when(error) {
-                is AppFailure.AuthError.MissingToken -> respondHtml(landingPage(getSignInUrl(customRedirectPath ?: "/", requestedUsername)))
+                is AppFailure.AuthError.MissingToken -> respondHtml(
+                    landingPage(
+                        getSignInUrl(customRedirectPath ?: "/", requestedUsername),
+                        SignInError.fromCode(parameters["error"]),
+                    )
+                )
                 is AppFailure.AuthError.ConvertTokenError -> respondRedirect(error.toRedirect().toUrl())
                 else -> respondRedirect(SignOutReason.INTERNAL_ERROR.url)
             }

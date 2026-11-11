@@ -1,6 +1,7 @@
 package app.mcorg.presentation.handler.auth
 
 import app.mcorg.pipeline.auth.commonsteps.CreateTokenStep
+import app.mcorg.pipeline.failure.SignInError
 import app.mcorg.presentation.consts.AUTH_COOKIE
 import app.mcorg.presentation.plugins.SeamRateLimit
 import app.mcorg.presentation.router.authRouter
@@ -16,6 +17,9 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
+import kotlin.test.assertFalse
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -71,6 +75,38 @@ class GetSignInIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "Sign in with Microsoft")
+    }
+
+    @ParameterizedTest
+    @EnumSource(SignInError::class)
+    fun `Each sign-in error code shows its reason above the Microsoft button`(error: SignInError) = testApplication {
+        routing { route("/auth") { authRouter() } }
+
+        val response = client.get(error.url)
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "id=\"sign-in-error\"")
+        assertContains(body, error.message)
+        assertTrue(body.indexOf(error.message) < body.indexOf("Sign in with Microsoft"), "reason must sit above the button")
+    }
+
+    @Test
+    fun `An unknown error code shows the generic reason and prints nothing from the URL`() = testApplication {
+        routing { route("/auth") { authRouter() } }
+
+        val response = client.get("/auth/sign-in?error=call_support_on_555-0100")
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, SignInError.GENERIC.message)
+        assertFalse(body.contains("555-0100"), "the page must not echo the URL's text")
+    }
+
+    @Test
+    fun `No error code shows no reason`() = testApplication {
+        routing { route("/auth") { authRouter() } }
+
+        val body = client.get("/auth/sign-in").bodyAsText()
+        assertFalse(body.contains("sign-in-error"))
     }
 
     @Test

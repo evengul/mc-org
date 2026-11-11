@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.pipeline.failure.SignInError
 import app.mcorg.config.*
 import app.mcorg.domain.Env
 import app.mcorg.domain.Local
@@ -51,7 +52,7 @@ suspend fun ApplicationCall.handleSignIn() {
     response.cookies.clearOAuthNonce()
     if (!nonceOk) {
         signInLogger.warn("Rejected an OAuth callback with a missing or mismatched state nonce")
-        respondRedirect("/auth/sign-in?error=invalid_state")
+        respondRedirect(SignInError.INVALID_STATE.url)
         return
     }
 
