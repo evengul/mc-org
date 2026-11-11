@@ -17,6 +17,10 @@ fi
 
 echo "Running unit tests ($MODIFIED_KT modified .kt file(s))..."
 cd "$CLAUDE_PROJECT_DIR" || exit 0
+# Cloud sessions: hooks do not see $CLAUDE_ENV_FILE, so pick up cloud-setup.sh's JDK here.
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ -x /opt/jdk25/bin/java ]; then
+  export JAVA_HOME=/opt/jdk25 PATH=/opt/jdk25/bin:$PATH
+fi
 # Unit tier only — fast, no Docker. Database/integration tiers are run explicitly
 # (or by CI); bare `mvn test` is banned because it silently skips database-tagged ITs.
 OUTPUT=$(./webapp/scripts/test.sh 2>&1)

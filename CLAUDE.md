@@ -214,6 +214,30 @@ that cannot resolve `app.mcorg` jars, playwright driving the wrong app), or **wh
 box is thrashing** — idle Kotlin daemons (~2.1 GB each) and Playwright browsers (~960 MB
 each) from finished worktrees are the usual cause, and each has its own reaper.
 
+## Cloud Sessions (claude.ai/code)
+
+A cloud session (`CLAUDE_CODE_REMOTE=true`) is **not** a worktree, and none of the worktree
+machinery applies: the container is the isolation, the session's assigned `claude/*` branch
+satisfies "worktree first", and the database is a throwaway localhost Docker postgres, not a
+Neon branch. No `EnterWorktree`, `worktree-*.sh`, `neonctl` or `playwright-cli` here.
+
+The SessionStart hook (`.claude/hooks/cloud-session-start.sh`) runs
+`webapp/scripts/cloud-setup.sh`, which installs JDK 25 (the image ships an older one), warms
+`~/.m2`, seeds `local.env`, starts Docker and the DB, and applies migrations. It is idempotent
+(~2 min cold, under a second warm); run it by hand if a step looks missing. For anything
+that needs Minecraft data (the planner, `/verify`, `cost-diagnostics`):
+
+```bash
+webapp/scripts/cloud-setup.sh --ingest   # INGEST_VERSIONS=latest unless set: one version, ~1 min
+```
+
+Leave `INGEST_VERSIONS` broader (a version list, or `all`) when the change is about how
+versions differ — `mc-data` extraction, or a cost question about an older version.
+
+PRs go through the `mcp__github__*` tools; there is no `gh` CLI here. Visual checks: run
+`run.sh`, sign in via `/auth/oidc/demo-redirect` with Node Playwright (preinstalled), and send
+the screenshot to the chat — or put the `preview` label on the PR for a Fly preview.
+
 ## Issue Tracking
 
 Linear — workspace: evegul, team: Mcorg. Do NOT create GitHub issues.
