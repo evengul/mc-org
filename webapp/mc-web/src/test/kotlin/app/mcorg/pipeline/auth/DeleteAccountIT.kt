@@ -1,5 +1,6 @@
 package app.mcorg.pipeline.auth
 
+import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.domain.model.user.Role
 import app.mcorg.domain.model.user.TokenProfile
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -48,6 +50,18 @@ class DeleteAccountIT : WithUser() {
         assertEquals(HttpStatusCode.OK, response.status)
         assertFalse(userExists(leaving.id), "the account is deleted")
         assertFalse(worldExists(worldId), "a world with nobody left in it is deleted")
+    }
+
+    @Test
+    fun `A deleted world's cached existence goes with it`() = testApplication {
+        installDeleteAccount()
+        val leaving = createExtraUser()
+        val worldId = createWorld(leaving)
+        CacheManager.worldExists.put(worldId, true)
+
+        client.delete("/account") { addAuthCookie(this, leaving) }
+
+        assertNull(CacheManager.worldExists.getIfPresent(worldId), "WorldParamPlugin would otherwise accept a deleted world")
     }
 
     @Test

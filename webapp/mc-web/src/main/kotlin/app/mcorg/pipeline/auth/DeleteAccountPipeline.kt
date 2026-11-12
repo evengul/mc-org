@@ -25,8 +25,11 @@ suspend fun ApplicationCall.handleDeleteAccount() {
             this.clientRedirect("/")
         }
     ) {
-        DeleteAccountStep.run(user.id)
+        val deletedWorlds = DeleteAccountStep.run(user.id)
         CacheManager.onBanStatusChanged(user.id)
+        // After the commit, as DeleteWorldPipeline does: a cached "this world exists" or "is a
+        // member" would otherwise outlive the world by up to the cache's TTL.
+        deletedWorlds.forEach { CacheManager.onWorldDeleted(it) }
     }
 }
 
@@ -40,20 +43,45 @@ suspend fun ApplicationCall.handleDeleteAccount() {
  *
  * A world that still has other members is kept for them, as before.
  *
- * One transaction: a failure between the two deletes would otherwise leave the worlds gone and the
- * account still there.
+ * One transaction: a failure between the deletes would otherwise leave the worlds gone and the
+ * account still there. The user's worlds are locked first, so two last members deleting their
+ * accounts at the same moment are serialised: under READ COMMITTED each would otherwise still see
+ * the other's membership, keep the world, and leave it with nobody in it.
+ *
+ * Returns the ids of the deleted worlds, for the cache.
  */
-internal val DeleteAccountStep = DatabaseSteps.transaction<Int, Int> { connection ->
-    object : Step<Int, AppFailure.DatabaseError, Int> {
-        override suspend fun process(input: Int): Result<AppFailure.DatabaseError, Int> {
+internal val DeleteAccountStep = DatabaseSteps.transaction<Int, List<Int>> { connection ->
+    object : Step<Int, AppFailure.DatabaseError, List<Int>> {
+        override suspend fun process(input: Int): Result<AppFailure.DatabaseError, List<Int>> {
+            val locked = lockOwnWorlds(connection).process(input)
+            if (locked is Result.Failure) return locked
             val worlds = deleteWorldsLeftEmpty(connection).process(input)
             if (worlds is Result.Failure) return worlds
-            return deleteUser(connection).process(input)
+            val user = deleteUser(connection).process(input)
+            if (user is Result.Failure) return user
+            return worlds
         }
     }
 }
 
-private fun deleteWorldsLeftEmpty(connection: TransactionConnection) = DatabaseSteps.update<Int>(
+private fun idList(rs: java.sql.ResultSet): List<Int> = buildList { while (rs.next()) add(rs.getInt(1)) }
+
+private fun lockOwnWorlds(connection: TransactionConnection) = DatabaseSteps.query<Int, List<Int>>(
+    sql = SafeSQL.select(
+        """
+        SELECT w.id FROM world w
+        JOIN world_members m ON m.world_id = w.id
+        WHERE m.user_id = ?
+        ORDER BY w.id
+        FOR UPDATE OF w
+        """.trimIndent()
+    ),
+    parameterSetter = { statement, userId -> statement.setInt(1, userId) },
+    resultMapper = ::idList,
+    transactionConnection = connection,
+)
+
+private fun deleteWorldsLeftEmpty(connection: TransactionConnection) = DatabaseSteps.query<Int, List<Int>>(
     sql = SafeSQL.delete(
         """
         DELETE FROM world w
@@ -62,6 +90,7 @@ private fun deleteWorldsLeftEmpty(connection: TransactionConnection) = DatabaseS
               SELECT 1 FROM world_members other
               WHERE other.world_id = w.id AND other.user_id <> ? AND other.world_role < ?
           )
+        RETURNING w.id
         """.trimIndent()
     ),
     parameterSetter = { statement, userId ->
@@ -69,6 +98,7 @@ private fun deleteWorldsLeftEmpty(connection: TransactionConnection) = DatabaseS
         statement.setInt(2, userId)
         statement.setInt(3, Role.BANNED.level)
     },
+    resultMapper = ::idList,
     transactionConnection = connection,
 )
 
