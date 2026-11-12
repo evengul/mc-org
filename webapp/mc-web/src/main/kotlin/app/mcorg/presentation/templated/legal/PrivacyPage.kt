@@ -29,7 +29,12 @@ import kotlinx.html.ul
  */
 const val PRIVACY_LAST_UPDATED = "11 November 2026"
 
-fun privacyPage(): String = pageShell(pageTitle = "Privacy — Seam") {
+/** Built once: the page is a constant, and `/privacy` is public and unthrottled. */
+fun privacyPage(): String = privacyHtml
+
+private val privacyHtml: String by lazy { renderPrivacyPage() }
+
+private fun renderPrivacyPage(): String = pageShell(pageTitle = "Privacy — Seam", indexable = true) {
     header("landing-brand-bar") {
         a(classes = "landing-brand-bar__logo") {
             href = "/"
@@ -112,7 +117,7 @@ private fun FlowContent.whoSees() = legalSection("Who can see what") {
         li { +"A world's projects, resources, tasks and tagged containers are visible to its members only." }
         li {
             +"An idea you publish to the idea bank is visible to everyone signed in to Seam. "
-            +"Ideas you have not published are visible to you only."
+            +"Ideas you have not published are visible to you and to Seam's operator."
         }
         li {
             +"If a world admin connects a Discord channel, Seam posts updates about the world there: project and task names, "
@@ -120,7 +125,8 @@ private fun FlowContent.whoSees() = legalSection("Who can see what") {
         }
         li {
             +"Seam's operator can see the list of accounts (username, when they joined, when they last signed in) "
-            +"to keep the service running and deal with abuse."
+            +"and open unpublished ideas, to keep the service running and deal with abuse. The operator is not a member "
+            +"of your worlds and cannot open them through Seam."
         }
     }
     p { +"Nothing in Seam is visible to someone who is not signed in, apart from this page." }
@@ -165,7 +171,9 @@ private fun FlowContent.logs() = legalSection("Logs") {
         +"Your IP address is used, in memory only, to stop one address from flooding the service. It is not written to the database."
     }
     p {
-        +"A copy of each Discord update is kept for 7 days after it is delivered, or 30 days if delivery failed, so a failed one can be retried."
+        +"A copy of each Discord update is kept until it is delivered, then for 7 days (30 if delivery failed, so it can be "
+        +"looked into). If a channel stops accepting updates, the undelivered copies stay until the world's Discord "
+        +"connection is removed or the world is deleted."
     }
 }
 
@@ -177,8 +185,9 @@ private fun FlowContent.deleting() = legalSection("Deleting your data") {
     }
     p {
         +"A world that has other members is kept for them, with what you made in it: projects, tasks and tagged containers. "
-        +"Your account is no longer linked to any of it. Copies of Discord updates naming you are gone within 30 days; "
-        +"updates already posted to a Discord channel stay in Discord."
+        +"Your account is no longer linked to any of it. Some things already sent to other people keep your username: "
+        +"a notification such as an invitation from you, copies of Discord updates (see Logs above), and updates "
+        +"already posted to a Discord channel."
     }
     p {
         +"Deleting a world (world settings, owner only) removes everything in it: projects, tasks, tagged containers and their readings, "

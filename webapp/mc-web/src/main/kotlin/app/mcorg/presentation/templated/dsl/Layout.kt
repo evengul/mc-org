@@ -12,6 +12,7 @@ internal const val HTMX_CONFIG =
 fun pageShell(
     pageTitle: String = "Seam",
     user: TokenProfile? = null,
+    indexable: Boolean = false,
     body: BODY.() -> Unit
 ): String {
     return "<!DOCTYPE html>\n" + createHTML().html {
@@ -23,10 +24,13 @@ fun pageShell(
                 content = "width=device-width, initial-scale=1"
             }
             // The app is behind auth and not a marketing surface — keep it out
-            // of search indexes so seam.gg stays the canonical result.
-            meta {
-                name = "robots"
-                content = "noindex"
+            // of search indexes so seam.gg stays the canonical result. A public page
+            // someone may search for (/privacy) opts back in.
+            if (!indexable) {
+                meta {
+                    name = "robots"
+                    content = "noindex"
+                }
             }
             title { +pageTitle }
             meta {

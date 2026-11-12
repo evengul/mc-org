@@ -14,6 +14,7 @@ import kotlinx.html.p
 import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 /**
  * MCO-660 and MCO-662: the Mojang line, who answers for Seam, and a privacy page someone who is
@@ -45,6 +46,12 @@ class PrivacyPageTest {
         val body = response.bodyAsText()
         assertContains(body, "<h1 class=\"legal-page__title\">Privacy</h1>")
         assertContains(body, SeamOwner.CONTACT_EMAIL)
+    }
+
+    @Test
+    fun `The privacy page can be found by search, the app cannot`() {
+        assertFalse(privacyPage().contains("noindex"), "someone searching for Seam's privacy policy should find it")
+        assertContains(pageShell { p { +"any page" } }, "noindex")
     }
 
     @Test
