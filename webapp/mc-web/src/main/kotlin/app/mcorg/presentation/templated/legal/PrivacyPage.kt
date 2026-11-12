@@ -27,7 +27,7 @@ import kotlinx.html.ul
  * cookie names are read from their constants; `DeleteAccountIT` pins what deleting an account
  * removes. The rest is prose, so the comment above each section names the code it describes.
  */
-const val PRIVACY_LAST_UPDATED = "11 November 2026"
+const val PRIVACY_LAST_UPDATED = "12 November 2026"
 
 /** Built once: the page is a constant, and `/privacy` is public and unthrottled. */
 fun privacyPage(): String = privacyHtml
@@ -133,12 +133,14 @@ private fun FlowContent.whoSees() = legalSection("Who can see what") {
 }
 
 // fly.toml (region arn), configuration.md, rate-limiting.md, WebhookDeliveryPoller.kt, Layout.kt (htmx).
+// seam.gg is the seam-landing repo on GitHub Pages, not proxied by Cloudflare (no cf-ray; server: GitHub.com).
 private fun FlowContent.whereItLives() = legalSection("Who else handles it") {
     p { +"Seam runs on a few services that hold or pass on data for it:" }
     ul {
         li { +"Fly.io runs the app, in Stockholm." }
         li { +"Neon hosts the database." }
-        li { +"Cloudflare sits in front of seam.gg and app.seam.gg, and runs the small service that posts to Discord." }
+        li { +"Cloudflare sits in front of app.seam.gg, and runs the small service that posts to Discord." }
+        li { +"GitHub Pages serves seam.gg, the site that describes Seam." }
         li { +"Discord, only for a world whose admin has connected a channel." }
         li { +"Microsoft, Xbox Live and Minecraft's services, during sign-in." }
         li { +"jsDelivr serves one script the app's pages load, so your browser asks it for that file." }
