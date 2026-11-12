@@ -1,0 +1,42 @@
+/* ========================================
+   SITE FOOTER
+   Rendered by pageShell on every page. Carries Mojang's "not an official
+   Minecraft product" line and who answers for Seam (MCO-660), plus the
+   privacy link (MCO-662). Quiet by design: it must be visible without
+   searching, not compete with the page.
+   ======================================== */
+
+.site-footer {
+    /* No top margin: <main> already ends in padding-bottom: var(--space-8). */
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+}
+
+.site-footer__inner {
+    max-width: var(--max-width);
+    margin-inline: auto;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.site-footer__disclaimer {
+    font-family: var(--font-ui);
+    letter-spacing: 0.02em;
+    margin: 0;
+}
+
+.site-footer__meta {
+    margin: 0;
+}
+
+.site-footer__meta a {
+    color: var(--text-muted);
+    text-decoration: underline;
+}
+
+.site-footer__meta a:hover {
+    color: var(--accent);
+}

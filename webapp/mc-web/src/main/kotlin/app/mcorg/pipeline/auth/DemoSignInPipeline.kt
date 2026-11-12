@@ -16,7 +16,6 @@ import app.mcorg.presentation.security.safeRedirectPath
 import app.mcorg.presentation.utils.getHost
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.*
-import io.ktor.server.plugins.origin
 import io.ktor.server.response.*
 import org.slf4j.LoggerFactory
 import kotlin.random.Random
@@ -64,7 +63,9 @@ suspend fun ApplicationCall.handleDemoSignIn() {
     //
     // 404 rather than 403: in production this endpoint should not appear to exist.
     if (AppConfig.env == Production) {
-        logger.warn("Refused a demo sign-in attempt in production from ${request.origin.remoteHost}")
+        // No address in the line: an IP is not on logging.md's list, and the privacy page says
+        // the logs do not record one (MCO-662). The count of these lines is the signal.
+        logger.warn("Refused a demo sign-in attempt in production")
         respond(HttpStatusCode.NotFound)
         return
     }

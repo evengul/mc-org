@@ -26,7 +26,9 @@
 }
 
 .error-page {
-    min-height: calc(100vh - 56px);
+    /* Not the full viewport below the brand bar: pageShell's footer follows, and it has to be in
+       view without scrolling (MCO-660). */
+    min-height: 60vh;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -359,7 +359,10 @@ object WebhookStore {
         }
     }
 
-    /** Prune delivered rows older than 7 days and failed rows older than 30 days. */
+    /**
+     * Prune delivered rows older than 7 days and failed rows older than 30 days. The privacy page
+     * states both numbers (`PrivacyPage.kt`, MCO-662): change them together.
+     */
     suspend fun pruneOldDeliveries() {
         DatabaseSteps.update<Unit>(
             sql = SafeSQL.delete(

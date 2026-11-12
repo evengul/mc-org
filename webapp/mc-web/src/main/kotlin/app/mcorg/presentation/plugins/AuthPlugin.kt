@@ -43,6 +43,8 @@ private val AUTH_EXEMPT_PREFIXES = listOf(
 private val AUTH_EXEMPT_PATHS = setOf(
     "/test/ping",
     "/test/ready",
+    // Read before anyone signs in, which is the point of it (MCO-662).
+    "/privacy",
 )
 
 /**

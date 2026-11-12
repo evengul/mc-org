@@ -1,0 +1,69 @@
+/* ========================================
+   LEGAL PAGE
+   /privacy (MCO-662). Prose at a readable measure; nothing else on the page.
+   ======================================== */
+
+.legal-page {
+    max-width: 680px;
+    margin-block: var(--space-6) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.legal-page__title {
+    font-family: var(--font-ui);
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin: 0;
+}
+
+.legal-page__updated {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+.legal-page__section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.legal-page__heading {
+    font-family: var(--font-ui);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin: 0;
+}
+
+.legal-page__section p,
+.legal-page__section ul {
+    margin: 0;
+}
+
+.legal-page__section ul {
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.legal-page__section code {
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+}
+
+.legal-page__note {
+    border-left: 2px solid var(--accent);
+    padding-left: var(--space-3);
+    color: var(--text-muted);
+}
+
+.legal-page a {
+    color: var(--accent);
+}
+
+.legal-page a:hover {
+    color: var(--accent-hover);
+}
