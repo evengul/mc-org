@@ -7,7 +7,7 @@
    ======================================== */
 
 .site-footer {
-    margin-top: var(--space-8);
+    /* No top margin: <main> already ends in padding-bottom: var(--space-8). */
     border-top: 1px solid var(--border);
     color: var(--text-muted);
     font-size: var(--text-xs);
