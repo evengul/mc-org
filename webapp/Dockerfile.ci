@@ -1,5 +1,14 @@
 FROM eclipse-temurin:25-jre-alpine
 
+# CVE-2026-114938 ("Java4Shell"): the AVX-512 java.util.Base64 decode intrinsic overruns its
+# output array on x86-64 hosts with AVX-512 VBMI (Ice Lake+, Zen 4+). Ktor's JWT auth decodes
+# token segments with it before the signature is checked, so it is reachable pre-auth.
+# Turning the intrinsic off falls back to the pure-Java decoder, which is not affected.
+# JAVA_TOOL_OPTIONS rather than an ENTRYPOINT flag: the ingest machine replaces the entrypoint
+# (scripts/ingest-machine.sh, prod.yml) and would otherwise run without it.
+# Remove once the base image carries a Temurin build with the fix (25.0.5.1 or later).
+ENV JAVA_TOOL_OPTIONS="-XX:-UseBASE64Intrinsics"
+
 EXPOSE "8080:8080"
 
 RUN mkdir /app
