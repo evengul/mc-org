@@ -472,6 +472,7 @@ internal suspend fun ApplicationCall.listRerenderFragment(
         (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE),
         prerequisiteFarms, farmScaleThreshold,
         farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, farmDismissals,
+        FarmRuns.forPlan(worldId, projectId, plan, progressMap),
         isRenewableInWorld(worldId),
         outOfBand = outOfBand,
     ) + overallProgressOobFragment(resources, plan, progressMap)

@@ -20,6 +20,9 @@ import app.mcorg.presentation.templated.dsl.pages.workRowCollapsedHtml
 import app.mcorg.presentation.templated.dsl.pages.workRowStateOf
 import app.mcorg.presentation.templated.dsl.pages.workRowStripHtml
 import app.mcorg.presentation.templated.dsl.pages.completedActivity
+import app.mcorg.presentation.templated.dsl.pages.farmHeadingsOobHtml
+import app.mcorg.presentation.templated.dsl.pages.roleOf
+import app.mcorg.presentation.templated.dsl.pages.runFor
 import app.mcorg.presentation.templated.dsl.pages.smallJobChipHtml
 import app.mcorg.presentation.templated.dsl.pages.planProgressTotals
 import app.mcorg.presentation.utils.getProjectId
@@ -117,11 +120,19 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
         // Keep the "feeds …" reverse-provenance line on the swapped row, matching the initial render.
         val feedsLabel = plan?.let { buildFeedsLabels(it)[input.itemId] }
 
+        // The farm a Collect line comes from, re-timed with what was just logged (MCO-604): its
+        // headings go out of band beside the row, so "~13 min left of ~45 min" follows the count.
+        val activity = plan?.activityList?.firstOrNull { it.item.id == input.itemId }
+        val farmRun = FarmRuns.forPlan(
+            worldId, projectId, plan, progressMap,
+            // A target logged in full has left the plan; its farm still has to hear it is done.
+            finished = if (activity == null) FarmRuns.finishedTarget(projectId, input.itemId, input.itemId, input.required) else null,
+        ).runFor(input.itemId)
+
         // Which form the row was in when it was pressed, so it swaps back into the same one
         // rather than collapsing under the user mid-edit.
         val working = params["working"]?.toBooleanStrictOrNull() ?: false
         val chip = params["chip"]?.toBooleanStrictOrNull() ?: false
-        val activity = plan?.activityList?.firstOrNull { it.item.id == input.itemId }
         // Only looked up when the line has left the plan, which is the only time it is needed.
         val catalogName = if (activity != null) null else {
             when (val r = GetItemNameStep.process(ItemNameInput(worldId, input.itemId))) {
@@ -156,6 +167,7 @@ suspend fun ApplicationCall.handleUpdatePlanProgress() {
             isFarmScale = isFarmScale,
             feedsLabel = feedsLabel,
             overallTotals = overallTotals,
+            farmRun = farmRun,
         )
     }
 }
@@ -181,6 +193,8 @@ data class PlanProgressResult(
     val feedsLabel: FeedsLabel? = null,
     /** Project-wide (totalRequired, totalCollected) across countable activities; null if plan unavailable. */
     val overallTotals: Pair<Long, Long>? = null,
+    /** The farm this line comes from, when a farm supplies it (MCO-604). */
+    val farmRun: FarmRun? = null,
 )
 
 /**
@@ -203,7 +217,7 @@ private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: Plan
             progress = mapOf(activity.item.id to result.collected.toInt()),
             feedsLabels = result.feedsLabel?.let { mapOf(activity.item.id to it) } ?: emptyMap(),
             farmScaleIds = if (result.isFarmScale) setOf(activity.item.id) else emptySet(),
-        ).copy(sourceLabel = result.sourceLabel)
+        ).copy(sourceLabel = result.sourceLabel, farmRole = result.farmRun?.roleOf(activity.item.id))
 
         when {
             result.chip -> smallJobChipHtml(worldId, projectId, state)
@@ -225,7 +239,9 @@ private fun buildPlanProgressResponse(worldId: Int, projectId: Int, result: Plan
         }
     } ?: ""
 
-    return rowHtml + oobHtml
+    val farmHeadings = result.farmRun?.let { farmHeadingsOobHtml(worldId, it) } ?: ""
+
+    return rowHtml + oobHtml + farmHeadings
 }
 
 /** Parsed and validated params for a plan progress update. */
