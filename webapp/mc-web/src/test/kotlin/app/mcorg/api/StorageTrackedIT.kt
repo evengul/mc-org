@@ -23,7 +23,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
-import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -268,45 +267,6 @@ class StorageTrackedIT : WithUser() {
     // ── Refusing typed counts ────────────────────────────────────────────────
 
     @Test
-    fun `the field log counter refuses a typed count on a tracked project`() = testApplication {
-        installWorldRoutes()
-        val fixture = trackedProject("edit-done")
-        trackOn(fixture.projectId)
-
-        val response = client.patch(
-            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/resources/gathering/${fixture.gatheringId}/edit-done"
-        ) {
-            addAuthCookie(this)
-            header("HX-Request", "true")
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("amount=64")
-        }
-
-        assertEquals(HttpStatusCode.Conflict, response.status)
-        assertContains(response.bodyAsText(), "follow its tagged chests")
-        assertEquals(0, collectedOf(fixture.projectId, iron))
-    }
-
-    @Test
-    fun `setting a count refuses on a tracked project`() = testApplication {
-        installWorldRoutes()
-        val fixture = trackedProject("set-value")
-        trackOn(fixture.projectId)
-
-        val response = client.put(
-            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/resources/gathering/${fixture.gatheringId}/collected"
-        ) {
-            addAuthCookie(this)
-            header("HX-Request", "true")
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("value=64")
-        }
-
-        assertEquals(HttpStatusCode.Conflict, response.status)
-        assertEquals(0, collectedOf(fixture.projectId, iron))
-    }
-
-    @Test
     fun `the plan's counter refuses on a tracked project`() = testApplication {
         installWorldRoutes()
         val fixture = trackedProject("plan-progress")
@@ -324,17 +284,15 @@ class StorageTrackedIT : WithUser() {
     }
 
     @Test
-    fun `the field log counter still writes on an untracked project`() = testApplication {
+    fun `the plan's counter still writes on an untracked project`() = testApplication {
         installWorldRoutes()
         val fixture = trackedProject("untracked-writes")
 
-        val response = client.patch(
-            "/worlds/${fixture.worldId}/projects/${fixture.projectId}/resources/gathering/${fixture.gatheringId}/edit-done"
-        ) {
+        val response = client.patch("/worlds/${fixture.worldId}/projects/${fixture.projectId}/plan/progress") {
             addAuthCookie(this)
             header("HX-Request", "true")
             contentType(ContentType.Application.FormUrlEncoded)
-            setBody("amount=64")
+            setBody("itemId=$iron&amount=64&required=512")
         }
 
         assertEquals(HttpStatusCode.OK, response.status)

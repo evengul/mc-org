@@ -48,12 +48,9 @@ import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
-import app.mcorg.presentation.templated.dsl.carriedText
-import app.mcorg.presentation.templated.dsl.resourceRow
 import app.mcorg.presentation.templated.dsl.projectLocationField
 import app.mcorg.presentation.templated.dsl.projectNameField
 import app.mcorg.presentation.templated.dsl.projectStateField
-import app.mcorg.presentation.templated.dsl.resourceSearch
 import app.mcorg.presentation.templated.dsl.tabStrip
 import app.mcorg.presentation.templated.dsl.taskList
 import kotlinx.html.summary
@@ -1730,12 +1727,6 @@ private fun FlowContent.blockedActivityRow(
 }
 
 /**
- * RESOLVED / RAW_GATHER: counter row posting to the (projectId, itemId) progress endpoint.
- * Mirrors the structure of resourceRow but targets the plan progress endpoint.
- * [progressMap] carries persisted progress for all items in the project (including derived ones).
- */
-
-/**
  * The ⇄ drill button that navigates to the chain drill view for an activity's item.
  * [encodedItemId] must be URL-encoded (e.g. `%23minecraft:planks` for tag ids with `#`).
  */
@@ -1753,42 +1744,6 @@ private fun FlowContent.drillButton(worldId: Int, projectId: Int, encodedItemId:
         // position and restore it when "< Back to plan" (DrillView.kt) returns here.
         attributes["data-drill-nav"] = "in"
         +"⇄"
-    }
-}
-
-/**
- * The "collected / required" count for a plan activity. The left number is click-to-edit
- * (keyboard-activatable): clicking reveals an input that sets an absolute collected value,
- * persisted via the same `/plan/progress` endpoint (plan-view.js computes the delta).
- * Shared by the initial render and the post-update OOB-less row swap so they stay identical.
- */
-fun FlowContent.planActivityCount(
-    itemId: String,
-    itemName: String,
-    itemSlug: String,
-    current: Long,
-    required: Long,
-    complete: Boolean,
-) {
-    span("resource-row__count${if (complete) " resource-row__count--complete" else ""}") {
-        id = "plan-count-$itemSlug"
-        attributes["data-item-id"] = itemId
-        attributes["data-current"] = current.toString()
-        attributes["data-required"] = required.toString()
-        span("resource-row__count-current") {
-            attributes["role"] = "button"
-            attributes["tabindex"] = "0"
-            attributes["title"] = "Click to set collected amount"
-            attributes["aria-label"] = "Set collected amount for $itemName"
-            +current.toString()
-        }
-        span("resource-row__count-sep") { +" / $required" }
-        input(type = InputType.number, classes = "resource-row__count-input") {
-            attributes["aria-label"] = "Collected amount for $itemName"
-            value = current.toString()
-            min = "0"
-            max = required.toString()
-        }
     }
 }
 

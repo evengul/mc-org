@@ -29,7 +29,7 @@ object StylesheetBundle : AssetBundle(dir = "/static/styles", extension = "css")
         "alert", "app-header", "avatar", "badge", "btn", "callout", "collect-block", "danger-zone", "data-table",
         "drill", "empty-state", "error-page", "farm-panel", "form", "item-glyph", "item-search",
         "modal", "np-menu", "page-heading", "pending-invitations", "person-row", "progress",
-        "project-card", "record-farm", "resource-panel", "resource-row", "resource-search", "section", "set-it-to",
+        "project-card", "record-farm", "resource-panel", "resource-row", "section", "set-it-to",
         "site-footer", "tabs",
         "task-list", "work-row", "world-tabs", "world-tally",
     )

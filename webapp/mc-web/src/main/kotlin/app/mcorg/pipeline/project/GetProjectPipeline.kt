@@ -5,8 +5,6 @@ import app.mcorg.domain.model.user.Role
 import app.mcorg.engine.plan.TargetTree
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
-import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceInput
-import app.mcorg.pipeline.project.commonsteps.GetViewPreferenceStep
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.pipeline.world.settings.general.versionGapsForPlan
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
@@ -60,7 +58,6 @@ suspend fun ApplicationCall.handleGetProject() {
 
     // There is one lens now (MCO-481), so `?lens=` is deliberately not read: a stale link
     // carrying ?lens=next or a saved "plan" preference is inert rather than an error.
-    // `user_project_view_preference` is left in place — dropping a table is its own decision.
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 

@@ -1,8 +1,7 @@
-package app.mcorg.presentation.templated.dsl
+package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
-import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.table
@@ -24,13 +23,13 @@ class DriftChipTest {
 
     private fun render(current: Int, measured: MeasuredStock?): String =
         createHTML().div {
-            resourceRow(
-                id = 1,
+            driftChip(
                 worldId = 1,
                 projectId = 2,
+                rowId = "plan-row-1",
+                resourceId = 1,
                 itemName = "Iron Ingot",
                 current = current,
-                required = 512,
                 measured = measured,
             )
         }
@@ -45,7 +44,7 @@ class DriftChipTest {
         val html = render(current = 500, measured = null)
 
         assertFalse(html.contains("resource-row__drift"), html)
-        assertFalse(html.contains("Adopt"), html)
+        assertFalse(html.contains("/adopt"), html)
     }
 
     @Test
@@ -62,7 +61,7 @@ class DriftChipTest {
         val html = render(current = 12, measured = stock(12))
 
         assertFalse(html.contains("resource-row__drift"), html)
-        assertFalse(html.contains(">Adopt<"), html)
+        assertFalse(html.contains("/adopt"), html)
     }
 
     @Test
@@ -96,7 +95,7 @@ class DriftChipTest {
         val html = render(current = 500, measured = stock(12))
 
         assertTrue(html.contains("/resources/gathering/1/adopt"), html)
-        // The label is "Adopt"; the accessible name has to carry the number, or a screen reader
+        // The label is "Set to 12"; the accessible name has to carry the number, or a screen reader
         // hears a button that could do anything.
         assertTrue(html.contains("Set Iron Ingot to 12"), html)
     }

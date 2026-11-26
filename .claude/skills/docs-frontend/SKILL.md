@@ -246,14 +246,16 @@ addTaskInline(worldId, projectId)           // inline "+ Add task" reveal-form
 `taskRowFragment(worldId, projectId, task)` returns a single `<li>` string for HTMX afterbegin swaps.
 Checkboxes `hx-patch` the complete endpoint; rows get `.task-row--done`.
 
-## Resource row (`ResourceRow.kt`)
+## Chest counts (`pages/ChestCounts.kt`)
 
 ```kotlin
-resourceRow(id, worldId, projectId, itemName, current, required, source = "Iron Farm")
+driftChip(worldId, projectId, rowId, resourceId, itemName, current, measured)  // chests ≠ typed count
+followedLabel(measured, followed)    // "from 4 chests · 2m ago" on a storage-tracked project
 ```
 
-Execute-view counter row: name, progress bar, `current / required` count, and ±counter buttons
-(`-1728 -64 -1 +1 +64 +1728`) that `hx-patch` the gathering endpoint. `.resource-row--complete` when done.
+`driftChip` renders only on disagreement and offers "Set to N", which posts `/adopt` and replaces
+`#rowId`. Styles are `.resource-row__drift*`, `.resource-row__adopt` and `.followed-count` in
+`components/resource-row.css`.
 
 ## Cards
 
@@ -298,7 +300,7 @@ Supporting classes: `.is-invalid` (error border) · `.form-error` / `.validation
 default HTMX error target is `.form-error`) · `.form-help-text` · `.required-indicator` · `.form-suffix`
 (unit label) · `.filter-radio-label` / `.filter-checkbox-label` (styled radio/checkbox option rows).
 
-DSL helpers: `radioGroup(...)`, `searchableSelect<V>(...)`, `resourceSearch()` for the item picker.
+DSL helpers: `radioGroup(...)`, `searchableSelect<V>(...)`.
 
 ---
 
