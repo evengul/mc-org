@@ -5,7 +5,6 @@ import app.mcorg.domain.model.minecraft.MinecraftVersion
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
-import app.mcorg.pipeline.resources.AdoptAllMeasurementsStep
 import app.mcorg.pipeline.resources.AdoptMeasurementInput
 import app.mcorg.pipeline.resources.AdoptMeasurementStep
 import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
@@ -13,7 +12,12 @@ import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
+import app.mcorg.pipeline.resources.handleAdoptMeasurement
 import app.mcorg.presentation.plugins.AuthPlugin
+import app.mcorg.presentation.plugins.ProjectParamPlugin
+import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
+import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.header
@@ -22,7 +26,10 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.client.statement.bodyAsText
 import io.ktor.server.application.install
+import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -31,8 +38,11 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * Adopting a measurement, and the line that must never be crossed (MCO-539).
@@ -138,39 +148,6 @@ class AdoptMeasurementIT : WithUser() {
         assertEquals(300, collectedOf(projectId, gold), "adopting iron moved gold")
     }
 
-    @Test
-    fun `adopt all takes the lot, and reports how many rows it wrote`() = testApplication {
-        routing { install(AuthPlugin); apiV1Routes() }
-        val worldId = createWorld("adopt-all")
-        val projectId = createProject(worldId)
-        insertGathering(projectId, iron, required = 512)
-        insertGathering(projectId, gold, required = 512)
-        setCollected(projectId, iron, 500)
-        setCollected(projectId, gold, 300)
-        val reporterToken = mintReporterToken(worldId)
-        push(reporterToken, tagContainer(worldId, projectId, 0, 64, 0), iron to 12L, gold to 7L)
-
-        val written = runBlocking { AdoptAllMeasurementsStep.process(projectId) }
-
-        assertEquals(12, collectedOf(projectId, iron))
-        assertEquals(7, collectedOf(projectId, gold))
-        // The count is what lets the button say what it will change rather than claiming success
-        // after rewriting an unknown number of someone's numbers.
-        assertEquals(2, (written as Result.Success).value)
-    }
-
-    @Test
-    fun `adopt all on a project with no measurements changes nothing`() = testApplication {
-        routing { install(AuthPlugin); apiV1Routes() }
-        val worldId = createWorld("adopt-none")
-        val projectId = createProject(worldId)
-        insertGathering(projectId, iron, required = 512)
-        setCollected(projectId, iron, 500)
-
-        runBlocking { AdoptAllMeasurementsStep.process(projectId) }
-
-        assertEquals(500, collectedOf(projectId, iron), "an empty adopt zeroed a typed number")
-    }
 
     /**
      * Adopt, and insist it actually wrote.
@@ -179,6 +156,44 @@ class AdoptMeasurementIT : WithUser() {
      * three of these tests said while the SQL was malformed — a silently passing test for a
      * silently broken statement.
      */
+    /**
+     * The chip lives on the project page's "What I need" table, whose rows are `plan-row-{id}`. The
+     * answer used to be the Projects tab's row markup, which the project page has no element for, so
+     * the count was written and the row never changed (MCO-692).
+     */
+    @Test
+    fun `the web adopt answers with the project page's table row`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            apiV1Routes()
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                route("/projects/{projectId}") {
+                    install(ProjectParamPlugin)
+                    route("/resources/gathering/{resourceGatheringId}") {
+                        install(ResourceGatheringIdParamPlugin)
+                        post("/adopt") { call.handleAdoptMeasurement() }
+                    }
+                }
+            }
+        }
+        val worldId = createWorld("adopt-web")
+        val projectId = createProject(worldId)
+        val rowId = (insertGathering(projectId, iron, required = 512) as Result.Success).value
+        setCollected(projectId, iron, 500)
+        push(mintReporterToken(worldId), tagContainer(worldId, projectId, 0, 64, 0), iron to 12L)
+
+        val body = client.post("/worlds/$worldId/projects/$projectId/resources/gathering/$rowId/adopt") {
+            addAuthCookie(this)
+        }.bodyAsText()
+
+        assertTrue(body.startsWith("<tr"), body)
+        assertContains(body, "id=\"plan-row-$rowId\"")
+        assertFalse(body.contains("Set to 12"), "the numbers agree now, so the chip is gone")
+        assertEquals(12, collectedOf(projectId, iron))
+    }
+
     private fun adopt(projectId: Int, itemId: String) {
         val result = runBlocking { AdoptMeasurementStep.process(AdoptMeasurementInput(projectId, itemId)) }
         assertIs<Result.Success<*>>(result, "the adopt did not write: $result")

@@ -34,7 +34,6 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 /worlds/new                                              → create world
 /worlds/:worldId                                         → redirect to the roadmap (non-permanent)
 /worlds/:worldId/roadmap                                 → Roadmap tab (world home)
-/worlds/:worldId/projects                                → Projects tab
 /worlds/:worldId/projects/:projectId                     → project detail
 /worlds/:worldId/projects/:projectId/path                → production path
 /worlds/:worldId/projects/:projectId/settings            → project settings
@@ -45,7 +44,7 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 No mode in the URL. Plan/execute is a per-project preference stored server-side. Every URL is real, shareable, and bookmarkable.
 
-Creating a project has no URL of its own. "+ New project" opens a dialog on either tab, and every way of creating one project (blank, from a schematic, recording an existing farm, importing a single idea) lands on the new project's page. A batch import is the exception: it moves to the next design in the batch, and at the end back to where the batch started (MCO-459, `ImportQueue`). `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
+Creating a project has no URL of its own (a `POST` to `/worlds/:worldId/projects`, which has no `GET` since MCO-692). "+ New project" opens a dialog on the roadmap, and every way of creating one project (blank, from a schematic, recording an existing farm, importing a single idea) lands on the new project's page. A batch import is the exception: it moves to the next design in the batch, and at the end back to where the batch started (MCO-459, `ImportQueue`). `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
 
 Links that leave a project or a world-level flow without a destination of their own (deleting a project, the project page's mobile back button, cancelling an import review) go to the roadmap, because that is where the world opens. Links that name a tab on purpose (the tabs themselves) keep it.
 
@@ -116,7 +115,6 @@ The breadcrumb locates the *world*; which section of it you are in is the tab. S
 |------|-----------|
 | World list | *(none)* |
 | Roadmap tab | Worlds › [World Name] |
-| Projects tab | Worlds › [World Name] |
 | Settings tab | Worlds › [World Name] |
 | Project detail | Worlds › [World Name] › [Project Name] |
 | Project settings | Worlds › [World Name] › [Project Name] › Settings |
@@ -134,13 +132,11 @@ On a phone the project page has no breadcrumb; its `←` goes to the roadmap, th
 
 - Appears **only** on project detail page. Not on: resources, path, roadmap, idea hub, settings.
 - Per-project preference persisted in DB per user.
-- On project list: session-level global preference (what do I want to see across all projects right now).
 
 ### Persistence model
 
 | Surface | Persistence | Scope |
 |---------|-------------|-------|
-| Project list | Session | Global |
 | Project detail | Database, per user per project | Per project |
 
 ---
@@ -155,27 +151,28 @@ On a phone the project page has no breadcrumb; its `←` goes to the roadmap, th
 
 ---
 
-## World Tabs: Roadmap and Projects
+## World Tabs: Roadmap and Settings
 
-A world's two working tabs answer two different questions, and one page answering both would do neither well. (The third, Settings, is configuration, not a view of the world.)
+A world has one view of its projects, the **Roadmap**, which is also what it opens to. **Settings** (admins only) is configuration, not a view of the world.
 
-| Tab | Answers | Reach for it when |
-|-----|---------|-------------------|
-| **Roadmap** (first, the world's home) | *What do I build next, and in what order?* | Planning: deciding what to start, seeing what a final project waits on |
-| **Projects** | *What am I gathering now, and where is everything, including shelved projects?* | Gathering for one to three active projects; finding a project the roadmap does not draw |
+Every project in a world is reachable from the roadmap:
 
-Which one should be home depends on the stage of the world: the roadmap early, while planning; the Projects tab later, once you are gathering. A fixed default can't be right for both, which is why MCO-587 (open on the last-used tab) is parked rather than rejected.
+| Where | Which projects |
+|-------|----------------|
+| FINISH THESE FIRST / TO BUILD | Farms and other work still to build before a final project; a row with anything gathered says "N / M gathered" under its state |
+| Final-project panels, "+N more" | What the world drains into, with a percentage |
+| NOT IN ANY CHAIN | Unfinished projects with no edge; the note is "N / M gathered" when the project has resources, else its task count |
+| PRODUCING | Finished farms feeding the roadmap |
+| STOPPED | Decommissioned farms |
+| SHELVED (folded shut, at the foot) | Cancelled and archived projects |
 
-### Why the Projects tab stays (MCO-529, 2026-10-07)
+Gathered / required is one definition on every surface: ignored rows excluded, and nothing counts past what was required (`GetGatherProgressStep`).
 
-MCO-529 asked whether the tab answered anything the roadmap graph does not. Its creation doors don't count: "+ New project" and the world empty state are on both tabs (MCO-474), and bulk state changes exist on neither. What only the Projects tab has:
+### Why there is no Projects tab (MCO-692, 2026-11-26)
 
-1. **The resume hero.** The newest active project with editable resource counters and the Seam Notebook mod's measured stock, so you can track gathering without opening the project.
-2. **Rows that expand in place.** What to gather next, a name filter, a blocker callout, "adopt all".
-3. **Every project, grouped by state, including shelved ones.** The roadmap leaves out cancelled, archived and decommissioned projects that sit in no chain (`GetWorldRoadmapPipeline`), so this tab is the only way back to them in the UI.
-4. **Gathered/required progress for every active project.** The roadmap shows progress only for the "start here" project and the final projects.
+There was one, between Roadmap and Settings, until MCO-692. MCO-529 had kept it (2026-10-07) for four things only it had: a resume hero with counters, rows that expanded in place (with "adopt all" chest counts), every project grouped by state including shelved ones, and gathered/required on every active project. The owner then judged it redundant beside the roadmap. The last two moved to the roadmap (the SHELVED section and the per-row "gathered" counts). The resume hero, the expanding rows and adopt-all were let go: counting from chests (MCO-540) does what adopt-all did. Every extra view of the same projects is another place a fix has to land: MCO-318 and MCO-505 were drift between two such views.
 
-If a change moves one of these four onto the roadmap, ask again whether the tab still earns its place. Every extra view of the same projects is another place a fix has to land (MCO-318 and MCO-505 were drift between two such views).
+Opening a world on the last-used tab (MCO-587) has no second view to open on now.
 
 ---
 
@@ -320,7 +317,7 @@ Both cards: same size, same visual prominence. On mobile: stack vertically, stil
 | Plan view | Toggle on project detail | ✓ Default is execute |
 | Production path | Plan view → "View path" | ✓ Only relevant after resources defined |
 | Roadmap | What a world opens on; first world tab | ✗ It is the world's home |
-| Projects tab | Second world tab | ✗ Always one click away |
+| Shelved projects | SHELVED at the foot of the roadmap, folded | ✓ Folded shut; the count is always shown |
 | Idea Hub | Nav + world empty state | ✓ Empty state disappears once projects exist |
 
 ---
@@ -334,7 +331,7 @@ Uses execute view only. Imports from Idea Hub. Tracks resources by incrementing 
 Uses both views. Defines resources manually, generates paths, checks the roadmap. May have multiple projects open simultaneously in different views. Values the per-project view persistence.
 
 ### Worker
-Daily session: opens execute view, scans project list, tracks resources, closes app. Never needs planning features. May encounter partial dependency notices but doesn't need to act on them.
+Daily session: opens execute view, scans the roadmap, tracks resources, closes app. Never needs planning features. May encounter partial dependency notices but doesn't need to act on them.
 
 ---
 

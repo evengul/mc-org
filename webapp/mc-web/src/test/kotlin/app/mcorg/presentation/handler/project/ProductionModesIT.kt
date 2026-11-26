@@ -10,7 +10,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import app.mcorg.pipeline.project.commonsteps.GetFarmSupplyEdgesStep
-import app.mcorg.pipeline.project.commonsteps.GetProjectListItemStep
+import app.mcorg.pipeline.project.commonsteps.GetProjectListStep
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
 import app.mcorg.pipeline.resources.GetWorldFarmSuppliesStep
@@ -149,10 +149,12 @@ class ProductionModesIT : WithUser() {
 
     @Test
     fun `the project list counts each item the farm makes once, however many modes make it`() {
-        val item = runBlocking { GetProjectListItemStep.process(treeFarmId) }
+        // The list the mod's API serves (GET /api/v1/worlds/{id}/projects).
+        val list = runBlocking { GetProjectListStep(worldId).process(Unit) }
+        val item = (list as Result.Success).value.single { it.id == treeFarmId }
 
         // Oak Log, Cherry Log and Stick; both modes make sticks, so the two modes hold four rows.
-        assertEquals(3, (item as Result.Success).value.producesCount)
+        assertEquals(3, item.producesCount)
     }
 
     @Test

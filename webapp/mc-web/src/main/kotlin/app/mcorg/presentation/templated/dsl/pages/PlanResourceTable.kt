@@ -372,6 +372,7 @@ private fun FlowContent.driftCell(
     driftChip(
         worldId = worldId,
         projectId = projectId,
+        rowId = "plan-row-${item.id}",
         resourceId = item.id,
         itemName = item.name,
         current = item.collected,

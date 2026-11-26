@@ -219,38 +219,11 @@ object AdoptMeasurementStep : Step<AdoptMeasurementInput, AppFailure.DatabaseErr
                 st.setInt(1, i.projectId)
                 st.setInt(2, i.projectId)
                 st.setString(3, i.itemId)
-                st.setString(4, i.itemId)
             },
         ).process(input)
 }
 
 /**
- * Adopt every measurement on a project — "I have finished tagging, take the lot", which is the
- * realistic moment rather than clicking twelve chips.
- *
- * Returns the number of rows written, so the caller can say what it changed instead of claiming
- * success silently.
- */
-object AdoptAllMeasurementsStep : Step<Int, AppFailure.DatabaseError, Int> {
-    override suspend fun process(input: Int) =
-        DatabaseSteps.update<Int>(
-            sql = ADOPT_SQL,
-            // A null item id means "every item on the project" — see the WHERE clause. One
-            // statement rather than two so the clamp and the stamp cannot be fixed in one and
-            // missed in the other, and because splicing a filter onto SQL is what
-            // SafeSqlSourceScanTest exists to stop.
-            parameterSetter = { st, projectId ->
-                st.setInt(1, projectId)
-                st.setInt(2, projectId)
-                st.setNull(3, java.sql.Types.VARCHAR)
-                st.setNull(4, java.sql.Types.VARCHAR)
-            },
-        ).process(input)
-}
-
-/**
- * Shared by both adopts, so a fix to the clamp or the stamp cannot land in one and miss the other.
- *
  * `LEAST(measured, required)` matches every other write to `collected`; where there is no
  * `resource_gathering` row — a plan item rather than a target — there is no ceiling to clamp to,
  * and the measurement stands as it is.
@@ -274,7 +247,7 @@ private val ADOPT_SQL = SafeSQL.insert(
         GROUP BY item_id
     ) rg ON rg.item_id = m.item_id
     WHERE m.project_id = ?
-      AND (CAST(? AS text) IS NULL OR m.item_id = CAST(? AS text))
+      AND m.item_id = ?
     ON CONFLICT (project_id, item_id) DO UPDATE
         SET collected       = EXCLUDED.collected,
             updated_at      = CURRENT_TIMESTAMP,

@@ -2,33 +2,15 @@ package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Dimension
 import app.mcorg.presentation.templated.dsl.fieldError
-import app.mcorg.domain.model.project.ProjectListItem
-import app.mcorg.domain.model.project.ProjectResourceEdge
 import app.mcorg.domain.model.project.ProjectType
-import app.mcorg.domain.model.user.TokenProfile
-import app.mcorg.domain.model.world.World
 import app.mcorg.presentation.hxIndicator
 import app.mcorg.presentation.hxOnSuccess
 import app.mcorg.presentation.hxPost
 import app.mcorg.presentation.hxSwap
 import app.mcorg.presentation.hxTarget
-import app.mcorg.presentation.templated.dsl.appHeader
-import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.emptyStateCards
-import app.mcorg.presentation.templated.dsl.ResumeHeroData
-import app.mcorg.presentation.templated.dsl.ResumeSort
-import app.mcorg.pipeline.resources.MeasuredStock
-import app.mcorg.pipeline.resources.ProjectMeasurements
-import app.mcorg.presentation.templated.dsl.fieldLogSections
 import app.mcorg.presentation.templated.dsl.modalForm
 import app.mcorg.presentation.templated.dsl.newProjectMenu
-import app.mcorg.presentation.templated.dsl.pageShell
-import app.mcorg.presentation.templated.dsl.WorldTab
-import app.mcorg.presentation.templated.dsl.worldBar
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
-import kotlinx.html.h1
 import kotlinx.html.ButtonType
 import kotlinx.html.InputType
 import kotlinx.html.a
@@ -48,90 +30,12 @@ import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.textArea
 
-fun projectListPage(
-    user: TokenProfile,
-    world: World,
-    projects: List<ProjectListItem>,
-    isWorldAdmin: Boolean = false,
-    edges: List<ProjectResourceEdge> = emptyList(),
-    resume: ResumeHeroData? = null,
-    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
-): String = pageShell(
-    pageTitle = "Seam — ${world.name}",
-    user = user,
-) {
-    appHeader(
-        worldName = world.name,
-        worldId = world.id,
-        user = user,
-        breadcrumbBlock = {
-            link("Worlds", "/worlds").current(world.name)
-        }
-    )
-    main {
-        container {
-            // An empty world has nothing to add *to* yet, and its own empty state already
-            // carries the same doors — so the menu appears only once there is a list.
-            worldBar(world.id, WorldTab.PROJECTS, isWorldAdmin) {
-                newProjectAffordance(world.id, showMenu = projects.isNotEmpty())
-            }
-            div {
-                id = "projects-content"
-                projectsContent(user, world, projects, edges, resume, measurements)
-            }
-        }
-    }
-}
-
-private val fieldLogDateFormat = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
-
-fun kotlinx.html.FlowContent.fieldLogTitle(world: World) {
-    div("fl-title") {
-        h1("fl-title__name") { +world.name }
-        div("fl-title__meta") {
-            +"Field log · ${ZonedDateTime.now().format(fieldLogDateFormat)} · MC ${world.version}"
-        }
-    }
-}
-
-fun kotlinx.html.FlowContent.projectsContent(
-    user: TokenProfile,
-    world: World,
-    projects: List<ProjectListItem>,
-    edges: List<ProjectResourceEdge> = emptyList(),
-    resume: ResumeHeroData? = null,
-    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
-) {
-    fieldLogTitle(world)
-    div {
-        id = "projects-view"
-        projectsViewContent(world, projects, edges, resume, measurements)
-    }
-}
-
-fun kotlinx.html.FlowContent.projectsViewContent(
-    world: World,
-    projects: List<ProjectListItem>,
-    edges: List<ProjectResourceEdge> = emptyList(),
-    resume: ResumeHeroData? = null,
-    measurements: ProjectMeasurements = ProjectMeasurements.NONE,
-) {
-    if (projects.isEmpty()) {
-        worldEmptyState(world.id)
-    }
-
-    fieldLogSections(world.id, projects, edges, resume, measurements = measurements)
-}
-
 /**
- * What a world with no projects shows — **on every one of its tabs**, not just this one.
+ * What a world with no projects shows on its roadmap.
  *
- * A world is empty in exactly one way, so it should answer the question in exactly one way. The
- * roadmap used to carry an empty state of its own whose only offer was a link back here, which
- * made the page a world opens on a waiting room for the page with the doors. The roadmap
- * now renders this block instead (`roadmapGraphPage`) — which is why it lives next
- * to [newProjectAffordance]: the doors below open that function's dialogs, so a page rendering
- * one must render the other, and link `np-menu.css` for `.np-menu__door`.
+ * It lives next to [newProjectAffordance] because the doors below open that function's dialogs,
+ * so a page rendering one must render the other. This file used to be the Projects tab, which
+ * rendered the same block; MCO-692 removed the tab and kept the doors.
  */
 fun kotlinx.html.FlowContent.worldEmptyState(worldId: Int) {
     emptyStateCards(id = "projects-empty-state") {

@@ -66,7 +66,7 @@ fun FlowContent.resourceRow(
                 return@div
             }
 
-            driftChip(worldId, projectId, id, itemName, current, measured)
+            driftChip(worldId, projectId, "resource-row-$id", id, itemName, current, measured)
 
             div("resource-row__counters") {
                 intArrayOf(-1728, -64, -1, 1, 64, 1728).forEach { amount ->
@@ -101,6 +101,8 @@ fun FlowContent.resourceRow(
 fun FlowContent.driftChip(
     worldId: Int,
     projectId: Int,
+    /** The element the adopt response replaces: the row this chip sits in, as the adopt renders it. */
+    rowId: String,
     resourceId: Int,
     itemName: String,
     current: Int,
@@ -118,7 +120,7 @@ fun FlowContent.driftChip(
     button(classes = "btn btn--ghost btn--sm resource-row__adopt") {
         attributes["hx-post"] =
             "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceId/adopt"
-        attributes["hx-target"] = "#resource-row-$resourceId"
+        attributes["hx-target"] = "#$rowId"
         attributes["hx-swap"] = "outerHTML"
         attributes["aria-label"] = "Set $itemName to ${measured.measured}, what the chests hold"
         // Not "Adopt". That is the issue's word for the mechanism, and it tells a player nothing

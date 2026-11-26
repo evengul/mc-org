@@ -5,7 +5,7 @@ import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.project.handleCreateProject
-import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.AuthPlugin
@@ -57,8 +57,9 @@ class CreateProjectIT : WithUser() {
                 install(WorldParamPlugin)
                 install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
+                // The create form is on the roadmap, the page a world opens to.
+                get("/roadmap") { call.handleGetWorldRoadmap() }
                 route("/projects") {
-                    get { call.handleGetProjectList() }
                     post { call.handleCreateProject() }
                 }
             }
@@ -125,7 +126,7 @@ class CreateProjectIT : WithUser() {
         setupRoutes()
         val worldId = createWorld("CreateProject IT Form World")
 
-        val body = client.get("/worlds/$worldId/projects") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 
         assertContains(body, "create-project-modal")
         assertContains(body, "name=\"name\"")

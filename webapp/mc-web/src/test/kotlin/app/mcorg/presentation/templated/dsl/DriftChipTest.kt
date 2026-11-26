@@ -1,8 +1,13 @@
 package app.mcorg.presentation.templated.dsl
 
+import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
+import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
+import kotlinx.html.table
+import kotlinx.html.tbody
+import kotlinx.html.tr
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -94,6 +99,22 @@ class DriftChipTest {
         // The label is "Adopt"; the accessible name has to carry the number, or a screen reader
         // hears a button that could do anything.
         assertTrue(html.contains("Set Iron Ingot to 12"), html)
+    }
+
+    @Test
+    fun `on the project page the chip replaces the row it sits in`() {
+        // It targeted `#resource-row-…`, the Projects tab's row id, from the project page's table,
+        // whose rows are `plan-row-…`: the count was written and the row never changed (MCO-692).
+        val item = ResourceGatheringItem(
+            id = 7, projectId = 2, itemId = "minecraft:iron_ingot", name = "Iron Ingot",
+            required = 512, collected = 500,
+        )
+        val html = createHTML().table {
+            tbody { tr { planResourceRow(1, 2, item, stock(12), followed = null) } }
+        }
+
+        assertTrue(html.contains("id=\"plan-row-7\""), html)
+        assertTrue(html.contains("hx-target=\"#plan-row-7\""), html)
     }
 
     @Test

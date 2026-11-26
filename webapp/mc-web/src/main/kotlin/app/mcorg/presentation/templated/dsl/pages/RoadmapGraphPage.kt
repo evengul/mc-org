@@ -1,9 +1,12 @@
 package app.mcorg.presentation.templated.dsl.pages
 
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.TokenProfile
 import app.mcorg.domain.model.world.ManualOrdering
 import app.mcorg.domain.model.world.Roadmap
 import app.mcorg.domain.model.world.RoadmapNode
+import app.mcorg.pipeline.world.roadmap.GatherProgress
+import app.mcorg.pipeline.world.roadmap.gatheredText
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.Graph
 import app.mcorg.pipeline.world.roadmap.RoadmapGraphLayout.GraphNode
@@ -29,6 +32,7 @@ import kotlinx.html.FormMethod
 import kotlinx.html.SPAN
 import kotlinx.html.a
 import kotlinx.html.button
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.hiddenInput
@@ -36,6 +40,7 @@ import kotlinx.html.id
 import kotlinx.html.main
 import kotlinx.html.p
 import kotlinx.html.span
+import kotlinx.html.summary
 
 /**
  * Everything the graph view renders, assembled by the handler so the template stays pure.
@@ -73,6 +78,8 @@ data class RoadmapGraphView(
     val byHandNow: Long = 0,
     /** Projects with anything collected or any task done — "building" rather than "planned". */
     val started: Set<Int> = emptySet(),
+    /** Gathered / required by project id, for every project that declares gathering (MCO-692). */
+    val gathered: Map<Int, GatherProgress> = emptyMap(),
     /** Projects that make something — the TO BUILD rows that can be gathered instead (MCO-574). */
     val farms: Set<Int> = emptySet(),
     val producerRows: List<ProducerRow>,
@@ -89,8 +96,12 @@ data class RoadmapGraphView(
     val manualOrderings: List<ManualOrdering> = emptyList(),
     /** Edges the app derived rather than anybody typing, for the roster's "these are yours" line. */
     val generatedEdgeCount: Int = 0,
+    /** Cancelled and archived projects — see [shelvedSection]. */
+    val shelved: List<ShelvedRow> = emptyList(),
 ) {
     data class ProducerRow(val projectId: Int, val name: String, val items: Long, val edges: Int)
+
+    data class ShelvedRow(val projectId: Int, val name: String, val state: ProjectState)
 
     data class UnchainedRow(val projectId: Int, val name: String, val note: String, val tone: Tone)
 
@@ -180,6 +191,7 @@ fun roadmapGraphPage(
                     unchainedSection(view)
                     producingSection(view)
                     stoppedSection(view)
+                    shelvedSection(view)
                 }
             }
         }
@@ -517,7 +529,14 @@ private fun FlowContent.toBuildSection(view: RoadmapGraphView, toBuild: RoadmapT
                             +row.name
                         }
                     }
-                    ariaCell("rmg-tone-muted") { +row.label }
+                    ariaCell("rmg-tone-muted") {
+                        +row.label
+                        // How far along, as the Projects tab showed it (MCO-692). Only once something
+                        // is gathered: "0 / 5,000" on every planned row says nothing "○ planned" does not.
+                        view.gathered[row.projectId]?.takeIf { it.collected > 0 }?.let {
+                            div("rmg-tobuild__gathered") { +gatheredText(it) }
+                        }
+                    }
                     ariaCell("rmg-tone-muted") { +RoadmapToBuild.suppliesText(row.supplies) }
                     ariaCell("rmg-tobuild__num${if (row.singleItem != null) " rmg-tobuild__num--named" else ""}") {
                         +RoadmapToBuild.itemsText(row)
@@ -1256,6 +1275,33 @@ private fun FlowContent.stoppedSection(view: RoadmapGraphView) {
                         }
                         else -> span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +"nothing it made is missing now" }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Cancelled and archived projects, folded shut at the foot of the page (MCO-692).
+ *
+ * The Projects tab was the only way back to them, and it is gone. Folded because they are a
+ * record, not work: the roadmap was already too busy to spend another open section on projects
+ * nobody is building. The summary still says how many there are, so they cannot go missing.
+ */
+private fun FlowContent.shelvedSection(view: RoadmapGraphView) {
+    if (view.shelved.isEmpty()) return
+    details("rmg-section rmg-shelved") {
+        id = "roadmap-shelved"
+        summary("rmg-shelved__head") {
+            sectionLabel { +"SHELVED · ${view.shelved.size}" }
+            span("rmg-note") { +"cancelled or archived — kept for the record" }
+        }
+        div("rmg-chips") {
+            view.shelved.forEach { project ->
+                a(classes = "rmg-chip") {
+                    href = "/worlds/${view.roadmap.worldId}/projects/${project.projectId}"
+                    span("rmg-chip__name") { +project.name }
+                    span("rmg-chip__note ${toneClass(Tone.MUTED)}") { +project.state.name.lowercase() }
                 }
             }
         }
