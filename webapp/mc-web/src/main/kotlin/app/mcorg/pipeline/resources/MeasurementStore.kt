@@ -57,7 +57,8 @@ data class FollowedChests(val containerCount: Int)
  * How many of a project's tagged shulker boxes one player is carrying (MCO-548). Their contents are
  * in the counts already; this is for whoever goes to the storage and finds the boxes gone.
  */
-data class CarriedBoxes(val playerName: String, val boxes: Int)
+/** [playerName] is null for a carrier who has since deleted their account (V2_81_0). */
+data class CarriedBoxes(val playerName: String?, val boxes: Int)
 
 /**
  * A project's storage-tracked setting, with what the settings page needs to say about it.

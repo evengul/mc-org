@@ -26,4 +26,16 @@ class CarriedTextTest {
             carriedText(listOf(CarriedBoxes("Even", 3), CarriedBoxes("Alex", 1))),
         )
     }
+
+    @Test
+    fun `a carrier who deleted their account is not named`() {
+        assertEquals(
+            "Someone is carrying 2 tagged shulker boxes; Alex 1. What is in them still counts.",
+            carriedText(listOf(CarriedBoxes(null, 2), CarriedBoxes("Alex", 1))),
+        )
+        assertEquals(
+            "Alex is carrying 1 tagged shulker box; someone 1. What is in them still counts.",
+            carriedText(listOf(CarriedBoxes("Alex", 1), CarriedBoxes(null, 1))),
+        )
+    }
 }

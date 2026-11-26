@@ -219,6 +219,27 @@ else
   MIGRATE_OK=0
 fi
 
+# --- Remove everyone else's data ---------------------------------------------
+# The fork is a copy of production, and outlives it: an account deleted in production would live
+# on here. scrub-fork.sql keeps the game data and the owner's own account, worlds and ideas, and
+# deletes the rest (the privacy page's deletion promise depends on it). After the migrations, since
+# it needs V2_81_0; before the seeding, which it must not undo. Failure is reported, never skipped
+# silently: a fork that still holds other people's data is the thing this step exists to prevent.
+DEMO_USER="$(grep -E '^DEMO_USER=' "$ENV_FILE" | tail -n1 | cut -d= -f2- || true)"
+PSQL_URL="postgresql://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?sslmode=require"
+SCRUB_OK=1
+if ! command -v psql >/dev/null 2>&1; then
+  SCRUB_OK=0
+  echo "worktree-db: psql not found — the fork still holds other people's data." >&2
+else
+  echo "worktree-db: removing everyone else's data from the fork..."
+  psql "$PSQL_URL" -q -v ON_ERROR_STOP=1 -v keep_user_id=1 \
+    -v demo_uuid="${DEMO_USER:+${DEMO_USER}-uuid}" -f "$SCRIPT_DIR/scrub-fork.sql" || SCRUB_OK=0
+  if [ "$SCRUB_OK" = 0 ]; then
+    echo "worktree-db: scrub FAILED — the fork still holds other people's data. Fix it and re-run." >&2
+  fi
+fi
+
 
 # --- Seed the demo sign-in user, with access to every world -----------------
 # Without this, the first local sign-in in a fresh worktree lands you on "You
@@ -238,7 +259,6 @@ fi
 #
 # Both statements are idempotent (minecraft_profiles.uuid is UNIQUE), so a
 # re-run is a no-op, and a world added later is picked up by re-running.
-DEMO_USER="$(grep -E '^DEMO_USER=' "$ENV_FILE" | tail -n1 | cut -d= -f2- || true)"
 SEED_OK=1
 if [ -z "$DEMO_USER" ]; then
   # Not a failure: DEMO_USER is optional (documentation/configuration.md), and unset
@@ -248,7 +268,6 @@ elif ! command -v psql >/dev/null 2>&1; then
   SEED_OK=0
   echo "worktree-db: psql not found — skipping demo-user seeding (sign-in will have no world access)."
 else
-  PSQL_URL="postgresql://${DB_ROLE}:${DB_PASSWORD}@${DB_HOST}/${DB_NAME}?sslmode=require"
   psql "$PSQL_URL" -q -v ON_ERROR_STOP=1 \
     -v uuid="${DEMO_USER}-uuid" -v name="$DEMO_USER" <<'SQL' || SEED_OK=0
 WITH new_user AS (
@@ -319,10 +338,10 @@ fi
 # The order is the whole point: the steps that can fail run around the one that
 # must not be skipped, and the bad news arrives at the end rather than as an early
 # exit (MCO-510).
-if [ "$BUILD_OK" = 1 ] && [ "$MIGRATE_OK" = 1 ] && [ "$SEED_OK" = 1 ]; then
+if [ "$BUILD_OK" = 1 ] && [ "$MIGRATE_OK" = 1 ] && [ "$SCRUB_OK" = 1 ] && [ "$SEED_OK" = 1 ]; then
   echo "worktree-db: ready. Neon branch '${NEON_BRANCH}' is isolated to this worktree."
 else
-  echo "worktree-db: FINISHED WITH PROBLEMS — build=$BUILD_OK migrate=$MIGRATE_OK seed=$SEED_OK" >&2
+  echo "worktree-db: FINISHED WITH PROBLEMS — build=$BUILD_OK migrate=$MIGRATE_OK scrub=$SCRUB_OK seed=$SEED_OK" >&2
   if [ "$REFRESH" = 1 ] && [ "$MIGRATE_OK" = 0 ]; then
     # The reset already happened, so the database is master's schema without this branch's
     # migrations — not the old database, and not a finished refresh either.

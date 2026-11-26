@@ -155,13 +155,17 @@ internal fun followedText(measured: MeasuredStock?, followed: FollowedChests): S
 
 private fun chestCount(count: Int) = if (count == 1) "1 chest" else "$count chests"
 
-/** "Even is carrying 2 tagged shulker boxes; Alex 1. What is in them still counts." */
+/**
+ * "Even is carrying 2 tagged shulker boxes; Alex 1. What is in them still counts."
+ *
+ * A carrier with no name is one who deleted their account (V2_81_0): "Someone is carrying …".
+ */
 internal fun carriedText(carried: List<CarriedBoxes>): String {
     fun boxes(n: Int) = if (n == 1) "1 tagged shulker box" else "$n tagged shulker boxes"
     val first = carried.first()
-    val rest = carried.drop(1).joinToString("") { "; ${it.playerName} ${it.boxes}" }
+    val rest = carried.drop(1).joinToString("") { "; ${it.playerName ?: "someone"} ${it.boxes}" }
     val them = if (carried.sumOf { it.boxes } == 1) "it" else "them"
-    return "${first.playerName} is carrying ${boxes(first.boxes)}$rest. What is in $them still counts."
+    return "${first.playerName ?: "Someone"} is carrying ${boxes(first.boxes)}$rest. What is in $them still counts."
 }
 
 private fun ago(seen: Instant): String {

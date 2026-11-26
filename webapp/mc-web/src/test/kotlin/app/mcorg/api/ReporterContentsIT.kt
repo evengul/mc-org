@@ -271,7 +271,7 @@ class ReporterContentsIT : WithUser() {
     }
 
     @Test
-    fun `the database holds a carrier exactly when in transit, and never half of one`() {
+    fun `the database holds a carrier only while in transit, and never half of one`() {
         val worldId = createWorld("carried-check")
         val projectId = createProject(worldId)
         val chest = tagContainer(worldId, projectId, 0, 64, 0)
@@ -288,7 +288,8 @@ class ReporterContentsIT : WithUser() {
 
         assertTrue(accepts("in_transit", evenUuid, "Even"))
         assertTrue(accepts("ok", null, null))
-        assertTrue(!accepts("in_transit", null, null), "in transit without a carrier")
+        // A carrier who deleted their account is forgotten, and the box keeps counting (V2_81_0).
+        assertTrue(accepts("in_transit", null, null), "in transit, carrier forgotten")
         assertTrue(!accepts("ok", evenUuid, "Even"), "a carrier on a box in storage")
         assertTrue(!accepts("ok", evenUuid, null), "half a carrier on a box in storage")
         assertTrue(!accepts("ok", null, "Even"), "half a carrier on a box in storage")
