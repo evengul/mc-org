@@ -4,6 +4,7 @@ import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.ActivityGroup
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.pipeline.resources.FarmRun
 
 /**
  * "What do I do right now" (MCO-481).
@@ -76,11 +77,27 @@ object NextUpPick {
         return (leaves.sortedWith(biggestFirst) + downstream.sortedWith(biggestFirst)).take(CANDIDATES)
     }
 
-    /** A short reason the pick is the pick, shown under it. */
-    fun reasonFor(activity: Activity, isFirst: Boolean): String = when {
-        activity.status == PlanNodeStatus.SUPPLIED -> "A farm already makes this — go and empty it."
+    /**
+     * A short reason the pick is the pick, shown under it.
+     *
+     * A farm-supplied pick says which farm and how long it runs for this line (MCO-604): "go and
+     * empty it" read as one trip, when 296,800 Iron Nugget is twelve days of a bartering setup
+     * filling up. [farmRuns] are the plan's; without them the old sentence stands.
+     */
+    fun reasonFor(activity: Activity, isFirst: Boolean, farmRuns: List<FarmRun> = emptyList()): String = when {
+        activity.status == PlanNodeStatus.SUPPLIED -> farmReason(activity.item.id, farmRuns)
+            ?: "A farm already makes this — go and empty it."
         activity.status == PlanNodeStatus.RAW_GATHER -> "Nothing has to happen first."
         isFirst -> "The largest thing left."
         else -> "Its ingredients are accounted for."
+    }
+
+    private fun farmReason(itemId: String, farmRuns: List<FarmRun>): String? {
+        val run = farmRuns.firstOrNull { r -> r.items.any { it.line.itemId == itemId } } ?: return null
+        val item = run.items.first { it.line.itemId == itemId }
+        val hours = item.hoursLeft
+            ?: return "${run.projectName} makes this. Empty it as it fills."
+        val time = runningTime(hours).removePrefix("~")
+        return "${run.projectName} makes this, about $time of running at ${"%,d".format(item.ratePerHour)}/hr. Empty it as it fills."
     }
 }

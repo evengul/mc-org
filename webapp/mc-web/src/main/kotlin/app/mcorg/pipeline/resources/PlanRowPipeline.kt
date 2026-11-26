@@ -7,6 +7,8 @@ import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.presentation.templated.dsl.pages.completedActivity
+import app.mcorg.presentation.templated.dsl.pages.roleOf
+import app.mcorg.presentation.templated.dsl.pages.runFor
 import app.mcorg.presentation.templated.dsl.pages.workRowCollapsedHtml
 import app.mcorg.presentation.templated.dsl.pages.workRowStateOf
 import app.mcorg.presentation.templated.dsl.pages.workRowStripHtml
@@ -90,7 +92,15 @@ suspend fun ApplicationCall.handleGetPlanRow() {
         // Without them the swapped row loses its chest count, and on a storage-tracked project
         // comes back with the counters the page left out (MCO-540).
         measurements = GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE,
-    )
+    ).let { state ->
+        // A Collect line sits in its farm's block, which names the farm (MCO-604); without this,
+        // Stop working would bring the farm's name back onto the row.
+        // A fully logged target has left the plan, and Reopen on it must still find its farm.
+        val inPlan = plan.activityList.any { it.item.id == itemId }
+        val finished = if (inPlan) null else FarmRuns.finishedTarget(projectId, itemId, activity.item.name, activity.quantity)
+        val run = FarmRuns.forPlan(worldId, projectId, plan, progress, finished).runFor(itemId)
+        state.copy(farmRole = run?.roleOf(itemId))
+    }
 
     respondHtml(
         // A tracked line has no strip: the strip is counters. A page opened before the switch can

@@ -1,5 +1,10 @@
 package app.mcorg.pipeline.resources
 
+import app.mcorg.domain.model.resources.ResourceSourceType
+import app.mcorg.engine.plan.GatheringPlan
+import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
+import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -28,6 +33,9 @@ data class SuppliedLine(
 ) {
     val left: Long get() = (quantity - logged).coerceAtLeast(0)
     val isDone: Boolean get() = left == 0L
+
+    /** Partly logged: someone is emptying the farm for this line right now. */
+    val isInProgress: Boolean get() = logged > 0 && !isDone
 }
 
 /**
@@ -79,10 +87,17 @@ data class FarmRun(
     val projectId: Int,
     val projectName: String,
     val modes: List<ModeRun>,
+    /** How many modes the farm has in all, asked for or not; 0 for a farm without modes. */
+    val farmModeCount: Int = 0,
 ) {
     private val openModes: List<ModeRun> get() = modes.filterNot { it.isDone }
 
     val isDone: Boolean get() = modes.all { it.isDone }
+
+    /** A line of it is partly logged, so the player is at this farm now. */
+    val isInProgress: Boolean get() = modes.any { mode -> mode.items.any { it.line.isInProgress } }
+
+    val items: List<ItemRun> get() = modes.flatMap { it.items }
 
     val setBy: ItemRun? get() = openModes.filter { it.hoursLeft != null }.maxByOrNull { it.hoursLeft!! }?.setBy
 
@@ -121,8 +136,14 @@ object FarmRuns {
             .map { (projectId, entries) ->
                 // A farm whose rows carry no mode at all is still one run, at the rate supply read.
                 val supplyRates = entries.associate { (producer, line) -> line.itemId to producer.ratePerHour }
-                val modes = assignModes(entries.map { it.second }, ratesByFarm[projectId].orEmpty(), projectId, supplyRates)
-                FarmRun(projectId = projectId, projectName = entries.first().first.projectName, modes = modes)
+                val farmRates = ratesByFarm[projectId].orEmpty()
+                val modes = assignModes(entries.map { it.second }, farmRates, projectId, supplyRates)
+                FarmRun(
+                    projectId = projectId,
+                    projectName = entries.first().first.projectName,
+                    modes = modes,
+                    farmModeCount = farmRates.mapNotNull { it.modeId }.distinct().size,
+                )
             }
             .sortedBy { it.projectName }
     }
@@ -220,6 +241,62 @@ object FarmRuns {
             is Result.Failure -> return r
         }
         return Result.success(derive(lines, producers, rates))
+    }
+
+    /**
+     * The plan's farm-supplied lines, as [load] takes them. A line a linked project supplies is
+     * not a farm's, and stays out.
+     *
+     * A target logged in full has already left the plan (`GenerateGatheringPlanStep` plans what is
+     * left of a target), so only a derived line can come back here as done.
+     */
+    fun suppliedLines(plan: GatheringPlan, progress: Map<String, Int>): List<SuppliedLine> =
+        plan.activityList
+            .filter { it.status == PlanNodeStatus.SUPPLIED && it.supply is SupplySource.Farm }
+            .map { activity ->
+                SuppliedLine(
+                    itemId = activity.item.id,
+                    itemName = activity.item.name,
+                    quantity = activity.quantity,
+                    logged = (progress[activity.item.id] ?: 0).toLong().coerceIn(0, activity.quantity),
+                )
+            }
+
+    /**
+     * Each farm's run for the plan a page shows, or none.
+     *
+     * None rather than a failed page: without runs, Collect draws its lines the way it did before
+     * MCO-604, which is still a plan you can work from.
+     *
+     * @param finished a target line just logged in full. It has left the plan, but its farm's
+     *   heading still has to say the farm is done with it, so it is counted as a done line.
+     */
+    suspend fun forPlan(
+        worldId: Int,
+        projectId: Int,
+        plan: GatheringPlan?,
+        progress: Map<String, Int>,
+        finished: SuppliedLine? = null,
+    ): List<FarmRun> {
+        if (plan == null && finished == null) return emptyList()
+        val lines = plan?.let { suppliedLines(it, progress) }.orEmpty() + listOfNotNull(finished)
+        return load(worldId, projectId, lines).getOrNull() ?: emptyList()
+    }
+
+    /**
+     * The done line to pass [forPlan] for a target logged in full, which has left the plan; null
+     * when the target was not the farms' to supply.
+     *
+     * The plan's own rule decides (`ProjectSupply.fold`): a `manual` source opts the item out of
+     * farm supply, and a linked project supplies it instead. Without this a manual target that
+     * some farm happens to make would be counted into that farm's run.
+     */
+    suspend fun finishedTarget(projectId: Int, itemId: String, itemName: String, required: Long): SuppliedLine? {
+        val row = GetAllResourceGatheringItemsStep.process(projectId).getOrNull()
+            ?.firstOrNull { it.itemId == itemId && !it.ignored }
+            ?: return null
+        if (row.sourceType == ResourceSourceType.MANUAL || row.solvedByProject != null) return null
+        return SuppliedLine(itemId, itemName, required, required)
     }
 }
 

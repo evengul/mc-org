@@ -1,0 +1,202 @@
+/* ==========================================================================
+   SET IT TO — a running farm's page: what the world's plans ask of it (MCO-605)
+
+   A card with one headline per mode that takes real time, longest first, and
+   the modes that take seconds on one line under them; then every mode the farm
+   has, asked for or not.
+   ========================================================================== */
+
+.set-it-to {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    margin-top: var(--space-5);
+}
+
+.set-it-to__card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-5);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.set-it-to__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    margin-bottom: var(--space-1);
+}
+
+.set-it-to__note {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.set-it-to__headline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-3);
+    margin: var(--space-2) 0 0;
+}
+
+.set-it-to__mode {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.set-it-to__time {
+    font-family: var(--font-ui);
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.set-it-to__what {
+    font-family: var(--font-body);
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.set-it-to__plans,
+.set-it-to__also,
+.set-it-to__tokens-items {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.set-it-to__plan {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.set-it-to__plan:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.set-it-to__tokens {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+}
+
+.set-it-to__tokens-head {
+    margin: 0 0 var(--space-1);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.set-it-to__lines {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.set-it-to__line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+}
+
+.set-it-to__item {
+    font-family: var(--font-ui);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.set-it-to__every {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.set-it-to__modes {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.set-it-to__mode-row {
+    display: grid;
+    grid-template-columns: 150px 200px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 38px;
+    padding: 0 var(--space-4);
+    border-top: 1px solid var(--border);
+}
+
+.set-it-to__mode-row:first-child {
+    border-top: none;
+}
+
+.set-it-to__mode-name {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.set-it-to__mode-rate {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.set-it-to__mode-asked {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.set-it-to__mode-time {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    justify-self: end;
+}
+
+@media (max-width: 640px) {
+    .set-it-to__card {
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .set-it-to__mode {
+        font-size: 17px;
+    }
+
+    /* Mode and time on one line, what it makes and who asks under them. */
+    .set-it-to__mode-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        row-gap: 2px;
+        padding: var(--space-2) var(--space-4);
+    }
+
+    .set-it-to__mode-rate,
+    .set-it-to__mode-asked {
+        grid-column: 1 / -1;
+    }
+
+    .set-it-to__mode-time {
+        grid-column: 2;
+        grid-row: 1;
+    }
+}

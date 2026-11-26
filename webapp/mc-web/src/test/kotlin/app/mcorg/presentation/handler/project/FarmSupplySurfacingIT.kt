@@ -71,7 +71,21 @@ class FarmSupplySurfacingIT : WithUser() {
          * substring of too much else on the page to prove the group is there.
          */
         const val COLLECT_HEADING = """<span class="section-label">Collect</span>"""
+
+        /**
+         * The same section once a running farm supplies a line: grouped by farm and ordered by how
+         * long each runs (MCO-604). A linked project's lines still come under [COLLECT_HEADING].
+         */
+        const val FARM_COLLECT_HEADING = """<span class="section-label">Collect · longest run first</span>"""
+
+        /** The farm named on its block's heading, which is where Collect names the source now. */
+        const val IRON_FARM_BLOCK = """<span class="collect-block__name">Iron Farm</span>"""
     }
+
+    /** Whether the page collects anything from a farm, in either of the section's forms. */
+    private fun collectsFromFarm(body: String) =
+        body.contains(COLLECT_HEADING) || body.contains(FARM_COLLECT_HEADING) ||
+            body.contains("Farm · Iron Farm") || body.contains(IRON_FARM_BLOCK)
 
     private val version = MinecraftVersion.Release(1, 97, 0)
     private val ironIngot = Item("minecraft:iron_ingot", "Iron Ingot")
@@ -125,7 +139,7 @@ class FarmSupplySurfacingIT : WithUser() {
         assertContains(body, "comes first")
         assertContains(body, "32 Iron Ingot")
         assertContains(body, "by hand until it is running")
-        assertFalse(body.contains(COLLECT_HEADING), "the item is still manual work")
+        assertFalse(collectsFromFarm(body), "the item is still manual work")
     }
 
     /**
@@ -162,10 +176,10 @@ class FarmSupplySurfacingIT : WithUser() {
 
         val body = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, COLLECT_HEADING)
-        // The supply is named on the line itself, in the source slot every other line uses:
-        // "Farm · Iron Farm" rather than a separate "from …" label beside a badge.
-        assertContains(body, "Farm · Iron Farm")
+        assertContains(body, FARM_COLLECT_HEADING)
+        // The farm is named once, on its block's heading, rather than on every line it supplies
+        // (MCO-604): the per-line chip is hidden on a phone, the heading is not.
+        assertContains(body, IRON_FARM_BLOCK)
         assertFalse(body.contains("plan-pending-farms"), "nothing is pending once the farm runs")
 
         setProjectState(farmId, ProjectState.ACTIVE)
@@ -190,8 +204,8 @@ class FarmSupplySurfacingIT : WithUser() {
         // The quantity says whether the farm is anywhere near adequate, and it is the same number
         // the roadmap prints on that farm's edge.
         assertContains(body, """<span class="work-row__left">32</span>""")
-        // Where it comes from is named on the line, in the slot every other line uses.
-        assertContains(body, "Farm · Iron Farm")
+        // Where it comes from is named on its farm's block, above the line.
+        assertContains(body, IRON_FARM_BLOCK)
 
         // Log asks for this line's work strip, so the affordance is the row endpoint carrying
         // this item id — a precise fact, rather than a class name found somewhere in the page.
@@ -243,8 +257,7 @@ class FarmSupplySurfacingIT : WithUser() {
         setProjectState(farmId, ProjectState.DECOMMISSIONED)
 
         val plan = client.get("/worlds/$worldId/projects/$consumerId") { addAuthCookie(this) }.bodyAsText()
-        assertFalse(plan.contains(COLLECT_HEADING), "a stopped farm supplies nothing")
-        assertFalse(plan.contains("Farm · Iron Farm"), "the line no longer names it as the source")
+        assertFalse(collectsFromFarm(plan), "a stopped farm supplies nothing, and no line names it as the source")
         assertFalse(plan.contains("plan-pending-farms"), "and it is not a farm anyone is waiting on")
         assertFalse(plan.contains("comes first"), "so it is not a prerequisite")
 
@@ -280,16 +293,15 @@ class FarmSupplySurfacingIT : WithUser() {
             assertContains(manualBody, """id="project-content" hx-swap-oob="true" data-out-of-band="true"""")
             assertContains(manualBody, """id="plan-resources-area"""")
             assertContains(manualBody, """id="list-breakdown-view"""")
-            assertFalse(manualBody.contains(COLLECT_HEADING), "a manual item is not collected from the farm")
-            assertFalse(manualBody.contains("Farm · Iron Farm"))
+            assertFalse(collectsFromFarm(manualBody), "a manual item is not collected from the farm")
 
             val cleared = client.delete(sourceUrl) { addAuthCookie(this) }
             assertEquals(HttpStatusCode.OK, cleared.status)
             val clearedBody = cleared.bodyAsText()
             assertContains(clearedBody, "No source selected")
             assertContains(clearedBody, """id="project-content" hx-swap-oob="true"""")
-            assertContains(clearedBody, COLLECT_HEADING)
-            assertContains(clearedBody, "Farm · Iron Farm")
+            assertContains(clearedBody, FARM_COLLECT_HEADING)
+            assertContains(clearedBody, IRON_FARM_BLOCK)
         } finally {
             setProjectState(farmId, ProjectState.ACTIVE)
             clearSource(ingotsId)
@@ -340,7 +352,7 @@ class FarmSupplySurfacingIT : WithUser() {
             assertEquals(HttpStatusCode.OK, restored.status)
             val body = restored.bodyAsText()
             assertContains(body, """id="project-content"""")
-            assertContains(body, COLLECT_HEADING)
+            assertContains(body, FARM_COLLECT_HEADING)
             assertContains(body, """id="list-breakdown-view"""")
             assertFalse(body.contains("plan-ignored-row-$ingotsId"))
         } finally {

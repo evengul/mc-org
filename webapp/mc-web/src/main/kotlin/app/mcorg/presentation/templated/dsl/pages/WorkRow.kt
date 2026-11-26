@@ -67,6 +67,20 @@ internal fun completedActivity(itemId: String, itemName: String, required: Long)
 /** Item / stack / double-shulker — the units players already count in. */
 private val STEPS = intArrayOf(-1728, -64, -1, 1, 64, 1728)
 
+/**
+ * A Collect line's place in its farm's block (MCO-604).
+ *
+ * The line a farm's time comes from carries no label of its own: the block heading names it ("set
+ * by Iron Nugget, 296,800 at 1,000/hr"), and a "sets the time" beside the row said the same thing
+ * less clearly (decided 2026-11-26, in review).
+ *
+ * @param modeLabel on a chip in a mode that runs under a minute, which mode makes it: those chips
+ *   share one heading, so the chip has to say it.
+ */
+internal data class FarmLineRole(
+    val modeLabel: String? = null,
+)
+
 /** How a line stands, derived rather than stored (see the file KDoc on the deferred override). */
 internal data class WorkRowState(
     val activity: Activity,
@@ -81,6 +95,8 @@ internal data class WorkRowState(
      * no control that writes one — no tick, no Log, no steppers — and says where the number is from.
      */
     val followed: FollowedChests? = null,
+    /** Non-null inside a farm's Collect block, whose heading names the farm (MCO-604). */
+    val farmRole: FarmLineRole? = null,
 ) {
     val need: Long get() = activity.quantity
 
@@ -179,10 +195,11 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
         val (itemName, itemKind) = splitKind(state.activity.item.name)
         span("work-row__name") {
             span("work-row__item") { +itemName }
-            if (itemKind.isNotEmpty()) span("work-row__kind") { +itemKind }
-        }
+            if (itemKind.isNotEmpty()) span("work-row__kind") { +itemKind }        }
 
         // Demoted to a ghost chip: which method is a fact you check, not one you act on every row.
+        // Inside a farm's block the heading already names the farm, so the chip keeps only the
+        // switch: it is still the way into the item's chain to pick another source.
         button(classes = "btn btn--ghost btn--sm work-row__source") {
             type = ButtonType.button
             attributes["title"] = "Switch how this is sourced"
@@ -192,7 +209,9 @@ private fun DIV.collapsedBody(worldId: Int, projectId: Int, state: WorkRowState)
             attributes["hx-push-url"] = "/worlds/$worldId/projects/$projectId?drill=${state.encodedItemId}"
             attributes["data-drill-nav"] = "in"
             span("work-row__swap") { +"⇆" }
-            span("work-row__method") { +(if (state.isSupplied) state.supplyPrefixed else state.sourceLabel ?: "Manual") }
+            if (state.farmRole == null) {
+                span("work-row__method") { +(if (state.isSupplied) state.supplyPrefixed else state.sourceLabel ?: "Manual") }
+            }
         }
 
         span("work-row__remaining") {
@@ -484,6 +503,7 @@ private fun BUTTON.chipBody(worldId: Int, projectId: Int, state: WorkRowState) {
         span("small-job__tick") { if (state.done) +"✓" }
         span("small-job__name") { +splitKind(state.activity.item.name).first }
         span("small-job__count") { +"%,d".format(state.remaining) }
+        state.farmRole?.modeLabel?.let { span("small-job__mode") { +it } }
     }
 }
 

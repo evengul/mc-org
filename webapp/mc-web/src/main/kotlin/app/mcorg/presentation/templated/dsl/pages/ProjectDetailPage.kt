@@ -17,6 +17,8 @@ import app.mcorg.engine.plan.PlanNodeStatus
 import app.mcorg.engine.plan.PlanOverrides
 import app.mcorg.engine.plan.SupplySource
 import app.mcorg.pipeline.resources.FarmDismissal
+import app.mcorg.pipeline.resources.FarmRun
+import app.mcorg.pipeline.resources.FarmAsks
 import app.mcorg.pipeline.resources.FarmScaleDemand
 import app.mcorg.pipeline.resources.FarmScaleDemands
 import app.mcorg.pipeline.project.SELECTED_DESIGN_FIELD
@@ -96,6 +98,10 @@ fun projectDetailPage(
     versionGaps: Set<String> = emptySet(),
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** How long each farm runs for this plan (MCO-604); empty draws Collect as one panel, as before. */
+    farmRuns: List<FarmRun> = emptyList(),
+    /** On a running farm's page, what the world's plans ask of it (MCO-605); null elsewhere. */
+    farmAsks: FarmAsks? = null,
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
 ): String = pageShell(
@@ -143,13 +149,15 @@ fun projectDetailPage(
                 }
             }
 
+            farmAsks?.let { farmSetItTo(project.worldId, worldName, it) }
+
             div {
                 id = "project-content"
                 if (drillTarget != null) {
                     // ?drill=<item> deep-links straight into a target's chain (reload/share-safe).
                     drillChainContent(project, drillTarget, drillCandidateCounts, drillNodeIngredients, overrides = drillOverrides, graph = drillGraph, highlightItemId = drillHighlightItemId)
                 } else {
-                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, isRenewable)
+                    gatheringPlannerContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, farmRuns, isRenewable)
                 }
             }
         }
@@ -304,6 +312,8 @@ fun FlowContent.gatheringPlannerContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** How long each farm runs for this plan (MCO-604); empty draws Collect as one panel, as before. */
+    farmRuns: List<FarmRun> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
 ) {
@@ -351,8 +361,8 @@ fun FlowContent.gatheringPlannerContent(
         ?.filter { it.status == PlanNodeStatus.OPEN_TAG }
         ?.maxOfOrNull { it.quantity } ?: 0L
     val topPick = candidates.firstOrNull()?.quantity ?: 0L
-    if (largestQuestion < topPick) nextUpWidget(project, candidates)
-    listLensContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, isRenewable)
+    if (largestQuestion < topPick) nextUpWidget(project, candidates, farmRuns)
+    listLensContent(project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions, versionGaps, isWorldAdmin, farmDismissals, farmRuns, isRenewable)
 }
 
 /**
@@ -365,6 +375,7 @@ fun FlowContent.gatheringPlannerContent(
 private fun FlowContent.nextUpWidget(
     project: Project,
     candidates: List<Activity>,
+    farmRuns: List<FarmRun>,
 ) {
     if (candidates.isEmpty()) return
 
@@ -391,7 +402,7 @@ private fun FlowContent.nextUpWidget(
                         +activity.item.name
                     }
                 }
-                div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0) }
+                div("next-up__why") { +NextUpPick.reasonFor(activity, index == 0, farmRuns) }
 
             }
         }
@@ -422,6 +433,8 @@ private fun FlowContent.listLensContent(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** How long each farm runs for this plan (MCO-604); empty draws Collect as one panel, as before. */
+    farmRuns: List<FarmRun> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
 ) {
@@ -532,7 +545,7 @@ private fun FlowContent.listLensContent(
             measurements = measurements,
             pendingFarms = pendingFarms, farmScaleThreshold = farmScaleThreshold,
             farmSuggestions = farmSuggestions, versionGaps = versionGaps,
-            isWorldAdmin = isWorldAdmin, farmDismissals = farmDismissals, isRenewable = isRenewable,
+            isWorldAdmin = isWorldAdmin, farmDismissals = farmDismissals, farmRuns = farmRuns, isRenewable = isRenewable,
         )
     }
 
@@ -617,6 +630,8 @@ fun FlowContent.gatheringPlanSections(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** How long each farm runs for this plan (MCO-604); empty draws Collect as one panel, as before. */
+    farmRuns: List<FarmRun> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
 ) {
@@ -697,6 +712,24 @@ fun FlowContent.gatheringPlanSections(
                 activities.sortedWith(compareByDescending<Activity> { it.quantity }.thenBy { it.item.name })
             } else {
                 activities
+            }
+
+            if (group == ActivityGroup.COLLECT_SUPPLIED && farmRuns.isNotEmpty()) {
+                div("project-detail__section") {
+                    collectSection(
+                        project.worldId, project.id, ordered, farmRuns,
+                        // The section-wide split, so a line is a row or a chip for the same reason
+                        // it was before the lines were grouped by farm.
+                        leadIds = ActivitySectionLayout.of(ordered, planTotal).lead.mapTo(mutableSetOf()) { it.item.id },
+                        hasChests = measurements.followed != null ||
+                            ordered.any { (measurements[it.item.id]?.containerCount ?: 0) > 0 },
+                        stateOf = { workRowStateOf(it, progressMap, nodeIngredients, feedsLabels, farmScaleIds, measurements) },
+                        rest = { lines ->
+                            workSection(project, lines, progressMap, nodeIngredients, feedsLabels, farmScaleIds, planTotal, measurements)
+                        },
+                    )
+                }
+                return@forEach
             }
 
             div("project-detail__section") {
@@ -1313,7 +1346,7 @@ private fun hoursOfRunning(hours: Double): String = "${runningTime(hours)} runni
  * The same figure without the "running" suffix, for the sentence that compares two of them
  * (MCO-483) — "~5.7 h against ~5.8 h running for the next" reads as one farm, not two.
  */
-private fun runningTime(hours: Double): String = when {
+internal fun runningTime(hours: Double): String = when {
     hours < 1.0 -> "~${kotlin.math.max(1, kotlin.math.round(hours * 60).toInt())} min"
     hours < 24.0 -> "~%.1f h".format(hours)
     else -> "~%.1f days".format(hours / 24)
@@ -1855,6 +1888,8 @@ fun gatheringPlannerFragment(
     isWorldAdmin: Boolean = false,
     /** Farm-scale demand this world has decided against (MCO-407). */
     farmDismissals: List<FarmDismissal> = emptyList(),
+    /** How long each farm runs for this plan (MCO-604); empty draws Collect as one panel, as before. */
+    farmRuns: List<FarmRun> = emptyList(),
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
     /** Swap by id alongside another response's main target, rather than being the target. */
@@ -1870,7 +1905,7 @@ fun gatheringPlannerFragment(
     }
     gatheringPlannerContent(
         project, resources, tasks, plan, progressMap, measurements, pendingFarms, farmScaleThreshold, farmSuggestions,
-        versionGaps, isWorldAdmin, farmDismissals, isRenewable,
+        versionGaps, isWorldAdmin, farmDismissals, farmRuns, isRenewable,
     )
 }
 

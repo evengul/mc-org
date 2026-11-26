@@ -6,6 +6,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.project.commonsteps.GetProjectByIdStep
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.FarmRuns
 import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.itemIds
@@ -28,7 +29,13 @@ import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
 
-suspend fun ApplicationCall.handleGetDetailContent() = respondGatheringPlannerContent()
+/**
+ * `?oob=true` answers with the plan marked out of band, for a caller that refreshes it without
+ * being its swap target: the Collect section, after a farm's rates change in a panel left open
+ * over it (MCO-604). The panel only stays open for a plan that arrives that way.
+ */
+suspend fun ApplicationCall.handleGetDetailContent() =
+    respondGatheringPlannerContent(outOfBand = request.queryParameters["oob"] == "true")
 
 /**
  * Renders `#project-content` for the current project and sends it.
@@ -38,7 +45,7 @@ suspend fun ApplicationCall.handleGetDetailContent() = respondGatheringPlannerCo
  * (MCO-407) removes a roll-up line, a design row and a row badge in three different places at
  * once, and three out-of-band swaps of one decision is three chances to disagree.
  */
-suspend fun ApplicationCall.respondGatheringPlannerContent() {
+suspend fun ApplicationCall.respondGatheringPlannerContent(outOfBand: Boolean = false) {
     val worldId = getWorldId()
     val projectId = getProjectId()
     // There is one lens now (MCO-481). DrillView still returns here with ?lens=list, and old
@@ -111,7 +118,9 @@ suspend fun ApplicationCall.respondGatheringPlannerContent() {
             (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE),
             prerequisiteFarms, farmScaleThreshold,
             farmSuggestions, versionGapsForPlan(projectId, plan), isAdmin, dismissals,
+            FarmRuns.forPlan(worldId, projectId, plan, progressMap),
             isRenewableInWorld(worldId),
+            outOfBand = outOfBand,
         )
     )
 }

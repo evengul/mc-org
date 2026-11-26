@@ -10,7 +10,7 @@ import kotlinx.html.stream.createHTML
 
 private fun productionsFieldId(projectId: Int) = "project-productions-field-$projectId"
 
-private fun productionsBase(worldId: Int, projectId: Int) = "/worlds/$worldId/projects/$projectId/productions"
+internal fun productionsBase(worldId: Int, projectId: Int) = "/worlds/$worldId/projects/$projectId/productions"
 
 /**
  * What the production panel and chip draw (MCO-413).

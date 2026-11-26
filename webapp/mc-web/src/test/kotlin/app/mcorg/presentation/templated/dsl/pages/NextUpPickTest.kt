@@ -5,6 +5,10 @@ import app.mcorg.engine.plan.Activity
 import app.mcorg.engine.plan.ActivityGroup
 import app.mcorg.engine.plan.GatheringPlan
 import app.mcorg.engine.plan.PlanNodeStatus
+import app.mcorg.pipeline.resources.FarmRun
+import app.mcorg.pipeline.resources.ItemRun
+import app.mcorg.pipeline.resources.ModeRun
+import app.mcorg.pipeline.resources.SuppliedLine
 import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
@@ -177,5 +181,41 @@ class NextUpPickTest {
         assertTrue(NextUpPick.reasonFor(raw, isFirst = false).contains("Nothing has to happen first"))
         assertTrue(NextUpPick.reasonFor(craft, isFirst = true).contains("largest thing left"))
         assertTrue(NextUpPick.reasonFor(craft, isFirst = false).contains("ingredients are accounted for"))
+    }
+
+    @Test
+    fun `a farm-supplied pick names its farm and how long that farm runs for it`() {
+        // Frame 2a·A: YAMS's top pick, 296,800 Iron Nugget from Bartering setup at 1,000/hr.
+        val nuggets = activity("Iron Nugget", 296_800, ActivityGroup.COLLECT_SUPPLIED, PlanNodeStatus.SUPPLIED)
+        val bartering = FarmRun(
+            projectId = 30,
+            projectName = "Bartering setup",
+            modes = listOf(
+                ModeRun(
+                    null, null, 0,
+                    listOf(ItemRun(SuppliedLine("minecraft:iron_nugget", "Iron Nugget", 296_800, logged = 0), 1_000)),
+                ),
+            ),
+        )
+
+        assertEquals(
+            "Bartering setup makes this, about 12.4 days of running at 1,000/hr. Empty it as it fills.",
+            NextUpPick.reasonFor(nuggets, isFirst = true, farmRuns = listOf(bartering)),
+        )
+    }
+
+    @Test
+    fun `a farm with no measured rate is still named, without a time`() {
+        val honeycomb = activity("Honeycomb", 340, ActivityGroup.COLLECT_SUPPLIED, PlanNodeStatus.SUPPLIED)
+        val bees = FarmRun(
+            projectId = 60,
+            projectName = "Bee farm",
+            modes = listOf(ModeRun(null, null, 0, listOf(ItemRun(SuppliedLine("minecraft:honeycomb", "Honeycomb", 340, 0), 0)))),
+        )
+
+        assertEquals(
+            "Bee farm makes this. Empty it as it fills.",
+            NextUpPick.reasonFor(honeycomb, isFirst = true, farmRuns = listOf(bees)),
+        )
     }
 }

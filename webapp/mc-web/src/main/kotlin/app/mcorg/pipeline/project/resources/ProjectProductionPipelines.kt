@@ -26,6 +26,7 @@ import app.mcorg.presentation.utils.respondHtml
 import io.ktor.http.Parameters
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.request.receiveParameters
+import io.ktor.server.response.header
 
 /** Validated input for [UpsertProjectProductionStep]. */
 data class ProjectProductionInput(
@@ -212,6 +213,15 @@ internal object GetProductionsViewStep : Step<Int, AppFailure.DatabaseError, Pro
 private fun ProductionsView.panelAndChip(worldId: Int, projectId: Int): String =
     productionsPanelFragment(worldId, projectId, this) + productionsFieldFragment(worldId, projectId, this)
 
+/**
+ * Announces a write, so a plan open behind the panel can fetch itself again (MCO-604). The panel
+ * belongs to the farm and is also opened from another project's Collect section ("Add a rate"),
+ * so the endpoint cannot know which plan that is; the plan listens instead.
+ */
+private fun ApplicationCall.announceProductionsChanged() {
+    response.header("HX-Trigger", "productionsChanged")
+}
+
 suspend fun ApplicationCall.handleGetProductionsPanel() {
     val worldId = getWorldId()
     val projectId = getProjectId()
@@ -228,7 +238,10 @@ suspend fun ApplicationCall.handleUpsertProjectProduction() {
     val projectId = getProjectId()
     val validItems = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
     handlePipeline(
-        onSuccess = { view: ProductionsView -> respondHtml(view.panelAndChip(worldId, projectId)) }
+        onSuccess = { view: ProductionsView ->
+            announceProductionsChanged()
+            respondHtml(view.panelAndChip(worldId, projectId))
+        }
     ) {
         val input = ValidateProjectProductionInputStep(validItems).run(parameters)
         val modeId = ValidateProductionModeStep(projectId).run(parameters)
@@ -249,7 +262,10 @@ suspend fun ApplicationCall.handleDeleteProjectProduction() {
     val projectId = getProjectId()
     val productionId = getProjectProductionItemId()
     handlePipeline(
-        onSuccess = { view: ProductionsView -> respondHtml(view.panelAndChip(worldId, projectId)) }
+        onSuccess = { view: ProductionsView ->
+            announceProductionsChanged()
+            respondHtml(view.panelAndChip(worldId, projectId))
+        }
     ) {
         DeleteProjectProductionStep(projectId, invalidateInWorld = worldId.takeIf { isOperational(projectId) })
             .run(productionId)

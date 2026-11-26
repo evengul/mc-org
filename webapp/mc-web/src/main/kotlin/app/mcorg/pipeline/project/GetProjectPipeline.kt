@@ -13,6 +13,9 @@ import app.mcorg.pipeline.resources.GetProjectMeasurementsStep
 import app.mcorg.pipeline.resources.ProjectMeasurements
 import app.mcorg.domain.model.world.World
 import app.mcorg.pipeline.resources.GetFarmScaleThresholdStep
+import app.mcorg.pipeline.resources.FarmRuns
+import app.mcorg.pipeline.resources.FarmAsks
+import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.pipeline.resources.farmDismissalsFor
 import app.mcorg.pipeline.resources.farmSuggestionsFor
 import app.mcorg.pipeline.resources.itemIds
@@ -128,6 +131,15 @@ suspend fun ApplicationCall.handleGetProject() {
     // What the tagged chests hold (MCO-539). One indexed read of the materialised rollup; empty
     // where nothing is tagged, which is what keeps the column blank rather than apologetic.
     val measurements = (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
+    // Which farm supplies each Collect line and how long it runs (MCO-604).
+    val farmRuns = FarmRuns.forPlan(worldId, projectId, plan, progressMap)
+    // A running farm's page says what to set it to (MCO-605). Only a DONE farm supplies, so only
+    // its page asks; failing to load it leaves the section out rather than failing the page.
+    val farmAsks = if (project.state == ProjectState.DONE && productions.suppliedItems.isNotEmpty()) {
+        FarmAsks.load(worldId, projectId, project.name).getOrNull()
+    } else {
+        null
+    }
 
     respondHtml(
         projectDetailPage(
@@ -143,6 +155,8 @@ suspend fun ApplicationCall.handleGetProject() {
             farmSuggestions = farmSuggestions,
             versionGaps = versionGaps,
             farmDismissals = farmDismissals,
+            farmRuns = farmRuns,
+            farmAsks = farmAsks,
             isRenewable = isRenewableInWorld(worldId),
         )
     )

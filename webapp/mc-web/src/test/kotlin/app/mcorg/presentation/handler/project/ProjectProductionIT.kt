@@ -140,6 +140,8 @@ class ProjectProductionIT : WithUser() {
         }
         assertEquals(HttpStatusCode.OK, second.status)
         assertEquals(listOf("minecraft:iron_ingot" to 800), readProductions(projectId), "upsert must not duplicate")
+        // A plan open behind the panel listens for this to fetch itself again (MCO-604).
+        assertEquals("productionsChanged", second.headers["HX-Trigger"])
 
         cleanupProductions(projectId)
     }
@@ -170,6 +172,7 @@ class ProjectProductionIT : WithUser() {
         }
         assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
         assertEquals(emptyList(), readProductions(projectId))
+        assertEquals(null, response.headers["HX-Trigger"], "nothing changed, so nothing is announced")
     }
 
     @Test
@@ -199,6 +202,7 @@ class ProjectProductionIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         assertContains(response.bodyAsText(), "No produced items declared")
+        assertEquals("productionsChanged", response.headers["HX-Trigger"])
         assertEquals(emptyList(), readProductions(projectId))
     }
 
