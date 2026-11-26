@@ -362,6 +362,63 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    /**
+     * What the Projects tab showed on every active row, on the roadmap's own rows now (MCO-692), and
+     * by the panels' definition rather than the tab's raw sums.
+     */
+    @Test
+    fun `a project in no chain says how much of it is gathered, capped and without ignored rows`() =
+        testApplication {
+            setupRoutes()
+            val worldId = createWorld("Gathered World")
+            val project = createProject(worldId, "Sorting Hall")
+            createRequirement(project, "minecraft:hopper", "Hopper")
+            createRequirement(project, "minecraft:chest", "Chest")
+            createRequirement(project, "minecraft:comparator", "Comparator")
+            setCollected(project, "minecraft:hopper", 50)
+            setCollected(project, "minecraft:chest", 10)
+            ignore(project, "minecraft:comparator")
+            // Its only task is done, which alone used to make the chip green.
+            runBlocking {
+                DatabaseSteps.update<Unit>(
+                    SafeSQL.insert("INSERT INTO action_task (project_id, name, completed) VALUES (?, 'Lay floor', TRUE)"),
+                    parameterSetter = { stmt, _ -> stmt.setInt(1, project) }
+                ).process(Unit)
+            }
+
+            val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+            val chips = body.substringAfter("NOT IN ANY CHAIN").substringBefore("rmg-section rmg-")
+            // 32 of 32 hoppers (50 collected counts as 32), 10 of 32 chests, and no comparators.
+            assertContains(chips, "42 / 64 gathered")
+            assertFalse(chips.contains("rmg-tone-green"), "not done, so not green")
+
+            deleteWorld(worldId)
+        }
+
+    @Test
+    fun `opening the roadmap records that the world was opened`() = testApplication {
+        // The Worlds page sorts and captions by `last_opened_at` ("opened 2h ago"). Only the Projects
+        // tab wrote it, so once a world opened on its roadmap (MCO-474) the line stopped moving.
+        setupRoutes()
+        val worldId = createWorld("Opened World")
+        assertNull(lastOpenedAt(worldId), "a world nobody has opened yet")
+
+        client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+
+        assertNotNull(lastOpenedAt(worldId))
+        deleteWorld(worldId)
+    }
+
+    private fun lastOpenedAt(worldId: Int): java.time.Instant? = runBlocking {
+        val result = DatabaseSteps.query<Int, java.time.Instant?>(
+            SafeSQL.select("SELECT last_opened_at FROM world_members WHERE world_id = ? AND user_id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id); stmt.setInt(2, user.id) },
+            resultMapper = { rs -> if (rs.next()) rs.getTimestamp(1)?.toInstant() else null },
+        ).process(worldId)
+        (result as Result.Success).value
+    }
+
     /** The world's one empty state (`worldEmptyState`): the same three doors the project list offers. */
     private fun assertEmptyWorldState(body: String) {
         assertContains(body, "projects-empty-state")
@@ -427,7 +484,6 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
-    /** The tab pair is the way back out of the roadmap, on both of the world's pages. */
     @Test
     fun `the roadmap renders the world tabs with roadmap marked current`() = testApplication {
         setupRoutes()
@@ -435,7 +491,8 @@ class WorldRoadmapIT : WithUser() {
 
         val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, "/worlds/$worldId/projects")
+        assertContains(body, "/worlds/$worldId/settings", message = "the creator is an admin")
+        assertFalse(body.contains("href=\"/worlds/$worldId/projects\""), "no Projects tab (MCO-692)")
         assertContains(body, "world-tabs__tab--active")
         assertContains(body, "aria-current=\"page\"")
 
@@ -710,6 +767,29 @@ class WorldRoadmapIT : WithUser() {
                 stmt.setInt(1, projectId)
                 stmt.setString(2, itemId)
                 stmt.setString(3, name)
+            }
+        ).process(Unit)
+    }
+
+    private fun setCollected(projectId: Int, itemId: String, collected: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert(
+                "INSERT INTO resource_gathering_progress (project_id, item_id, collected) VALUES (?, ?, ?)"
+            ),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
+                stmt.setInt(3, collected)
+            }
+        ).process(Unit)
+    }
+
+    private fun ignore(projectId: Int, itemId: String) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.update("UPDATE resource_gathering SET ignored = TRUE WHERE project_id = ? AND item_id = ?"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId)
+                stmt.setString(2, itemId)
             }
         ).process(Unit)
     }

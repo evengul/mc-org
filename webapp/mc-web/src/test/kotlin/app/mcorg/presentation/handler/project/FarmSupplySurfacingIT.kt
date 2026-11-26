@@ -11,7 +11,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.minecraft.StoreMinecraftDataStep
 import app.mcorg.pipeline.project.handleGetProject
-import app.mcorg.pipeline.project.handleGetProjectList
+import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
 import app.mcorg.pipeline.resources.handleClearResourceSource
 import app.mcorg.pipeline.resources.handleDeleteResourceGatheringItem
 import app.mcorg.pipeline.resources.handleSetResourceSource
@@ -218,32 +218,39 @@ class FarmSupplySurfacingIT : WithUser() {
     }
 
     @Test
-    fun `a producing farm is listed as producing, not shelved with finished builds`() = testApplication {
+    fun `a producing farm is listed as producing, not shelved`() = testApplication {
         setupRoutes()
         setProjectState(farmId, ProjectState.DONE)
 
-        val response = client.get("/worlds/$worldId/projects") { addAuthCookie(this) }
+        val response = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
 
-        assertContains(body, "fl-producing-section")
-        assertContains(body, "Producing · 1")
-        assertFalse(body.contains("1 done"), "a running farm is not shelf material")
+        assertContains(body.substringAfter("PRODUCING · 1").substringBefore("rmg-section rmg-"), "Iron Farm")
+        assertFalse(body.contains("SHELVED"), "a running farm is not shelf material")
 
         setProjectState(farmId, ProjectState.ACTIVE)
     }
 
+    /** The Projects tab was the only way back to these until MCO-692. */
     @Test
-    fun `a finished build with no productions still goes to the shelf`() = testApplication {
+    fun `a cancelled or archived project goes to the shelf, folded shut`() = testApplication {
         setupRoutes()
-        val inertBuild = createProject(worldId, "Finished Statue", ProjectState.DONE)
+        val cancelled = createProject(worldId, "Abandoned Statue", ProjectState.CANCELLED)
+        val archived = createProject(worldId, "Old Base", ProjectState.ARCHIVED)
 
-        val body = client.get("/worlds/$worldId/projects") { addAuthCookie(this) }.bodyAsText()
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, "1 done")
-        assertFalse(body.contains("fl-producing-section"), "no farm is producing in this state")
+        val shelf = body.substringAfter("id=\"roadmap-shelved\"").substringBefore("</details>")
+        assertContains(body, "<details class=\"rmg-section rmg-shelved\" id=\"roadmap-shelved\">", message = "not open")
+        assertContains(shelf, "SHELVED · 2")
+        assertContains(shelf, "/worlds/$worldId/projects/$cancelled")
+        assertContains(shelf, "/worlds/$worldId/projects/$archived")
+        assertContains(shelf, "cancelled")
+        assertContains(shelf, "archived")
 
-        deleteProject(inertBuild)
+        deleteProject(cancelled)
+        deleteProject(archived)
     }
 
     /**
@@ -261,9 +268,10 @@ class FarmSupplySurfacingIT : WithUser() {
         assertFalse(plan.contains("plan-pending-farms"), "and it is not a farm anyone is waiting on")
         assertFalse(plan.contains("comes first"), "so it is not a prerequisite")
 
-        val list = client.get("/worlds/$worldId/projects") { addAuthCookie(this) }.bodyAsText()
-        assertContains(list, "1 decommissioned")
-        assertFalse(list.contains("fl-producing-section"), "it is not producing")
+        val roadmap = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+        assertContains(roadmap.substringAfter("STOPPED · 1").substringBefore("rmg-section rmg-"), "Iron Farm")
+        assertFalse(roadmap.contains("PRODUCING ·"), "it is not producing")
+        assertFalse(roadmap.contains("SHELVED"), "and it is listed once, under STOPPED")
 
         setProjectState(farmId, ProjectState.ACTIVE)
     }
@@ -470,8 +478,8 @@ class FarmSupplySurfacingIT : WithUser() {
                 install(WorldParamPlugin)
                 install(WorldParticipantPlugin)
                 install(UpdateActiveWorldPlugin)
+                get("/roadmap") { call.handleGetWorldRoadmap() }
                 route("/projects") {
-                    get { call.handleGetProjectList() }
                     route("/{projectId}") {
                         install(ProjectParamPlugin)
                         get { call.handleGetProject() }

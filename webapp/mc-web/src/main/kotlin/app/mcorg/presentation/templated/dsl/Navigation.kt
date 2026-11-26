@@ -33,18 +33,14 @@ sealed class BreadcrumbSegment {
 }
 
 /**
- * World-level sections. A world opens on its roadmap — "what do I do next" — and the project
- * list is the reference view you go to deliberately (MCO-474).
- *
- * Rendered on *both* pages on purpose. `/worlds/{id}` was a **permanent** redirect to
- * `/projects` for a long time, and browsers cache a 301 indefinitely, so a browser that has
- * visited a world before will keep landing on the project list no matter what the server now
- * says. Putting the tabs on both leaves that browser one click from the roadmap.
+ * World-level sections: the roadmap, which is what a world opens to (MCO-474), and its settings.
+ * There was a Projects tab between them until MCO-692; the roadmap carries everything it had that
+ * was worth keeping.
  */
 fun FlowContent.worldTabs(worldId: Int, active: WorldTab, isWorldAdmin: Boolean = false) {
     nav("world-tabs") {
         attributes["aria-label"] = "World sections"
-        // Settings is a section of the world like the other two, labelled in words where it used to
+        // Settings is a section of the world like the roadmap, labelled in words where it used to
         // be a bare gear at the far end of the app header (MCO-540). Admins only: the route is
         // admin-gated, and a tab that answers 403 is worse than no tab.
         for (tab in WorldTab.entries.filter { it != WorldTab.SETTINGS || isWorldAdmin }) {
@@ -81,7 +77,6 @@ fun FlowContent.worldBar(
 
 enum class WorldTab(val label: String, val path: String) {
     ROADMAP("Roadmap", "/roadmap"),
-    PROJECTS("Projects", "/projects"),
     SETTINGS("Settings", "/settings"),
 }
 

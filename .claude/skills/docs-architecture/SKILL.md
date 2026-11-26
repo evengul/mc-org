@@ -208,7 +208,7 @@ webapp/
             │   ├── dsl/                   # Design-system components (Buttons, Badge, Modal,
             │   │   │                      #   Layout.kt with pageShell, ProjectCard, ...)
             │   │   ├── components/        # Composite components
-            │   │   └── pages/             # Full page templates (ProjectListPage, ...)
+            │   │   └── pages/             # Full page templates (RoadmapGraphPage, ...)
             │   ├── idea/                  # Idea Hub templates (+ createwizard/)
             │   ├── admin/ landing/ profile/ settings/ error/ utils/
             └── utils/                     # authUtils, htmlResponseUtils, paramUtils

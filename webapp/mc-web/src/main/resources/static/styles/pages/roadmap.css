@@ -71,25 +71,6 @@
     color: var(--text-muted);
 }
 
-/* An answered pair. Quieter than an open question, but never hidden — an ordering you cannot
-   see is one you cannot change. */
-.roadmap-cycles__resolved {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    flex-wrap: wrap;
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--border);
-}
-
-.roadmap-cycles__resolved-text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: var(--text-sm);
-    color: var(--text-muted);
-}
-
 @media (max-width: 768px) {
     /* The button and its explanation stack; at 375px they do not fit on one line and the
        note is the half that wraps into illegibility. */

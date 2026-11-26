@@ -747,6 +747,34 @@ a.rmg-panelrow__card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--
 
 .rmg-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
+/* 7. Shelved (MCO-692): the same header and chips, folded shut. Only the summary is drawn
+   until opened, so the gap applies to the chips once they are there. */
+.rmg-shelved[open] { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.rmg-shelved__head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    cursor: pointer;
+    list-style: none;
+}
+
+.rmg-shelved__head::-webkit-details-marker { display: none; }
+
+.rmg-shelved__head::before {
+    content: "▸";
+    color: var(--text-muted);
+}
+
+.rmg-shelved[open] > .rmg-shelved__head::before { content: "▾"; }
+
+/* The gathered count under a TO BUILD row's state, as the Projects tab showed it. */
+.rmg-tobuild__gathered {
+    margin-top: 2px;
+    font-size: var(--text-xs);
+}
+
 .rmg-chip {
     display: flex;
     align-items: center;

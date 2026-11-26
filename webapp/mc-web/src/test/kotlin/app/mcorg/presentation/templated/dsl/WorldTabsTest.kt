@@ -10,26 +10,25 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The world tab pair (MCO-474), which replaced the PLAN/EXEC toggle as the way between a
- * world's roadmap and its project list.
+ * The world tabs (MCO-474), which replaced the PLAN/EXEC toggle. Roadmap and, for an admin,
+ * Settings: the Projects tab between them was removed by MCO-692.
  */
 class WorldTabsTest {
 
     private fun render(block: FlowContent.() -> Unit): String = createHTML().div { block() }
 
     @Test
-    fun `renders both sections, whichever one is active`() {
-        val html = render { worldTabs(worldId = 7, active = WorldTab.ROADMAP) }
+    fun `there is no Projects tab`() {
+        val html = render { worldTabs(worldId = 7, active = WorldTab.ROADMAP, isWorldAdmin = true) }
 
         assertContains(html, "/worlds/7/roadmap")
-        assertContains(html, "/worlds/7/projects")
-        assertContains(html, "Roadmap")
-        assertContains(html, "Projects")
+        assertFalse(html.contains("/worlds/7/projects"), "the roadmap carries what the tab had")
+        assertFalse(html.contains(">Projects<"))
     }
 
     @Test
     fun `marks the active tab and only the active tab`() {
-        val html = render { worldTabs(worldId = 1, active = WorldTab.ROADMAP) }
+        val html = render { worldTabs(worldId = 1, active = WorldTab.ROADMAP, isWorldAdmin = true) }
 
         assertEquals(1, Regex("world-tabs__tab--active").findAll(html).count())
         assertEquals(1, Regex("aria-current=\"page\"").findAll(html).count())
@@ -37,12 +36,12 @@ class WorldTabsTest {
 
     @Test
     fun `the active marker follows the argument`() {
-        val roadmap = render { worldTabs(worldId = 1, active = WorldTab.ROADMAP) }
-        val projects = render { worldTabs(worldId = 1, active = WorldTab.PROJECTS) }
+        val roadmap = render { worldTabs(worldId = 1, active = WorldTab.ROADMAP, isWorldAdmin = true) }
+        val settings = render { worldTabs(worldId = 1, active = WorldTab.SETTINGS, isWorldAdmin = true) }
 
         // The active class sits on the anchor, so the section it precedes is the marked one.
-        assertTrue(roadmap.indexOf("--active") < roadmap.indexOf("Projects"))
-        assertTrue(projects.indexOf("--active") > projects.indexOf("Roadmap"))
+        assertTrue(roadmap.indexOf("--active") < roadmap.indexOf("Settings"))
+        assertTrue(settings.indexOf("--active") > settings.indexOf("Roadmap"))
     }
 
     /**
@@ -52,7 +51,7 @@ class WorldTabsTest {
      */
     @Test
     fun `active state is carried by markup, not only by styling`() {
-        val html = render { worldTabs(worldId = 3, active = WorldTab.PROJECTS) }
+        val html = render { worldTabs(worldId = 3, active = WorldTab.ROADMAP) }
 
         assertContains(html, "world-tabs__tab--active")
         assertContains(html, "aria-current=\"page\"")
@@ -76,10 +75,10 @@ class WorldTabsTest {
 
     @Test
     fun `world id is threaded into every link`() {
-        val html = render { worldTabs(worldId = 42, active = WorldTab.ROADMAP) }
+        val html = render { worldTabs(worldId = 42, active = WorldTab.ROADMAP, isWorldAdmin = true) }
 
         assertContains(html, "/worlds/42/roadmap")
-        assertContains(html, "/worlds/42/projects")
+        assertContains(html, "/worlds/42/settings")
         assertFalse(html.contains("/worlds/1/"), "no other world should be linked")
     }
 }

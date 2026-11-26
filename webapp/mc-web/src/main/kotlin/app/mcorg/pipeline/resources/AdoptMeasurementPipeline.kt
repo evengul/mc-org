@@ -4,23 +4,16 @@ import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.failure.AppFailure
-import app.mcorg.pipeline.resources.commonsteps.CountCollectedResourcesInProjectWithItemIdStep
-import app.mcorg.pipeline.resources.commonsteps.CountTotalResourcesRequiredInProjectWithItemIdStep
 import app.mcorg.pipeline.resources.commonsteps.GetResourceGatheringItemStep
 import app.mcorg.presentation.handler.handlePipeline
-import app.mcorg.presentation.hxOutOfBands
-import app.mcorg.pipeline.resources.commonsteps.GetAllResourceGatheringItemsStep
-import app.mcorg.presentation.templated.dsl.fieldLogSliceRowsFragment
-import app.mcorg.presentation.templated.dsl.progressBar
-import app.mcorg.presentation.templated.dsl.resourceRow
+import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import app.mcorg.presentation.utils.getProjectId
 import app.mcorg.presentation.utils.getResourceGatheringId
 import app.mcorg.presentation.utils.getWorldId
 import app.mcorg.presentation.utils.respondHtml
 import io.ktor.server.application.ApplicationCall
-import kotlinx.html.div
-import kotlinx.html.id
 import kotlinx.html.stream.createHTML
+import kotlinx.html.tr
 
 /**
  * Adopt one measurement — the only way evidence becomes progress (MCO-539).
@@ -30,6 +23,11 @@ import kotlinx.html.stream.createHTML
  *
  * The swapped row carries the measurement it just adopted, which is what makes the chip disappear
  * on its own: the two numbers now agree, and the row draws no chip when the drift is zero.
+ *
+ * The row is the project page's "What I need" table row, the one surface the chip lives on since
+ * the Projects tab went (MCO-692). It used to answer with that tab's row markup, which the project
+ * page has no element for. No `#overall-progress` either: the page's total is the derived plan's,
+ * and a sum over targets would put a different number in its place.
  */
 suspend fun ApplicationCall.handleAdoptMeasurement() {
     val worldId = this.getWorldId()
@@ -38,55 +36,14 @@ suspend fun ApplicationCall.handleAdoptMeasurement() {
 
     handlePipeline(
         onSuccess = { adopted ->
-            respondHtml(
-                createHTML().div {
-                    resourceRow(
-                        id = adopted.item.id,
-                        worldId = worldId,
-                        projectId = projectId,
-                        itemName = adopted.item.name,
-                        current = adopted.item.collected,
-                        required = adopted.item.required,
-                        source = adopted.item.solvedByProject?.second,
-                        measured = adopted.measured,
-                        followed = adopted.followed,
-                    )
-                }.removePrefix("<div>").removeSuffix("</div>") +
-                    createHTML().div {
-                        id = "overall-progress"
-                        hxOutOfBands("outerHTML:#overall-progress")
-                        progressBar(adopted.totalCollected, adopted.totalRequired)
-                    }
-            )
+            respondHtml(createHTML().tr {
+                planResourceRow(worldId, projectId, adopted.item, adopted.measured, adopted.followed)
+            })
         }
     ) {
         val before = GetResourceGatheringItemStep.run(resourceGatheringId)
         AdoptMeasurementStep.run(AdoptMeasurementInput(projectId, before.itemId))
         AdoptedResourceStep(projectId).run(resourceGatheringId)
-    }
-}
-
-/**
- * Adopt every measurement on the project at once — "I have finished tagging, take the lot", which
- * is the realistic moment rather than clicking twelve chips in a row.
- *
- * Returns the whole row list rather than one row: it changed an unknown number of them, and the
- * client asked one question so it gets one answer.
- */
-suspend fun ApplicationCall.handleAdoptAllMeasurements() {
-    val worldId = this.getWorldId()
-    val projectId = this.getProjectId()
-
-    handlePipeline(
-        onSuccess = { (rows, measurements) ->
-            respondHtml(fieldLogSliceRowsFragment(worldId, projectId, rows, measurements))
-        }
-    ) {
-        AdoptAllMeasurementsStep.run(projectId)
-        // With the measurements, so the redrawn rows keep their chest counts — and, on a project
-        // switched to storage-tracked since the page loaded, stay read-only (MCO-540).
-        GetAllResourceGatheringItemsStep.run(projectId) to
-            (GetProjectMeasurementsStep.process(projectId).getOrNull() ?: ProjectMeasurements.NONE)
     }
 }
 
@@ -96,8 +53,6 @@ data class AdoptedResource(
     val measured: MeasuredStock?,
     /** Non-null on a storage-tracked project, whose redrawn row must stay read-only (MCO-540). */
     val followed: FollowedChests?,
-    val totalRequired: Int,
-    val totalCollected: Int,
 )
 
 /**
@@ -119,8 +74,6 @@ private class AdoptedResourceStep(private val projectId: Int) :
                 item = item,
                 measured = measurements[item.itemId],
                 followed = measurements.followed,
-                totalRequired = CountTotalResourcesRequiredInProjectWithItemIdStep.process(input).getOrNull() ?: 0,
-                totalCollected = CountCollectedResourcesInProjectWithItemIdStep.process(input).getOrNull() ?: 0,
             )
         )
     }

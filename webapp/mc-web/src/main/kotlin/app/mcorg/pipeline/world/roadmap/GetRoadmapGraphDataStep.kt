@@ -99,38 +99,49 @@ data class GetHandMaterialsStep(val terminalProjectId: Int) :
         ).process(input)
 }
 
+/** A project's declared gathering: how much is collected of how much is required. */
+data class GatherProgress(val collected: Long, val required: Long) {
+    val percent: Int get() = if (required > 0) ((collected * 100) / required).toInt() else 0
+}
+
 /**
- * How much of the terminal project's declared gathering is actually collected.
+ * How much of each project's declared gathering is actually collected, for every project in the
+ * world that declares any.
  *
  * Separate from [GetRoadmapGraphDataStep] because it reads declared rows rather than derived
  * demand: progress is recorded against `resource_gathering`, which is what the Execute view
- * counts, so the percentage here and the one on the project page come from one source.
+ * counts, so the numbers here and the one on the project page come from one source.
+ *
+ * One definition for every surface on the roadmap: the final-project panels' percentage and the
+ * gathered / required on every other row (MCO-692). Ignored rows do not count, and nothing counts
+ * past what was required. The Projects tab summed both raw, so a row could read more than done.
  */
-data class GetTerminalProgressStep(val terminalProjectId: Int) :
-    Step<Unit, AppFailure.DatabaseError, Int> {
+data class GetGatherProgressStep(val worldId: Int) :
+    Step<Unit, AppFailure.DatabaseError, Map<Int, GatherProgress>> {
 
-    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Int> =
-        DatabaseSteps.query<Unit, Int>(
+    override suspend fun process(input: Unit): Result<AppFailure.DatabaseError, Map<Int, GatherProgress>> =
+        DatabaseSteps.query<Unit, Map<Int, GatherProgress>>(
             sql = SafeSQL.select(
                 """
                 SELECT
-                  COALESCE(SUM(rg.required), 0)                                  AS required,
-                  COALESCE(SUM(LEAST(COALESCE(p.collected, 0), rg.required)), 0)  AS collected
+                  rg.project_id,
+                  SUM(rg.required)                                  AS required,
+                  SUM(LEAST(COALESCE(p.collected, 0), rg.required)) AS collected
                 FROM resource_gathering rg
+                JOIN projects pr ON pr.id = rg.project_id
                 LEFT JOIN resource_gathering_progress p
                        ON p.project_id = rg.project_id AND p.item_id = rg.item_id
-                WHERE rg.project_id = ?
+                WHERE pr.world_id = ?
                   AND rg.ignored = FALSE
+                GROUP BY rg.project_id
                 """.trimIndent()
             ),
-            parameterSetter = { statement, _ -> statement.setInt(1, terminalProjectId) },
+            parameterSetter = { statement, _ -> statement.setInt(1, worldId) },
             resultMapper = { rs ->
-                if (rs.next()) {
-                    val required = rs.getLong("required")
-                    val collected = rs.getLong("collected")
-                    if (required > 0) ((collected * 100) / required).toInt() else 0
-                } else {
-                    0
+                buildMap {
+                    while (rs.next()) {
+                        put(rs.getInt("project_id"), GatherProgress(rs.getLong("collected"), rs.getLong("required")))
+                    }
                 }
             }
         ).process(input)

@@ -8,6 +8,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.resources.GetUnfinishedProductionsStep
 import app.mcorg.pipeline.resources.ScenarioDemand
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.pipeline.world.commonsteps.UpdateWorldLastOpenedStep
 import app.mcorg.pipeline.world.roadmap.ordering.GetManualOrderingsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.RoadmapGraphView
@@ -33,6 +34,9 @@ import io.ktor.server.application.ApplicationCall
 suspend fun ApplicationCall.handleGetWorldRoadmap() {
     val user = getUser()
     val worldId = getWorldId()
+    // Best-effort, as on the Projects tab: the Worlds page's "opened Xh ago" and its sort read
+    // this. The roadmap is what a world opens to (MCO-474), so it has to be recorded here too.
+    UpdateWorldLastOpenedStep(user.id).process(worldId)
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     handlePipeline(
@@ -119,9 +123,10 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         )
     }
 
+    val gathered = GetGatherProgressStep(roadmap.worldId).process(Unit).getOrNull().orEmpty()
     val terminalStats = drawn.associate { terminal ->
         val data = graphData.getValue(terminal.projectId)
-        val percent = GetTerminalProgressStep(terminal.projectId).process(Unit).getOrNull() ?: 0
+        val percent = gathered[terminal.projectId]?.percent ?: 0
         terminal.projectId to RoadmapGraphLayout.TerminalStats(
             fromFarms = data.fromFarms,
             byHand = data.byHand,
@@ -190,6 +195,7 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         chainLeftAfter = chainLeftAfter,
         byHandNow = graphData.values.sumOf { it.byHand },
         started = started,
+        gathered = gathered,
         farms = farms,
         stopped = stopped,
         producerRows = allProducers
@@ -205,15 +211,19 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         unchained = isolated
             .filter { !it.state.isTerminal }
             .map {
+                val progress = gathered[it.projectId]?.takeIf { g -> g.required > 0 }
+                // Green when the measure the note shows is complete — a green "0 / 64 gathered"
+                // because every task happened to be ticked would contradict itself.
+                val complete = if (progress != null) {
+                    progress.collected >= progress.required
+                } else {
+                    it.tasksTotal > 0 && it.tasksCompleted >= it.tasksTotal
+                }
                 RoadmapGraphView.UnchainedRow(
                     projectId = it.projectId,
                     name = it.projectName,
-                    note = taskNoteFor(it),
-                    tone = if (it.tasksTotal > 0 && it.tasksCompleted >= it.tasksTotal) {
-                        RoadmapGraphLayout.Tone.GREEN
-                    } else {
-                        RoadmapGraphLayout.Tone.MUTED
-                    },
+                    note = progress?.let(::gatheredText) ?: taskNoteFor(it),
+                    tone = if (complete) RoadmapGraphLayout.Tone.GREEN else RoadmapGraphLayout.Tone.MUTED,
                 )
             },
         terminals = drawn,
@@ -224,6 +234,11 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         // from a farm's output meeting a project's demand; nobody typed it, and it cannot be
         // deleted from the roster — which is what the section's footer note says.
         generatedEdgeCount = roadmap.edges.count { it.itemName != null },
+        // Every cancelled and archived project, chained or not: no other section lists them, and the
+        // Projects tab, which did, is gone (MCO-692). Decommissioned ones are under STOPPED already.
+        shelved = roadmap.nodes
+            .filter { it.state == ProjectState.CANCELLED || it.state == ProjectState.ARCHIVED }
+            .map { RoadmapGraphView.ShelvedRow(it.projectId, it.projectName, it.state) },
         // Every one of them, not just the first: the design was drawn against a world with
         // exactly one such farm, and silently hiding the second would be the same class of bug
         // the design set out to fix.
@@ -265,6 +280,14 @@ internal fun readyNoteFor(terminals: List<RoadmapNode>): String {
  */
 internal fun startOf(terminals: List<RoadmapNode>): RoadmapNode? =
     terminals.firstOrNull { !it.state.isTerminal }
+
+/**
+ * "1,234 / 5,000 gathered" — the gathered half of what the Projects tab showed on every active row
+ * (MCO-692). A project with resources to gather is measured by them, as on that tab; one with
+ * only tasks keeps its task count.
+ */
+internal fun gatheredText(progress: GatherProgress): String =
+    "%,d / %,d gathered".format(progress.collected, progress.required)
 
 private fun taskNoteFor(node: RoadmapNode): String = when {
     node.tasksTotal == 0 -> "no tasks"

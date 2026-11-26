@@ -28,7 +28,6 @@ import app.mcorg.pipeline.project.resources.handleAddResourcesFromSchematic
 import app.mcorg.pipeline.project.resources.handleDeleteProjectProduction
 import app.mcorg.pipeline.project.resources.handleGetProductionsPanel
 import app.mcorg.pipeline.project.resources.handleUpsertProjectProduction
-import app.mcorg.pipeline.resources.handleAdoptAllMeasurements
 import app.mcorg.pipeline.resources.handleAdoptMeasurement
 import app.mcorg.pipeline.resources.handleClearOverride
 import app.mcorg.pipeline.resources.handleGetDrillChain
@@ -53,10 +52,6 @@ import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
-import app.mcorg.pipeline.project.handleGetProjectList
-import app.mcorg.pipeline.project.handleGetFieldLogRow
-import app.mcorg.pipeline.project.handleGetFieldLogSliceItems
-import app.mcorg.pipeline.project.handleGetResumeRows
 import app.mcorg.pipeline.project.handleStartFarmSuggestionImport
 import app.mcorg.pipeline.resources.handleDismissFarmSuggestion
 import app.mcorg.pipeline.resources.handleRestoreFarmSuggestion
@@ -218,12 +213,6 @@ class WorldHandler {
                     }
                 }
                 route("/projects") {
-                    get {
-                        call.handleGetProjectList()
-                    }
-                    get("/resume-rows") {
-                        call.handleGetResumeRows()
-                    }
                     post {
                         call.handleCreateProject()
                     }
@@ -307,12 +296,6 @@ class WorldHandler {
                                 }
                             }
                         }
-                        get("/field-log-row") {
-                            call.handleGetFieldLogRow()
-                        }
-                        get("/field-log-slice-items") {
-                            call.handleGetFieldLogSliceItems()
-                        }
                         route("/resources") {
                             // World-membership gate (MCO-247) now lives at the /{worldId}
                             // level above, covering this whole resource-mutation family too.
@@ -325,11 +308,6 @@ class WorldHandler {
                             route("/gathering") {
                                 post {
                                     call.handleCreateResourceGatheringItem()
-                                }
-                                // "I have finished tagging, take the lot" (MCO-539) — outside the
-                                // per-resource node because it is about the project, not one row.
-                                post("/adopt-all") {
-                                    call.handleAdoptAllMeasurements()
                                 }
                                 route("/{resourceGatheringId}") {
                                     install(ResourceGatheringIdParamPlugin)

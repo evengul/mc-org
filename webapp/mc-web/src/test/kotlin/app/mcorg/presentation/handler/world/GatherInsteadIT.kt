@@ -180,6 +180,26 @@ class GatherInsteadIT : WithUser() {
         deleteWorld(w.id)
     }
 
+    /** The Projects tab's per-project progress, on the TO BUILD row it belongs to (MCO-692). */
+    @Test
+    fun `a farm under way says how much of it is gathered, and one not begun does not`() = testApplication {
+        setupRoutes()
+        val w = world("Gathered World")
+        // Two states keep the table ungrouped, so it has the STATE column the count sits in.
+        val gold = createProject(w.id, "Gold Farm", state = "PAUSED")
+        createDemand(w.storage, "minecraft:gold_ingot", "Gold Ingot", 640)
+        createProduction(gold, "minecraft:gold_ingot", "Gold Ingot")
+        gathering(w.iron, "minecraft:hopper", "Hopper", required = 5, collected = 3)
+        gathering(gold, "minecraft:rail", "Rail", required = 64, collected = 0)
+
+        val table = page(w.id).substringAfter("id=\"roadmap-to-build\"").substringBefore("rmg-section rmg-graph")
+
+        assertContains(table, "3 / 5 gathered")
+        assertFalse(table.contains("0 / 64"), "nothing gathered says nothing that ○ planned does not")
+
+        deleteWorld(w.id)
+    }
+
     /** A build ordered by hand before a final project is a TO BUILD row too, and the handler refuses it. */
     @Test
     fun `a row that makes nothing is not offered the action`() = testApplication {
@@ -396,6 +416,19 @@ class GatherInsteadIT : WithUser() {
                 stmt.setString(1, state)
                 stmt.setInt(2, projectId)
             }
+        ).process(Unit)
+    }
+
+    private fun gathering(projectId: Int, itemId: String, name: String, required: Int, collected: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert("INSERT INTO resource_gathering (project_id, item_id, name, required) VALUES (?, ?, ?, ?)"),
+            parameterSetter = { stmt, _ ->
+                stmt.setInt(1, projectId); stmt.setString(2, itemId); stmt.setString(3, name); stmt.setInt(4, required)
+            }
+        ).process(Unit)
+        DatabaseSteps.update<Unit>(
+            SafeSQL.insert("INSERT INTO resource_gathering_progress (project_id, item_id, collected) VALUES (?, ?, ?)"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, projectId); stmt.setString(2, itemId); stmt.setInt(3, collected) }
         ).process(Unit)
     }
 
