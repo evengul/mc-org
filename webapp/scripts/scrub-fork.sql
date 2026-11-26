@@ -23,12 +23,22 @@ SELECT u.id FROM users u
 WHERE u.id = :keep_user_id
    OR u.id IN (SELECT p.user_id FROM minecraft_profiles p WHERE p.uuid = :'demo_uuid');
 
--- Other people's worlds. Decided by the owner's membership alone: the demo user is a member of
--- every world once seeded, so counting it would keep them all on a re-run.
+-- Other people's worlds: the owner is not in it, and someone else is, or nobody is (left behind by
+-- an account deleted before DeleteAccountStep removed such worlds). The owner's membership decides
+-- rather than the demo user's, which is seeded into every world and would keep them all on a
+-- re-run. A world with only the demo user in it is one the worktree made itself, a fixture, and
+-- survives a re-run.
 DELETE FROM world w
 WHERE NOT EXISTS (
     SELECT 1 FROM world_members m WHERE m.world_id = w.id AND m.user_id = :keep_user_id
-);
+)
+  AND (
+    EXISTS (
+        SELECT 1 FROM world_members m
+        WHERE m.world_id = w.id AND m.user_id NOT IN (SELECT id FROM keep_users)
+    )
+    OR NOT EXISTS (SELECT 1 FROM world_members m WHERE m.world_id = w.id)
+  );
 
 -- Everyone else's account. The foreign keys onto users take their profile, memberships, ideas,
 -- comments, drafts, invitations, notifications and mod tokens with them (DeleteAccountIT).
@@ -45,7 +55,8 @@ WHERE ct.carried_by_uuid IS NOT NULL
       WHERE p.user_id = :keep_user_id
         AND replace(lower(p.uuid), '-', '') = replace(ct.carried_by_uuid::text, '-', '')
   );
---   Notification text quotes other people ("X invited you").
+--   Notification text quotes other people ("X invited you"). Both deletes also take what the
+--   worktree made itself since the last run, which is the price of not telling the two apart.
 DELETE FROM notifications;
 --   Each delivery's payload carries the acting player's name. A fork never delivers them
 --   (MCO-592), so they are nothing but copies.

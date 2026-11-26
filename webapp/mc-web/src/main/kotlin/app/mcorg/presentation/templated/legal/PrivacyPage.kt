@@ -117,7 +117,7 @@ private fun FlowContent.theMod() = legalSection("The Seam Notebook mod") {
     }
 }
 
-// RolePlugins.kt (WorldParticipantPlugin, IdeaCommentAuthorPlugin), IdeaAccess.kt, DraftHandlers.kt,
+// RolePlugins.kt (WorldParticipantPlugin, IdeaCommentAuthorPlugin), IdeaAccess.kt, DraftHandlers.kt, PublishIdeaToHubPipeline.kt,
 // GetManagedUsersStep.kt, GetManagedWorldsStep.kt; event actorName (WorldMember display name, the mod's username).
 private fun FlowContent.whoSees() = legalSection("Who can see what") {
     ul {
@@ -133,8 +133,8 @@ private fun FlowContent.whoSees() = legalSection("Who can see what") {
         }
         li {
             +"Seam's operator can see the list of accounts (username, when they joined, when they last signed in) and the "
-            +"list of worlds (name, Minecraft version, how many members and projects), and can open, edit or remove ideas "
-            +"and comments, to keep the service running and deal with abuse. The operator is not a member of your worlds "
+            +"list of worlds (name, Minecraft version, how many members and projects), and can open, edit, publish or remove "
+            +"ideas and comments, to keep the service running and deal with abuse. The operator is not a member of your worlds "
             +"and cannot open them through Seam."
         }
     }
