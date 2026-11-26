@@ -27,7 +27,7 @@ import kotlinx.html.ul
  * cookie names are read from their constants; `DeleteAccountIT` pins what deleting an account
  * removes. The rest is prose, so the comment above each section names the code it describes.
  */
-const val PRIVACY_LAST_UPDATED = "12 November 2026"
+const val PRIVACY_LAST_UPDATED = "26 November 2026"
 
 /** Built once: the page is a constant, and `/privacy` is public and unthrottled. */
 fun privacyPage(): String = privacyHtml
@@ -94,7 +94,7 @@ private fun FlowContent.signIn() = legalSection("When you sign in") {
     }
 }
 
-// ApiDtos.kt (the mod's wire contract), V2_67_0 / V2_69_0 / V2_68_0, ContainerSweep.kt.
+// ApiDtos.kt (the mod's wire contract), V2_67_0 / V2_69_0 / V2_68_0 / V2_80_0, ContainerSweep.kt.
 private fun FlowContent.theMod() = legalSection("The Seam Notebook mod") {
     p { +"If you install the mod and link it to your account, it sends Seam:" }
     ul {
@@ -103,7 +103,13 @@ private fun FlowContent.theMod() = legalSection("The Seam Notebook mod") {
     }
     p {
         +"If a server runs the mod's reporter, the server reads the tagged containers and sends Seam how many of each item a project "
-        +"needs is in them. It sends nothing about untagged containers, other blocks, players' inventories or chat."
+        +"needs is in them. In singleplayer the mod does this itself."
+    }
+    p {
+        +"A tagged shulker box can be picked up and carried. To keep counting it, the reporter looks for it in the "
+        +"inventories of players on the server, and sends Seam what is in the box and the UUID and username of the player "
+        +"carrying it, whether or not they use Seam. The world's members see that name until the box is put down. "
+        +"Nothing else is sent about players' inventories, and nothing about untagged containers, other blocks or chat."
     }
     p {
         +"Linking the mod creates a token that is stored on your computer, in the game folder. Seam keeps only a fingerprint of it, "
@@ -111,7 +117,8 @@ private fun FlowContent.theMod() = legalSection("The Seam Notebook mod") {
     }
 }
 
-// RolePlugins.kt (WorldParticipantPlugin), IdeaAccess.kt, GetManagedUsersStep.kt.
+// RolePlugins.kt (WorldParticipantPlugin, IdeaCommentAuthorPlugin), IdeaAccess.kt, DraftHandlers.kt, PublishIdeaToHubPipeline.kt,
+// GetManagedUsersStep.kt, GetManagedWorldsStep.kt; event actorName (WorldMember display name, the mod's username).
 private fun FlowContent.whoSees() = legalSection("Who can see what") {
     ul {
         li { +"A world's projects, resources, tasks and tagged containers are visible to its members only." }
@@ -121,24 +128,26 @@ private fun FlowContent.whoSees() = legalSection("Who can see what") {
         }
         li {
             +"If a world admin connects a Discord channel, Seam posts updates about the world there: project and task names, "
-            +"resource progress, and the in-world name of whoever made the change. Anyone who can read that channel sees them."
+            +"resource progress, and the name of whoever made the change: their in-world name, or their Minecraft username "
+            +"for a change made from the mod. Anyone who can read that channel sees them."
         }
         li {
-            +"Seam's operator can see the list of accounts (username, when they joined, when they last signed in) "
-            +"and open unpublished ideas, to keep the service running and deal with abuse. The operator is not a member "
-            +"of your worlds and cannot open them through Seam."
+            +"Seam's operator can see the list of accounts (username, when they joined, when they last signed in) and the "
+            +"list of worlds (name, Minecraft version, how many members and projects), and can open, edit, publish or remove "
+            +"ideas and comments, to keep the service running and deal with abuse. The operator is not a member of your worlds "
+            +"and cannot open them through Seam."
         }
     }
     p { +"Nothing in Seam is visible to someone who is not signed in, apart from this page." }
 }
 
-// fly.toml (region arn), configuration.md, rate-limiting.md, WebhookDeliveryPoller.kt, Layout.kt (htmx).
+// fly.toml (region arn), Neon project region aws-eu-central-1, configuration.md, rate-limiting.md, WebhookDeliveryPoller.kt, Layout.kt (htmx).
 // seam.gg is the seam-landing repo on GitHub Pages, not proxied by Cloudflare (no cf-ray; server: GitHub.com).
 private fun FlowContent.whereItLives() = legalSection("Who else handles it") {
     p { +"Seam runs on a few services that hold or pass on data for it:" }
     ul {
         li { +"Fly.io runs the app, in Stockholm." }
-        li { +"Neon hosts the database." }
+        li { +"Neon hosts the database, in Frankfurt." }
         li { +"Cloudflare sits in front of app.seam.gg, and runs the small service that posts to Discord." }
         li { +"GitHub Pages serves seam.gg, the site that describes Seam." }
         li { +"Discord, only for a world whose admin has connected a channel." }
@@ -179,11 +188,13 @@ private fun FlowContent.logs() = legalSection("Logs") {
     }
 }
 
-// DeleteAccountPipeline.kt and every FK onto users; DeleteWorldPipeline.kt.
+// DeleteAccountPipeline.kt (incl. forgetAsCarrier) and every FK onto users; DeleteWorldPipeline.kt;
+// webapp/scripts/scrub-fork.sql, run on every worktree and preview copy of the database.
 private fun FlowContent.deleting() = legalSection("Deleting your data") {
     p {
         +"Deleting your account (Profile → Delete account) immediately removes your Minecraft profile, your memberships, your ideas "
-        +"and comments, your drafts, your mod links, and every world you are the only member of."
+        +"and comments, your drafts, your mod links, and every world you are the only member of. A shulker box you are "
+        +"carrying stops naming you."
     }
     p {
         +"A world that has other members is kept for them, with what you made in it: projects, tasks and tagged containers. "
@@ -195,9 +206,11 @@ private fun FlowContent.deleting() = legalSection("Deleting your data") {
         +"Deleting a world (world settings, owner only) removes everything in it: projects, tasks, tagged containers and their readings, "
         +"reporter tokens and Discord connections."
     }
-    // Neon's restore window on the project's plan, per the owner (MCO-662). A plan change changes this line.
+    // Neon's restore window: history_retention_seconds = 21600 on the free plan (`neonctl projects get`).
+    // A plan change changes this line.
     p {
-        +"The database can be restored to any point in the last 7 days, so deleted data is gone for good 7 days after you delete it."
+        +"The database can be restored to any point in the last 6 hours, so deleted data is gone for good 6 hours after "
+        +"you delete it. The copies of the database used to develop and test Seam hold only the operator's own data."
     }
 }
 

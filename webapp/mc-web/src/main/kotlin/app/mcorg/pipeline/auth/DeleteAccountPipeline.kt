@@ -57,6 +57,8 @@ internal val DeleteAccountStep = DatabaseSteps.transaction<Int, List<Int>> { con
             if (locked is Result.Failure) return locked
             val worlds = deleteWorldsLeftEmpty(connection).process(input)
             if (worlds is Result.Failure) return worlds
+            val carrier = forgetAsCarrier(connection).process(input)
+            if (carrier is Result.Failure) return carrier
             val user = deleteUser(connection).process(input)
             if (user is Result.Failure) return user
             return worlds
@@ -99,6 +101,29 @@ private fun deleteWorldsLeftEmpty(connection: TransactionConnection) = DatabaseS
         statement.setInt(3, Role.BANNED.level)
     },
     resultMapper = ::idList,
+    transactionConnection = connection,
+)
+
+/**
+ * Removes the account's name and UUID from every shulker box it is carrying. They come from the
+ * game server, not from the account, so no foreign key takes them with the user. The box stays in
+ * transit and keeps counting (V2_81_0).
+ *
+ * Compared without dashes, because production stores a profile's UUID undashed and the reporter
+ * sends it dashed. Run before the profile row is deleted, since it is what names the UUID.
+ */
+private fun forgetAsCarrier(connection: TransactionConnection) = DatabaseSteps.update<Int>(
+    sql = SafeSQL.update(
+        """
+        UPDATE container_tags ct
+        SET carried_by_uuid = NULL, carried_by_name = NULL
+        FROM minecraft_profiles p
+        WHERE p.user_id = ?
+          AND ct.carried_by_uuid IS NOT NULL
+          AND replace(ct.carried_by_uuid::text, '-', '') = replace(lower(p.uuid), '-', '')
+        """.trimIndent()
+    ),
+    parameterSetter = { statement, userId -> statement.setInt(1, userId) },
     transactionConnection = connection,
 )
 

@@ -108,6 +108,28 @@ class DeleteAccountIT : WithUser() {
     }
 
     @Test
+    fun `A box the account is carrying stops naming it, and keeps counting`() = testApplication {
+        installDeleteAccount()
+        val leaving = createExtraUser()
+        val staying = createExtraUser()
+        // Production stores a profile's UUID undashed; the reporter sends it dashed.
+        storeProfileUuidUndashed(leaving.id)
+        val worldId = createWorld(staying)
+        val projectId = createProject(worldId)
+        val theirs = tagCarriedBox(worldId, projectId, 1, leaving.uuid, leaving.minecraftUsername)
+        val someoneElses = tagCarriedBox(worldId, projectId, 2, staying.uuid, staying.minecraftUsername)
+
+        client.delete("/account") { addAuthCookie(this, leaving) }
+
+        assertEquals(Triple("in_transit", null, null), carrier(theirs), "the box still counts, with nobody named")
+        assertEquals(
+            Triple("in_transit", staying.uuid, staying.minecraftUsername),
+            carrier(someoneElses),
+            "another player's box is untouched",
+        )
+    }
+
+    @Test
     fun `Signed out, nothing is deleted`() = testApplication {
         installDeleteAccount()
         val owner = createExtraUser()
@@ -149,6 +171,52 @@ class DeleteAccountIT : WithUser() {
                 stmt.setInt(4, role.level)
             }
         ).process(Unit)
+    }
+
+    private fun storeProfileUuidUndashed(userId: Int) = runBlocking {
+        DatabaseSteps.update<Unit>(
+            SafeSQL.update("UPDATE minecraft_profiles SET uuid = replace(uuid, '-', '') WHERE user_id = ?"),
+            parameterSetter = { stmt, _ -> stmt.setInt(1, userId) }
+        ).process(Unit)
+    }
+
+    private fun createProject(worldId: Int): Int = runBlocking {
+        (DatabaseSteps.update<Unit>(
+            sql = SafeSQL.insert(
+                "INSERT INTO projects (name, world_id, description, type, stage, state, location_x, location_y, location_z, location_dimension) " +
+                    "VALUES (?, ?, '', 'BUILDING', 'RESOURCE_GATHERING', 'ACTIVE', 0, 0, 0, 'OVERWORLD') RETURNING id"
+            ),
+            parameterSetter = { st, _ ->
+                st.setString(1, "DeleteAccountIT ${System.nanoTime()}")
+                st.setInt(2, worldId)
+            }
+        ).process(Unit) as Result.Success).value
+    }
+
+    private fun tagCarriedBox(worldId: Int, projectId: Int, x: Int, carrierUuid: String, carrierName: String): Long = runBlocking {
+        (DatabaseSteps.query<Unit, Long>(
+            sql = SafeSQL.insert(
+                """
+                INSERT INTO container_tags
+                    (world_id, project_id, dimension, x, y, z, group_key, kind, state, carried_by_uuid, carried_by_name)
+                VALUES (?, ?, 'minecraft:overworld', ?, 64, 0, ?, 'shulker_box', 'in_transit', ?::uuid, ?)
+                RETURNING id
+                """.trimIndent()
+            ),
+            parameterSetter = { st, _ ->
+                st.setInt(1, worldId); st.setInt(2, projectId); st.setInt(3, x)
+                st.setString(4, "$x,64,0"); st.setString(5, carrierUuid); st.setString(6, carrierName)
+            },
+            resultMapper = { rs -> rs.next(); rs.getLong(1) }
+        ).process(Unit) as Result.Success).value
+    }
+
+    private fun carrier(tagId: Long): Triple<String, String?, String?> = runBlocking {
+        (DatabaseSteps.query<Long, Triple<String, String?, String?>>(
+            sql = SafeSQL.select("SELECT state, carried_by_uuid::text, carried_by_name FROM container_tags WHERE id = ?"),
+            parameterSetter = { st, id -> st.setLong(1, id) },
+            resultMapper = { rs -> rs.next(); Triple(rs.getString(1), rs.getString(2), rs.getString(3)) }
+        ).process(tagId) as Result.Success).value
     }
 
     private fun exists(sql: String, id: Int): Boolean = runBlocking {

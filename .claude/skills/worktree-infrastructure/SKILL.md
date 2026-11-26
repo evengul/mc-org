@@ -57,6 +57,12 @@ worktree, using the same Neon project (`sweet-dust-00910797`).
      Maven repository actually holds the `app.mcorg` jars (without this, the very
      next `-pl` command fails to resolve them — see MCO-510 below)
    - Runs `flyway:migrate` against the isolated branch
+   - **Deletes everyone else's data** (`webapp/scripts/scrub-fork.sql`): the fork keeps the
+     game data and the owner's (user 1's) account, worlds and ideas, nothing else. A fork
+     outlives production, so an account deleted there would otherwise live on in every
+     fork made before. The privacy page's deletion promise rests on this, and `dev.yml`
+     runs the same file on `dev/pr-<N>` preview branches. A fixture that needs a second
+     player has to create one
    - Seeds the local sign-in user (`DEMO_USER`) as an owner of every world, then
      **verifies the rows landed** and reports failures at the end rather than
      aborting partway
@@ -91,7 +97,7 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   `worktree-db.sh` falls back to the template so worktrees provision even before the
   main checkout's `local.env` exists.
 - **The local sign-in user is seeded, so you are not locked out of your own fork.**
-  The Neon branch inherits production's worlds and their `world_members`, but not
+  The Neon branch inherits the owner's worlds and their `world_members`, but not
   your local user — `DemoSignInPipeline` mints one on first sign-in, and a brand-new
   user belongs to no world, so every world reads "You don't have permission". The
   role check is cached per process too, so granting access afterwards needs a server
@@ -101,8 +107,9 @@ the real ingested Minecraft data instantly (no re-ingestion) and matches CI exac
   the script to pick up a world added later.
 - **The fork carries production's webhook subscriptions, and the app refuses to use
   them (MCO-592).** `webhook_subscriptions` and the `PENDING` rows of
-  `webhook_deliveries` come across as they are: real Discord channel callbacks, signed
-  with production's secret. Outside `ENV=PRODUCTION` the poller delivers only to a
+  `webhook_deliveries` come across (the scrub then deletes the deliveries, and with
+  them the subscriptions of every world that is not the owner's): real Discord channel
+  callbacks, signed with production's secret. Outside `ENV=PRODUCTION` the poller delivers only to a
   subscription under the configured `SEAM_DISCORD_URL` that also carries the configured
   `SEAM_WEBHOOK_SHARED_SECRET`. Anything else is marked `FAILED` without a request, and
   that includes every copied row. Nothing in the fork needs cleaning up. The one way
