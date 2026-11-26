@@ -1,8 +1,7 @@
-package app.mcorg.presentation.templated.dsl
+package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.pipeline.resources.MeasuredStock
-import app.mcorg.presentation.templated.dsl.pages.planResourceRow
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import kotlinx.html.table

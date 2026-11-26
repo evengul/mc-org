@@ -246,7 +246,7 @@ addTaskInline(worldId, projectId)           // inline "+ Add task" reveal-form
 `taskRowFragment(worldId, projectId, task)` returns a single `<li>` string for HTMX afterbegin swaps.
 Checkboxes `hx-patch` the complete endpoint; rows get `.task-row--done`.
 
-## Chest counts (`ChestCounts.kt`)
+## Chest counts (`pages/ChestCounts.kt`)
 
 ```kotlin
 driftChip(worldId, projectId, rowId, resourceId, itemName, current, measured)  // chests ≠ typed count

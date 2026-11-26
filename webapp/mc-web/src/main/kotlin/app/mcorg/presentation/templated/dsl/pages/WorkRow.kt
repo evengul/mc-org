@@ -20,8 +20,6 @@ import kotlinx.html.label
 import kotlinx.html.span
 import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
-import app.mcorg.presentation.templated.dsl.FOLLOWED_TITLE
-import app.mcorg.presentation.templated.dsl.followedLabel
 import app.mcorg.pipeline.resources.ProjectMeasurements
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets

@@ -58,8 +58,6 @@ suspend fun ApplicationCall.handleGetProject() {
 
     // There is one lens now (MCO-481), so `?lens=` is deliberately not read: a stale link
     // carrying ?lens=next or a saved "plan" preference is inert rather than an error.
-    // Nothing reads or writes `user_project_view_preference` any more (MCO-695); dropping the
-    // table is its own decision.
 
     val resources = GetAllResourceGatheringItemsStep.process(projectId).getOrNull() ?: emptyList()
 

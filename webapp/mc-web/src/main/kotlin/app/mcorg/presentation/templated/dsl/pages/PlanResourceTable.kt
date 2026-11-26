@@ -25,8 +25,6 @@ import kotlinx.html.span
 import kotlinx.html.stream.createHTML
 import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.pipeline.resources.ProjectMeasurements
-import app.mcorg.presentation.templated.dsl.driftChip
-import app.mcorg.presentation.templated.dsl.followedLabel
 import app.mcorg.pipeline.resources.FollowedChests
 import kotlinx.html.summary
 import kotlinx.html.table

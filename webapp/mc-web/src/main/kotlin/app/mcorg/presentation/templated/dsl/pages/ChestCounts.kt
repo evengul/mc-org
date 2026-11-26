@@ -1,4 +1,4 @@
-package app.mcorg.presentation.templated.dsl
+package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.pipeline.resources.CarriedBoxes
 import app.mcorg.pipeline.resources.FollowedChests

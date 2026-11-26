@@ -48,7 +48,6 @@ import app.mcorg.presentation.templated.dsl.appHeader
 import app.mcorg.presentation.templated.dsl.container
 import app.mcorg.presentation.templated.dsl.pageShell
 import app.mcorg.presentation.templated.dsl.progressBar
-import app.mcorg.presentation.templated.dsl.carriedText
 import app.mcorg.presentation.templated.dsl.projectLocationField
 import app.mcorg.presentation.templated.dsl.projectNameField
 import app.mcorg.presentation.templated.dsl.projectStateField

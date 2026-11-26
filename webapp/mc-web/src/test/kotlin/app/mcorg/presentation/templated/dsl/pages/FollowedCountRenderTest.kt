@@ -1,6 +1,7 @@
 package app.mcorg.presentation.templated.dsl.pages
 
 import app.mcorg.domain.model.minecraft.Item
+import app.mcorg.domain.model.resources.ResourceGatheringItem
 import app.mcorg.domain.model.resources.ResourceSource
 import app.mcorg.engine.model.SourceNode
 import app.mcorg.engine.plan.GatheringPlan
@@ -10,9 +11,11 @@ import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.pipeline.resources.ProjectMeasurements
-import app.mcorg.presentation.templated.dsl.followedLabel
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
+import kotlinx.html.table
+import kotlinx.html.tbody
+import kotlinx.html.tr
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -49,6 +52,21 @@ class FollowedCountRenderTest {
         val html = label(measured = null, followed = FollowedChests(4))
 
         assertContains(html, "in none of 4 chests")
+    }
+
+    @Test
+    fun `a followed plan table row offers no adopt, even when the typed count disagrees`() {
+        // Adopting writes `collected`, which the server refuses on a tracked project; and the
+        // count already is the chests' — there is nothing to adopt.
+        val item = ResourceGatheringItem(
+            id = 7, projectId = 2, itemId = iron, name = "Iron Ingot", required = 512, collected = 500,
+        )
+        val html = createHTML().table {
+            tbody { tr { planResourceRow(1, 2, item, stock, followed = FollowedChests(4)) } }
+        }
+
+        assertFalse(html.contains("/adopt"), html)
+        assertContains(html, "from 4 chests")
     }
 
     @Test
