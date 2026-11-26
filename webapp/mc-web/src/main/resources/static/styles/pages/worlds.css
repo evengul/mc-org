@@ -182,6 +182,12 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 @media (max-width: 768px) {
     .world-hero        { flex-direction: column; }
     .world-hero__aside { width: auto; border-left: none; border-top: 1px solid var(--border); }
+    /* Two icon buttons side by side are wider than a phone-width card, so they stack full-width
+       like the first-run actions; the pin-aligned indent goes too, since it only buys width. */
+    .world-hero__meta,
+    .world-hero__body  { margin-left: 0; }
+    .world-hero__cta   { flex-direction: column; align-items: stretch; width: 100%; }
+    .world-hero__cta .btn { width: 100%; }
     /* Roster rows reflow instead of overflowing: identity takes the first line,
        tally + time + arrow wrap onto the next so nothing is clipped off-canvas. */
     .world-row__link     { flex-wrap: wrap; column-gap: var(--space-3); row-gap: var(--space-1); }
