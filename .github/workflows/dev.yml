@@ -151,11 +151,12 @@ jobs:
           DB_USER: ${{ env.DB_USERNAME }}
           DB_PASSWORD: ${{ steps.create-neon-branch.outputs.password }}
       # The branch is a copy of production, served on a public URL: keep only the owner's data
-      # (scrub-fork.sql says why). After the migrations, which the scrub depends on.
+      # (scrub-fork.sql says why). After the migrations, which the scrub depends on. The path is
+      # relative to ./webapp, this job's default working directory.
       - name: Remove everyone else's data from the preview database
         run: |
           psql "postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/mcorg?sslmode=require" \
-            -v ON_ERROR_STOP=1 -v keep_user_id=1 -v demo_uuid= -f webapp/scripts/scrub-fork.sql
+            -v ON_ERROR_STOP=1 -v keep_user_id=1 -v demo_uuid= -f scripts/scrub-fork.sql
         env:
           DB_HOST: ${{ steps.create-neon-branch.outputs.db_host }}
           DB_USER: ${{ env.DB_USERNAME }}
