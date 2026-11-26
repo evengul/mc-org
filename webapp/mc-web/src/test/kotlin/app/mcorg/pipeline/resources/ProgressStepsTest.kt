@@ -9,8 +9,6 @@ import app.mcorg.pipeline.resources.commonsteps.GetProgressForProjectStep
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByItemStep
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
-import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaInput
-import app.mcorg.pipeline.resources.commonsteps.UpsertProgressDeltaStep
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressStep
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
@@ -29,7 +27,6 @@ import kotlin.test.assertTrue
 /**
  * Integration tests for progress persistence steps:
  * - [UpsertProgressStep]: set absolute value, clamping, upsert idempotency
- * - [UpsertProgressDeltaStep]: increment, decrement, clamping
  * - [GetProgressForProjectStep]: load all progress for a project
  * - Round-trip: progress is reflected via GetAllResourceGatheringItemsStep
  */
@@ -103,67 +100,6 @@ class ProgressStepsTest : WithUser() {
         val progress = runBlocking { GetProgressForProjectStep.process(pid) }
         assertIs<Result.Success<Map<String, Int>>>(progress)
         assertEquals(15, progress.value["minecraft:emerald"], "second upsert should overwrite first")
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // UpsertProgressDeltaStep — delta
-    // ─────────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `UpsertProgressDeltaStep - increments from zero`() {
-        val pid = createProject(worldId)
-        val rgId = createResourceGathering(pid, "minecraft:oak_log", required = 64)
-
-        runBlocking { UpsertProgressDeltaStep.process(UpsertProgressDeltaInput(rgId, 10)) }
-
-        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
-        assertIs<Result.Success<Map<String, Int>>>(progress)
-        assertEquals(10, progress.value["minecraft:oak_log"])
-    }
-
-    @Test
-    fun `UpsertProgressDeltaStep - accumulates multiple increments`() {
-        val pid = createProject(worldId)
-        val rgId = createResourceGathering(pid, "minecraft:stone", required = 100)
-
-        runBlocking {
-            UpsertProgressDeltaStep.process(UpsertProgressDeltaInput(rgId, 30))
-            UpsertProgressDeltaStep.process(UpsertProgressDeltaInput(rgId, 25))
-        }
-
-        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
-        assertIs<Result.Success<Map<String, Int>>>(progress)
-        assertEquals(55, progress.value["minecraft:stone"])
-    }
-
-    @Test
-    fun `UpsertProgressDeltaStep - decrement clamps to 0`() {
-        val pid = createProject(worldId)
-        val rgId = createResourceGathering(pid, "minecraft:gravel", required = 50)
-
-        runBlocking {
-            UpsertProgressStep.process(UpsertProgressByRgIdInput(rgId, 5))
-            UpsertProgressDeltaStep.process(UpsertProgressDeltaInput(rgId, -100))
-        }
-
-        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
-        assertIs<Result.Success<Map<String, Int>>>(progress)
-        assertEquals(0, progress.value.getOrDefault("minecraft:gravel", 0))
-    }
-
-    @Test
-    fun `UpsertProgressDeltaStep - increment clamps to required`() {
-        val pid = createProject(worldId)
-        val rgId = createResourceGathering(pid, "minecraft:cobblestone", required = 20)
-
-        runBlocking {
-            UpsertProgressStep.process(UpsertProgressByRgIdInput(rgId, 18))
-            UpsertProgressDeltaStep.process(UpsertProgressDeltaInput(rgId, 10))
-        }
-
-        val progress = runBlocking { GetProgressForProjectStep.process(pid) }
-        assertIs<Result.Success<Map<String, Int>>>(progress)
-        assertEquals(20, progress.value["minecraft:cobblestone"], "should be clamped to required=20")
     }
 
     // ─────────────────────────────────────────────────────────────────────────

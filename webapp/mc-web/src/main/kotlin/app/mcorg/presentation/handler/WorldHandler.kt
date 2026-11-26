@@ -2,7 +2,6 @@ package app.mcorg.presentation.handler
 
 import app.mcorg.pipeline.invitation.commonsteps.GetUserInvitationsStep
 import app.mcorg.pipeline.minecraftfiles.GetSupportedVersionsStep
-import app.mcorg.pipeline.project.viewpreference.handleSetViewPreference
 import app.mcorg.pipeline.project.handleCreateProject
 import app.mcorg.pipeline.project.handleCreateProjectFromSchematic
 import app.mcorg.pipeline.project.handleReviewSchematic
@@ -47,8 +46,6 @@ import app.mcorg.pipeline.resources.handleSetResourceSource
 import app.mcorg.pipeline.resources.handleSwapResourceGatheringVariant
 import app.mcorg.pipeline.resources.handleToggleResourceGatheringIgnored
 import app.mcorg.pipeline.resources.handleUpdateResourceRequiredAmount
-import app.mcorg.pipeline.resources.handleSetCollectedValue
-import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.task.handleCreateActionTask
 import app.mcorg.pipeline.task.handleDeleteActionTask
@@ -109,7 +106,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.method
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
-import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 
 class WorldHandler {
@@ -136,7 +132,7 @@ class WorldHandler {
                 // World-membership gate (MCO-247): WorldParamPlugin above only checks the
                 // world *exists*, not that the caller belongs to it — closing that IDOR gap
                 // for the entire /{worldId} subtree (projects, resources, tasks, plan, meta,
-                // field-log, view-preference). Must run before UpdateActiveWorldPlugin so a
+                // field-log). Must run before UpdateActiveWorldPlugin so a
                 // non-member's session never gets its activeWorldId cookie pointed at a world
                 // they can't access. /settings below is already WorldAdmin/Owner-gated; this
                 // member check is just a harmless, correct precondition for it too.
@@ -314,10 +310,6 @@ class WorldHandler {
                                     post("/adopt") {
                                         call.handleAdoptMeasurement()
                                     }
-                                    route("/edit-done") {
-                                        install(CountsFollowChestsPlugin)
-                                        patch { call.handleUpdateRequirementProgress() }
-                                    }
                                     patch("/required") {
                                         call.handleUpdateResourceRequiredAmount()
                                     }
@@ -326,10 +318,6 @@ class WorldHandler {
                                     }
                                     patch("/variant") {
                                         call.handleSwapResourceGatheringVariant()
-                                    }
-                                    route("/collected") {
-                                        install(CountsFollowChestsPlugin)
-                                        put { call.handleSetCollectedValue() }
                                     }
                                     get("/detail-panel") {
                                         call.handleGetResourceDetailPanel()
@@ -359,9 +347,6 @@ class WorldHandler {
                                     call.handleDeleteActionTask()
                                 }
                             }
-                        }
-                        post("/view-preference") {
-                            call.handleSetViewPreference()
                         }
                         route("/plan") {
                             route("/progress") {

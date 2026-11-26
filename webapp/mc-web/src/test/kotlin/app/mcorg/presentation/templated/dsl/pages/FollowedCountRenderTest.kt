@@ -10,7 +10,7 @@ import app.mcorg.engine.plan.PlanTarget
 import app.mcorg.pipeline.resources.FollowedChests
 import app.mcorg.pipeline.resources.MeasuredStock
 import app.mcorg.pipeline.resources.ProjectMeasurements
-import app.mcorg.presentation.templated.dsl.resourceRow
+import app.mcorg.presentation.templated.dsl.followedLabel
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 import java.time.Instant
@@ -31,19 +31,14 @@ class FollowedCountRenderTest {
     private val stock = MeasuredStock(measured = 40, containerCount = 4, oldestSeenAt = Instant.now())
     private val followed = ProjectMeasurements(mapOf(iron to stock), FollowedChests(containerCount = 4))
 
-    private fun fieldLogRow(measured: MeasuredStock?, followed: FollowedChests?) = createHTML().div {
-        resourceRow(
-            id = 1, worldId = 1, projectId = 2, itemName = "Iron Ingot",
-            current = 40, required = 512, measured = measured, followed = followed,
-        )
+    private fun label(measured: MeasuredStock?, followed: FollowedChests) = createHTML().div {
+        followedLabel(measured, followed)
     }
 
     @Test
-    fun `a followed field log row has no counters and no adopt, and says where the count is from`() {
-        val html = fieldLogRow(stock, FollowedChests(4))
+    fun `a followed count says where it is from, and where to change that`() {
+        val html = label(stock, FollowedChests(4))
 
-        assertFalse(html.contains("resource-row__counter-btn"), html)
-        assertFalse(html.contains("/adopt"), html)
         assertContains(html, "from 4 chests")
         // Says why it cannot be typed, and where to change that — not only that it cannot.
         assertContains(html, "Chest Counts")
@@ -51,16 +46,9 @@ class FollowedCountRenderTest {
 
     @Test
     fun `an item in none of the chests says so rather than showing a bare zero`() {
-        val html = fieldLogRow(measured = null, followed = FollowedChests(4))
+        val html = label(measured = null, followed = FollowedChests(4))
 
         assertContains(html, "in none of 4 chests")
-    }
-
-    @Test
-    fun `an untracked row keeps its counters`() {
-        val html = fieldLogRow(stock, followed = null)
-
-        assertContains(html, "resource-row__counter-btn")
     }
 
     @Test

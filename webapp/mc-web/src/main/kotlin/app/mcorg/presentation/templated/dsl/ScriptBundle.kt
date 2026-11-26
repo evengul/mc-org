@@ -30,7 +30,6 @@ object ScriptBundle : AssetBundle(dir = "/static/scripts", extension = "js") {
         "np-menu",
         "plan-view",
         "resource-panel",
-        "resource-search",
         "worlds",
     )
 

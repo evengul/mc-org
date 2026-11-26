@@ -8,15 +8,12 @@ import app.mcorg.pipeline.project.handleGetDetailContent
 import app.mcorg.pipeline.project.handleGetProject
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressByRgIdInput
 import app.mcorg.pipeline.resources.commonsteps.UpsertProgressStep
-import app.mcorg.pipeline.resources.handleSetCollectedValue
-import app.mcorg.pipeline.resources.handleUpdateRequirementProgress
 import app.mcorg.pipeline.task.handleCompleteActionTask
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.presentation.plugins.ActionTaskParamPlugin
 import app.mcorg.presentation.plugins.AuthPlugin
 import app.mcorg.presentation.plugins.ProjectParamPlugin
-import app.mcorg.presentation.plugins.ResourceGatheringIdParamPlugin
 import app.mcorg.presentation.plugins.UpdateActiveWorldPlugin
 import app.mcorg.presentation.plugins.WorldParamPlugin
 import app.mcorg.presentation.plugins.WorldParticipantPlugin
@@ -24,15 +21,10 @@ import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
-import io.ktor.client.request.put
-import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
-import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
@@ -130,87 +122,6 @@ class ProjectDetailIT : WithUser() {
 
         // Reset for other tests
         setViewPreference(user.id, projectId, "execute")
-    }
-
-    // -------------------------------------------------------------------------
-    // Test 3: edit-done increments collected value
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `edit-done increments collected value`() = testApplication {
-        setupRoutes()
-
-        val response = client.patch(
-            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/edit-done"
-        ) {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("amount=1")
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "resource-row-$resourceGatheringId")
-    }
-
-    // -------------------------------------------------------------------------
-    // Test 4: edit-done with amount=0 returns 400
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `edit-done with amount=0 returns validation error`() = testApplication {
-        setupRoutes()
-
-        val response = client.patch(
-            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/edit-done"
-        ) {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("amount=0")
-        }
-
-        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
-    }
-
-    // -------------------------------------------------------------------------
-    // Test 5: edit-done decrement is clamped to 0
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `edit-done decrement is clamped to 0`() = testApplication {
-        setupRoutes()
-
-        val response = client.patch(
-            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/edit-done"
-        ) {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("amount=-100")
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "resource-row-$resourceGatheringId")
-        assertEquals(0, getCollected(resourceGatheringId))
-    }
-
-    // -------------------------------------------------------------------------
-    // Test 6: collected PUT sets absolute value clamped to required
-    // -------------------------------------------------------------------------
-
-    @Test
-    fun `collected PUT sets absolute value clamped to required`() = testApplication {
-        setupRoutes()
-
-        val response = client.put(
-            "/worlds/$worldId/projects/$projectId/resources/gathering/$resourceGatheringId/collected"
-        ) {
-            addAuthCookie(this)
-            contentType(ContentType.Application.FormUrlEncoded)
-            setBody("value=999")
-        }
-
-        assertEquals(HttpStatusCode.OK, response.status)
-        assertContains(response.bodyAsText(), "resource-row-$resourceGatheringId")
-        assertEquals(10, getCollected(resourceGatheringId))
     }
 
     // -------------------------------------------------------------------------
@@ -351,11 +262,6 @@ class ProjectDetailIT : WithUser() {
                     install(ProjectParamPlugin)
                     get { call.handleGetProject() }
                     get("/detail-content") { call.handleGetDetailContent() }
-                    route("/resources/gathering/{resourceGatheringId}") {
-                        install(ResourceGatheringIdParamPlugin)
-                        patch("/edit-done") { call.handleUpdateRequirementProgress() }
-                        put("/collected") { call.handleSetCollectedValue() }
-                    }
                     route("/tasks/{taskId}") {
                         install(ActionTaskParamPlugin)
                         patch("/complete") { call.handleCompleteActionTask() }
