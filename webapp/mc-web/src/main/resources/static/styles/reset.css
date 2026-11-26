@@ -35,3 +35,13 @@ p, figcaption, label {
 p, h1, h2, h3, h4, h5, h6 {
     overflow-wrap: break-word;
 }
+
+/* A link with no class of its own would otherwise render in the browser's default blue.
+   Classed links (buttons, cards, nav) are left to their component's rule. */
+a:not([class]) {
+    color: var(--accent);
+}
+
+a:not([class]):hover {
+    color: var(--accent-hover);
+}
