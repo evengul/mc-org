@@ -211,16 +211,19 @@ internal suspend fun graphViewOf(roadmap: Roadmap): RoadmapGraphView {
         unchained = isolated
             .filter { !it.state.isTerminal }
             .map {
+                val progress = gathered[it.projectId]?.takeIf { g -> g.required > 0 }
+                // Green when the measure the note shows is complete — a green "0 / 64 gathered"
+                // because every task happened to be ticked would contradict itself.
+                val complete = if (progress != null) {
+                    progress.collected >= progress.required
+                } else {
+                    it.tasksTotal > 0 && it.tasksCompleted >= it.tasksTotal
+                }
                 RoadmapGraphView.UnchainedRow(
                     projectId = it.projectId,
                     name = it.projectName,
-                    note = gathered[it.projectId]?.takeIf { g -> g.required > 0 }?.let(::gatheredText)
-                        ?: taskNoteFor(it),
-                    tone = if (it.tasksTotal > 0 && it.tasksCompleted >= it.tasksTotal) {
-                        RoadmapGraphLayout.Tone.GREEN
-                    } else {
-                        RoadmapGraphLayout.Tone.MUTED
-                    },
+                    note = progress?.let(::gatheredText) ?: taskNoteFor(it),
+                    tone = if (complete) RoadmapGraphLayout.Tone.GREEN else RoadmapGraphLayout.Tone.MUTED,
                 )
             },
         terminals = drawn,

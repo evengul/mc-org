@@ -378,12 +378,20 @@ class WorldRoadmapIT : WithUser() {
             setCollected(project, "minecraft:hopper", 50)
             setCollected(project, "minecraft:chest", 10)
             ignore(project, "minecraft:comparator")
+            // Its only task is done, which alone used to make the chip green.
+            runBlocking {
+                DatabaseSteps.update<Unit>(
+                    SafeSQL.insert("INSERT INTO action_task (project_id, name, completed) VALUES (?, 'Lay floor', TRUE)"),
+                    parameterSetter = { stmt, _ -> stmt.setInt(1, project) }
+                ).process(Unit)
+            }
 
             val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
 
             val chips = body.substringAfter("NOT IN ANY CHAIN").substringBefore("rmg-section rmg-")
             // 32 of 32 hoppers (50 collected counts as 32), 10 of 32 chests, and no comparators.
             assertContains(chips, "42 / 64 gathered")
+            assertFalse(chips.contains("rmg-tone-green"), "not done, so not green")
 
             deleteWorld(worldId)
         }
