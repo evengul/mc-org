@@ -215,23 +215,6 @@ IBM Plex Mono, `--text-ui` size, 8px vertical / 16px horizontal padding, **6px b
 - Transition: 200ms ease on width change
 - CSS: `.progress`, `.progress__fill`, `.progress__fill--complete`
 
-### Resource Row (Execute View)
-
-Most critical mobile component.
-
-```
-[Item name]          [████████░░]    [32 / 64]
-[source label]       [-64][-1][ 32 ][+1][+64][+1782]
-```
-
-- Minimum row height on mobile: **64px**
-- Counter buttons: IBM Plex Mono, **36px minimum tap target** on mobile, 28px on desktop
-- Progress bar: 4px tall, full width
-- Source label: `--text-muted`, `--text-xs`, IBM Plex Mono
-- Completed row: item name → `--text-disabled` + strikethrough, progress bar full green, buttons hidden/disabled
-- Increment tiers: `+1`, `+64`, `+1782`. Matching decrements. Tapping count opens free-entry field.
-- CSS: `.resource-list`, `.resource-row`, `.resource-row--complete`, `.resource-row__name`, `.resource-row__source`, `.resource-row__count`, `.counter-btns`, `.counter-btn`, `.counter-btn--pos`, `.counter-btn--neg`
-
 ### Resource Table (Plan View)
 
 Dense data table.
