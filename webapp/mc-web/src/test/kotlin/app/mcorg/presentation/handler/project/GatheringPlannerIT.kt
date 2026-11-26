@@ -119,15 +119,15 @@ class GatheringPlannerIT : WithUser() {
 
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
-        // Segmented toggle with both resolutions
         assertContains(body, "list-resolution")
         assertContains(body, "What I need")
-        assertContains(body, "How to make it")
         // Both resolution view containers are present (toggled client-side)
         assertContains(body, "id=\"list-targets-view\"")
         assertContains(body, "id=\"list-breakdown-view\"")
-        // Breakdown is hidden by default (targets is the default resolution)
-        assertContains(body, "list-resolution-view list-resolution-view--hidden")
+        // The work list is the default, so the server hides the targets view and not the other way
+        // round — the reverse made the page open on the wrong list until plan-view.js ran.
+        assertContains(body, "class=\"list-resolution-view list-resolution-view--hidden\" id=\"list-targets-view\"")
+        assertContains(body, "class=\"list-resolution-view\" id=\"list-breakdown-view\"")
     }
 
     @Test

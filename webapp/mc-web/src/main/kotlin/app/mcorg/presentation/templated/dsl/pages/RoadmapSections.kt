@@ -34,14 +34,37 @@ import kotlinx.html.strong
  * typed in. Asserting an order is `project_dependencies`, and that is MCO-302's editor.
  */
 internal fun FlowContent.cycleSection(roadmap: Roadmap) {
-    if (roadmap.cycles.isEmpty() && roadmap.resolvedOrders.isEmpty()) return
+    // Only an open question earns the space above the card. A loop somebody already answered is a
+    // hand-made ordering like any other, and lives beside them — see [settledLoopsSection].
+    if (roadmap.cycles.isEmpty()) return
 
     div("roadmap-cycles") {
         id = "roadmap-cycles"
         span("section-label") { +"Circular supply" }
 
         roadmap.cycles.forEach { cycle -> cyclePrompt(roadmap.worldId, cycle) }
-        roadmap.resolvedOrders.forEach { order -> resolvedOrderRow(roadmap.worldId, order) }
+    }
+}
+
+/**
+ * The loops somebody has settled, one line each, so they can still be undone.
+ *
+ * They used to share the box above the card with the open questions, so a single answer kept that
+ * box on every load of the page for good. An answer is an ordering, not a question: it sits with
+ * the page's other hand-made orderings and costs the top of the page nothing.
+ */
+internal fun FlowContent.settledLoopsSection(roadmap: Roadmap, canEdit: Boolean) {
+    val orders = roadmap.resolvedOrders
+    if (orders.isEmpty()) return
+    div("rmg-section rmg-gathering") {
+        id = "roadmap-settled-loops"
+        div("rmg-gathering__head") {
+            sectionLabel { +"SETTLED LOOPS · ${orders.size}" }
+            span("rmg-note") { +"farms that supply each other, in the order you chose" }
+        }
+        div("rmg-chips") {
+            orders.forEach { order -> resolvedOrderRow(roadmap.worldId, order, canEdit) }
+        }
     }
 }
 
@@ -79,24 +102,26 @@ private fun FlowContent.cyclePrompt(worldId: Int, cycle: RoadmapCycle) {
     }
 }
 
-/** A loop somebody has already settled — visible so it can be changed or undone. */
-private fun FlowContent.resolvedOrderRow(worldId: Int, order: RoadmapCycleOrder) {
-    div("roadmap-cycles__resolved") {
-        p("roadmap-cycles__resolved-text") {
+/** A loop somebody has already settled: which farm comes first, and the undo. */
+private fun FlowContent.resolvedOrderRow(worldId: Int, order: RoadmapCycleOrder, canEdit: Boolean) {
+    div("rmg-gathering__item") {
+        span("rmg-chip__name") {
             +"You put "
             strong { +order.firstProjectName }
             +" before "
             strong { +order.waitingProjectName }
-            +"."
         }
-        form(classes = "roadmap-cycles__resolved-undo") {
-            method = FormMethod.post
-            action = "/worlds/$worldId/roadmap/cycle-order/clear"
-            hiddenInput { name = "first"; value = order.firstProjectId.toString() }
-            hiddenInput { name = "waiting"; value = order.waitingProjectId.toString() }
-            button(classes = "btn btn--sm btn--ghost") {
-                type = ButtonType.submit
-                +"Undo"
+        // The route is admin-only, like `gather instead`; a button that can only refuse is noise.
+        if (canEdit) {
+            form(classes = "rmg-gathering__undo") {
+                method = FormMethod.post
+                action = "/worlds/$worldId/roadmap/cycle-order/clear"
+                hiddenInput { name = "first"; value = order.firstProjectId.toString() }
+                hiddenInput { name = "waiting"; value = order.waitingProjectId.toString() }
+                button(classes = "btn btn--sm btn--ghost") {
+                    type = ButtonType.submit
+                    +"Undo"
+                }
             }
         }
     }

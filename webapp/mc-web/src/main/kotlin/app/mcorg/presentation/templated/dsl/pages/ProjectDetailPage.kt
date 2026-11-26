@@ -411,11 +411,11 @@ private fun FlowContent.nextUpWidget(
 
 /**
  * The List lens. Renders two resolutions of the same plan behind a client-side toggle
- * (MCO-226): "What I need" (the targets the user defined) and "How to make it" (the engine's
- * full dependency breakdown). Both bodies are rendered; the toggle shows one at a time and its
- * choice is persisted in sessionStorage so it survives #project-content re-renders (e.g. the
- * inline variant pick, which re-renders the whole list via origin=list). The Tasks section
- * sits below both and is always visible.
+ * (MCO-226): the work list (the engine's full breakdown — what you actually work from) and
+ * "What I need" (the targets the user defined, where demand is added and edited). Both bodies
+ * are rendered; the toggle shows one at a time and its choice is persisted in sessionStorage so
+ * it survives #project-content re-renders (e.g. the inline variant pick, which re-renders the
+ * whole list via origin=list). The Tasks section sits below both and is always visible.
  */
 private fun FlowContent.listLensContent(
     project: Project,
@@ -438,11 +438,12 @@ private fun FlowContent.listLensContent(
     /** Whether a farm can make an item in this world's version (MCO-565). Required: a default here is how a caller would bring tuff back. */
     isRenewable: (String) -> Boolean,
 ) {
-    // Resolution toggle (client-side; default "targets" applied by plan-view.js).
+    // Resolution toggle (client-side; plan-view.js applies the persisted choice, "breakdown" by default).
     listResolutionToggle()
 
     // "What I need" — the defined targets, with the add/upload definition controls.
-    div("list-resolution-view") {
+    // Hidden until asked for; the server renders the default so the page does not flash.
+    div("list-resolution-view list-resolution-view--hidden") {
         id = "list-targets-view"
         attributes["data-resolution-view"] = "targets"
 
@@ -533,10 +534,9 @@ private fun FlowContent.listLensContent(
         }
     }
 
-    // "How to make it" — the engine's full dependency breakdown (grouped activities).
-    // Hidden by default (targets is the default resolution); plan-view.js reveals it when
-    // the persisted choice is "breakdown", avoiding a both-views flash before JS runs.
-    div("list-resolution-view list-resolution-view--hidden") {
+    // The work list — the engine's full dependency breakdown (grouped activities). The default
+    // since MCO-481: the plan is what the page is for.
+    div("list-resolution-view") {
         id = "list-breakdown-view"
         attributes["data-resolution-view"] = "breakdown"
 
@@ -582,28 +582,26 @@ private fun FlowContent.listLensContent(
 }
 
 /**
- * Segmented toggle between the two List-lens resolutions (MCO-226). Plain buttons wired by
- * plan-view.js (no server round-trip — both views are already in the DOM). The active state
- * and which view is shown are driven client-side and persisted per project in sessionStorage,
- * so the choice survives #project-content re-renders. "What I need" is the default.
+ * The door between the two List-lens resolutions (MCO-226). Plain buttons wired by
+ * plan-view.js (no server round-trip — both views are already in the DOM); the choice is
+ * persisted per project in sessionStorage, so it survives #project-content re-renders.
+ *
+ * Not a pair of tabs any more. Two equal tabs said the lists were equal, and they are not: the
+ * work list is what you work from, and "What I need" is where you go to change what it is made
+ * of. So the toggle is one quiet button, offering whichever view is not showing.
  */
 private fun FlowContent.listResolutionToggle() {
     div("list-resolution") {
-        attributes["role"] = "tablist"
-        attributes["aria-label"] = "Plan resolution"
-        button(classes = "list-resolution__option list-resolution__option--active") {
+        button(classes = "btn btn--ghost btn--sm list-resolution__option") {
             type = ButtonType.button
             attributes["data-resolution"] = "targets"
-            attributes["role"] = "tab"
-            attributes["aria-selected"] = "true"
-            +"What I need"
+            +"What I need · edit the list"
         }
-        button(classes = "list-resolution__option") {
+        button(classes = "btn btn--ghost btn--sm list-resolution__option") {
             type = ButtonType.button
             attributes["data-resolution"] = "breakdown"
-            attributes["role"] = "tab"
-            attributes["aria-selected"] = "false"
-            +"How to make it"
+            hidden = true
+            +"← Back to the work list"
         }
     }
 }
@@ -640,7 +638,14 @@ fun FlowContent.gatheringPlanSections(
         div("plan-empty-state") {
             id = "plan-empty-state"
             p("plan-empty-state__text") { +"No gathering plan yet." }
-            p("plan-empty-state__hint") { +"Add resources above to start planning." }
+            p("plan-empty-state__hint") { +"Add what the build needs, and the plan is worked out from it." }
+            // The work list opens first and has no add controls of its own, so an empty one is the
+            // place a new project starts from: this is the same door as the toggle's (plan-view.js).
+            button(classes = "btn btn--secondary btn--sm list-resolution__option") {
+                type = ButtonType.button
+                attributes["data-resolution"] = "targets"
+                +"Add resources"
+            }
         }
         return
     }

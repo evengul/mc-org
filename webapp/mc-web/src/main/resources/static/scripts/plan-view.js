@@ -310,10 +310,9 @@
             var active = view.dataset.resolutionView === value;
             view.classList.toggle('list-resolution-view--hidden', !active);
         });
+        // Each button offers the view that is not showing, so the one naming the current view hides.
         document.querySelectorAll('.list-resolution__option').forEach(function (btn) {
-            var active = btn.dataset.resolution === value;
-            btn.classList.toggle('list-resolution__option--active', active);
-            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            btn.hidden = btn.dataset.resolution === value;
         });
     }
 
@@ -323,10 +322,11 @@
         // Re-apply the persisted choice on every settle (the toggle re-renders with
         // #project-content), but only bind click handlers once.
         applyResolution(readResolution());
-        if (toggle.dataset.initialized) return;
-        toggle.dataset.initialized = 'true';
+        if (document.body.dataset.resolutionToggleBound) return;
+        document.body.dataset.resolutionToggleBound = 'true';
 
-        toggle.addEventListener('click', function (e) {
+        // Delegated from the document: the empty work list carries a door into "What I need" too.
+        document.addEventListener('click', function (e) {
             var btn = e.target.closest('.list-resolution__option');
             if (!btn) return;
             var value = btn.dataset.resolution;

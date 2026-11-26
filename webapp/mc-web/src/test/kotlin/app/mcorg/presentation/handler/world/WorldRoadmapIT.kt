@@ -362,6 +362,29 @@ class WorldRoadmapIT : WithUser() {
         deleteWorld(worldId)
     }
 
+    @Test
+    fun `opening the roadmap records that the world was opened`() = testApplication {
+        // The Worlds page sorts and captions by `last_opened_at` ("opened 2h ago"). Only the Projects
+        // tab wrote it, so once a world opened on its roadmap (MCO-474) the line stopped moving.
+        setupRoutes()
+        val worldId = createWorld("Opened World")
+        assertNull(lastOpenedAt(worldId), "a world nobody has opened yet")
+
+        client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }
+
+        assertNotNull(lastOpenedAt(worldId))
+        deleteWorld(worldId)
+    }
+
+    private fun lastOpenedAt(worldId: Int): java.time.Instant? = runBlocking {
+        val result = DatabaseSteps.query<Int, java.time.Instant?>(
+            SafeSQL.select("SELECT last_opened_at FROM world_members WHERE world_id = ? AND user_id = ?"),
+            parameterSetter = { stmt, id -> stmt.setInt(1, id); stmt.setInt(2, user.id) },
+            resultMapper = { rs -> if (rs.next()) rs.getTimestamp(1)?.toInstant() else null },
+        ).process(worldId)
+        (result as Result.Success).value
+    }
+
     /** The world's one empty state (`worldEmptyState`): the same three doors the project list offers. */
     private fun assertEmptyWorldState(body: String) {
         assertContains(body, "projects-empty-state")

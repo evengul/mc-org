@@ -176,6 +176,7 @@ fun roadmapGraphPage(
                         projectCount = view.roadmap.nodes.size,
                         canEdit = isWorldAdmin,
                     )
+                    settledLoopsSection(view.roadmap, canEdit = isWorldAdmin)
                     unchainedSection(view)
                     producingSection(view)
                     stoppedSection(view)

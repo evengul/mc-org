@@ -8,6 +8,7 @@ import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.resources.GetUnfinishedProductionsStep
 import app.mcorg.pipeline.resources.ScenarioDemand
 import app.mcorg.pipeline.world.ValidateWorldMemberRole
+import app.mcorg.pipeline.world.commonsteps.UpdateWorldLastOpenedStep
 import app.mcorg.pipeline.world.roadmap.ordering.GetManualOrderingsStep
 import app.mcorg.presentation.handler.handlePipeline
 import app.mcorg.presentation.templated.dsl.pages.RoadmapGraphView
@@ -33,6 +34,9 @@ import io.ktor.server.application.ApplicationCall
 suspend fun ApplicationCall.handleGetWorldRoadmap() {
     val user = getUser()
     val worldId = getWorldId()
+    // Best-effort, as on the Projects tab: the Worlds page's "opened Xh ago" and its sort read
+    // this. The roadmap is what a world opens to (MCO-474), so it has to be recorded here too.
+    UpdateWorldLastOpenedStep(user.id).process(worldId)
     val isAdmin = ValidateWorldMemberRole<Unit>(user, Role.ADMIN, worldId).process(Unit) is Result.Success
 
     handlePipeline(

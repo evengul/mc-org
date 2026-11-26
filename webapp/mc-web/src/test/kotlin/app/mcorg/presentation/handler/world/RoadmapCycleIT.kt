@@ -8,6 +8,15 @@ import app.mcorg.pipeline.SafeSQL
 import app.mcorg.pipeline.world.CreateWorldInput
 import app.mcorg.pipeline.world.CreateWorldStep
 import app.mcorg.pipeline.world.roadmap.GetWorldRoadMapStep
+import app.mcorg.pipeline.world.roadmap.handleGetWorldRoadmap
+import app.mcorg.presentation.plugins.AuthPlugin
+import app.mcorg.presentation.plugins.WorldParamPlugin
+import app.mcorg.presentation.plugins.WorldParticipantPlugin
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.route
+import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -15,7 +24,9 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.extension.ExtendWith
 import app.mcorg.test.WithUser
 import app.mcorg.test.postgres.DatabaseTestExtension
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -136,6 +147,43 @@ class RoadmapCycleIT : WithUser() {
         )
         assertEquals(0, roadmap.nodes.single { it.projectName == "Witch Hut Farm" }.layer)
         assertEquals(1, roadmap.nodes.single { it.projectName == "Cobblestone Farm" }.layer)
+    }
+
+    @Test
+    fun `only an open loop takes the top of the page, and a settled one sits with the orderings`() = testApplication {
+        routing {
+            install(AuthPlugin)
+            route("/worlds/{worldId}") {
+                install(WorldParamPlugin)
+                install(WorldParticipantPlugin)
+                get("/roadmap") { call.handleGetWorldRoadmap() }
+            }
+        }
+        val world = createWorld("Settled loop world")
+        val cobble = createProject(world, "Cobblestone Farm")
+        val witch = createProject(world, "Witch Hut Farm")
+        addProduction(cobble, "minecraft:cobblestone", "Cobblestone")
+        addProduction(witch, "minecraft:gunpowder", "Gunpowder")
+        addDemand(cobble, "minecraft:gunpowder", "Gunpowder", 2_400)
+        addDemand(witch, "minecraft:cobblestone", "Cobblestone", 75_151)
+
+        val open = client.get("/worlds/$world/roadmap") { addAuthCookie(this) }.bodyAsText()
+        assertContains(open, "id=\"roadmap-cycles\"")
+        assertFalse(open.contains("SETTLED LOOPS"))
+
+        saveOrder(world, first = witch, waiting = cobble)
+
+        // Even: "If I made the choice, I should be able to undo it, but not at the cost of the top
+        // pixels every time I load the roadmap page."
+        val settled = client.get("/worlds/$world/roadmap") { addAuthCookie(this) }.bodyAsText()
+        assertFalse(settled.contains("id=\"roadmap-cycles\""), "an answered loop is no longer a question")
+        val section = settled.substringAfter("SETTLED LOOPS · 1").substringBefore("rmg-section rmg-")
+        assertContains(section, "Witch Hut Farm")
+        assertContains(section, "/worlds/$world/roadmap/cycle-order/clear", message = "still undoable")
+        assertTrue(
+            settled.indexOf("SETTLED LOOPS") > settled.indexOf("id=\"roadmap-graph\""),
+            "inside the card, not above it",
+        )
     }
 
     @Test
