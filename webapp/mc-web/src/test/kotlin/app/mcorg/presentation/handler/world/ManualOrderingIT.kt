@@ -81,10 +81,29 @@ class ManualOrderingIT : WithUser() {
 
         // The trap the first attempt fell into: an affordance that renders only once a row
         // exists is unreachable for the case the feature is *for*.
-        assertContains(body, "MANUAL ORDERING · 0")
-        assertContains(body, "Add ordering")
-        assertContains(body, "Nothing here yet")
-        assertContains(body, "Removing a generated edge isn't possible here")
+        val section = orderingSection(body)
+        assertContains(section, "MANUAL ORDERING · 0")
+        assertContains(section, "Add ordering")
+        assertContains(section, "id=\"rmg-ordering-form\"", message = "the slot Add ordering swaps the form into")
+        // One line, not three about edges a world may not have (MCO-700).
+        assertEquals(1, Regex("<p[ >]").findAll(section).count(), section)
+        assertContains(section, "Nothing ordered by hand.")
+        assertFalse(section.contains("edges are generated from farm output"), "the roster's note, with no roster")
+        assertFalse(section.contains("Removing a generated edge"), "the roster's footer, with no roster")
+    }
+
+    /** An ordering is a pair: with one project the section can do nothing, so it is not there (MCO-700). */
+    @Test
+    fun `a world with one project has no manual ordering section`() = testApplication {
+        setupRoutes()
+        val world = createWorld("Lone project world")
+        createProject(world, "Perimeter")
+
+        val body = client.get("/worlds/$world/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        assertContains(body, "Perimeter", message = "the roadmap itself rendered")
+        assertFalse(body.contains("id=\"rmg-ordering\""), "no section")
+        assertFalse(body.contains("MANUAL ORDERING"), "no section")
     }
 
     @Test
@@ -97,10 +116,15 @@ class ManualOrderingIT : WithUser() {
 
         val body = client.get("/worlds/$world/roadmap") { addAuthCookie(this) }.bodyAsText()
 
-        assertContains(body, "MANUAL ORDERING · 1")
-        assertContains(body, "The hole has to be dug first.")
-        assertContains(body, "Perimeter")
-        assertContains(body, "Walls")
+        val section = orderingSection(body)
+        assertContains(section, "MANUAL ORDERING · 1")
+        assertContains(section, "The hole has to be dug first.")
+        assertContains(section, "Perimeter")
+        assertContains(section, "Walls")
+        // With a roster, the note and the footer say what it is not.
+        assertContains(section, "0 edges are generated from farm output")
+        assertContains(section, "Removing a generated edge isn't possible here")
+        assertFalse(section.contains("Nothing ordered by hand"))
     }
 
     // ---- adding ---------------------------------------------------------------------------
@@ -392,6 +416,8 @@ class ManualOrderingIT : WithUser() {
         val page = client.get("/worlds/$world/roadmap") { addAuthCookie(this, member) }.bodyAsText()
         assertContains(page, "MANUAL ORDERING · 0")
         assertFalse(page.contains("Add ordering"))
+        assertContains(orderingSection(page), "Nothing ordered by hand.")
+        assertFalse(page.contains("Add one when"), "no invitation to use a button they don't have")
     }
 
     // ---- fixtures -------------------------------------------------------------------------------------
@@ -442,6 +468,12 @@ class ManualOrderingIT : WithUser() {
         append("thenId", then.toString())
         append("reason", reason)
     }.formUrlEncode()
+
+    /** The Manual ordering section alone, up to the next roadmap section. */
+    private fun orderingSection(body: String): String =
+        body.substringAfter("id=\"rmg-ordering\"", missingDelimiterValue = "")
+            .substringBefore("rmg-section rmg-")
+            .also { assertTrue(it.isNotEmpty(), "no Manual ordering section on the page") }
 
     private fun orderings(worldId: Int) = runBlocking {
         (GetManualOrderingsStep(worldId).process(Unit) as Result.Success).value

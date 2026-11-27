@@ -810,6 +810,19 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
         return
     }
     div("rmg-section rmg-graph") {
+        if (graph == null) {
+            // No legend and no line-weight key: they explain how to read a graph, and there is
+            // none here. The section is its name and the one sentence (MCO-700).
+            div("rmg-graph__head") {
+                sectionLabel { +"SUPPLY GRAPH" }
+            }
+            p("rmg-graph__empty") {
+                +"No project in this world supplies another yet, so there is no chain to draw. "
+                +"Define some resources and the graph fills in."
+            }
+            return@div
+        }
+
         div("rmg-graph__head") {
             // Nothing in the graph is a dependency: it is supply, drawn now or promised (MCO-571),
             // and its line weight is the per-panel rank MCO-566 shipped.
@@ -819,14 +832,6 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
                 span { +"┄ PROMISED / BY HAND" }
                 span { +"▸ TAP A PROJECT TO OPEN IT" }
             }
-        }
-
-        if (graph == null) {
-            div("rmg-graph__empty") {
-                +"No project in this world supplies another yet, so there is no chain to draw. "
-                +"Define some resources and the graph fills in."
-            }
-            return@div
         }
 
         graphPanel(view, graph)

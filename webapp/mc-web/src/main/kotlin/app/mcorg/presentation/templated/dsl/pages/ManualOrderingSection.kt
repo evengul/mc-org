@@ -38,10 +38,16 @@ import kotlinx.html.textArea
  * can never be derived. They need a home, and the roadmap is the only surface where you can
  * see that a single hand-made edge is what makes the graph four layers deep instead of two.
  *
- * **The affordance is unconditional, and that is the point.** The first attempt at this
- * feature rendered the editor only once a row already existed, so the only way to reach it
- * was to already have an ordering — which only an idea import could give you, i.e. exactly
- * the state the issue exists to escape.
+ * **The affordance does not wait for a row.** The first attempt at this feature rendered the
+ * editor only once a row already existed, so the only way to reach it was to already have an
+ * ordering — which only an idea import could give you, i.e. exactly the state the issue exists
+ * to escape. What it waits for is a second project: an ordering is a pair, so with fewer than
+ * two the section could do nothing, and it is left out (MCO-700). Rows that exist are always
+ * shown, whatever the count.
+ *
+ * **Empty, it is one line.** The note about generated edges and the footer about removing
+ * them describe the roster; with no roster they were three lines about edges on a page that
+ * may have none (MCO-700).
  *
  * The form sits *above* the list deliberately: it opens directly beneath the button that
  * triggered it, and the orderings already recorded stay visible below as reference.
@@ -53,19 +59,24 @@ fun FlowContent.manualOrderingSection(
     projectCount: Int,
     canEdit: Boolean,
 ) {
+    val canOrder = projectCount >= 2
+    if (!canOrder && orderings.isEmpty()) return
+
     div("rmg-section rmg-ordering") {
         id = "rmg-ordering"
         div("rmg-ordering__head") {
             sectionLabel { +"MANUAL ORDERING · ${orderings.size}" }
-            span("rmg-note") {
-                +if (generatedEdgeCount == 1) {
-                    "1 edge is generated from farm output — these are the ones you added by hand"
-                } else {
-                    "$generatedEdgeCount edges are generated from farm output — " +
-                        "these are the ones you added by hand"
+            if (orderings.isNotEmpty()) {
+                span("rmg-note") {
+                    +if (generatedEdgeCount == 1) {
+                        "1 edge is generated from farm output — these are the ones you added by hand"
+                    } else {
+                        "$generatedEdgeCount edges are generated from farm output — " +
+                            "these are the ones you added by hand"
+                    }
                 }
             }
-            if (canEdit && projectCount >= 2) {
+            if (canEdit && canOrder) {
                 button(classes = "btn btn--secondary btn--sm rmg-ordering__add") {
                     type = ButtonType.button
                     hxGet(formUrl(worldId))
@@ -80,6 +91,11 @@ fun FlowContent.manualOrderingSection(
         // thing and swapped back, so there is only ever one place the form can be.
         orderingFormSlot()
 
+        if (orderings.isEmpty()) {
+            p("rmg-ordering__empty") { +emptyLine(generatedEdgeCount, canEdit) }
+            return@div
+        }
+
         orderingList(worldId, orderings, canEdit)
 
         // Load-bearing. Without it people try to delete the generated supply edges from this
@@ -89,6 +105,24 @@ fun FlowContent.manualOrderingSection(
             +"or what the project needs."
         }
     }
+}
+
+/**
+ * The empty section's one line. With generated edges on the page it carries the footer's
+ * point too — where those edges are changed — since that is what someone opening an empty
+ * roster is most likely looking for. The invitation to add one goes only to someone who has
+ * the button.
+ */
+private fun emptyLine(generatedEdgeCount: Int, canEdit: Boolean): String = when (generatedEdgeCount) {
+    0 -> if (canEdit) {
+        "Nothing ordered by hand. Add one when a project has to wait for another that supplies it nothing."
+    } else {
+        "Nothing ordered by hand."
+    }
+    1 -> "Nothing ordered by hand. The 1 generated edge comes from farm output — change what the farm " +
+        "produces, or what the project needs."
+    else -> "Nothing ordered by hand. The $generatedEdgeCount generated edges come from farm output — " +
+        "change what the farm produces, or what the project needs."
 }
 
 /** The form is addressed from three other files, so its id is the one worth naming. */
@@ -300,13 +334,6 @@ private fun FlowContent.orderingList(
     orderings: List<ManualOrdering>,
     canEdit: Boolean,
 ) {
-    if (orderings.isEmpty()) {
-        p("rmg-ordering__empty") {
-            +"Nothing here yet — every edge on this page came from what your projects need."
-        }
-        return
-    }
-
     div("rmg-ordering__list") {
         orderings.forEachIndexed { index, ordering ->
             div("rmg-ordering__row${if (index % 2 == 1) " rmg-ordering__row--alt" else ""}") {
