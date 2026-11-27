@@ -3,6 +3,7 @@ package app.mcorg.test
 import app.mcorg.event.SeamEvent
 import app.mcorg.event.SeamEventBus
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -13,7 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  *
  * The bus has no unsubscribe, so the recorder is subscribed once for the whole JVM and is shared
  * by every test class. Filter by the ids your own test created; never count the whole list — other
- * classes publish too, and an IT that boots `Application.module()` adds the derived events.
+ * classes publish too.
  */
 object RecordedEvents {
     private val events = CopyOnWriteArrayList<SeamEvent>()
@@ -42,6 +43,11 @@ object RecordedEvents {
 
     @PublishedApi
     internal fun settle() = runBlocking {
+        // `configureEvents` cancels this scope when an application stops. A cancelled scope drops
+        // every publish silently, which would read here as "nothing was published".
+        check(SeamEventBus.scope.isActive) {
+            "SeamEventBus.scope is cancelled — a test stopped an application that ran configureEvents"
+        }
         withTimeout(5_000) {
             SeamEventBus.scope.coroutineContext[Job]!!.children.toList().joinAll()
         }
