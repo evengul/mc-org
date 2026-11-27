@@ -1192,10 +1192,19 @@ a.rmg-panelrow__card:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--
 .rmg-ordering__action--edit { color: var(--accent); }
 .rmg-ordering__action--remove { color: var(--red); }
 
-.rmg-ordering__empty,
+/* Body copy, so Inter — the same voice as the graph's empty sentence directly above it
+   (MCO-700). The mono face is for labels and chrome. */
+.rmg-ordering__empty {
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    max-width: 65ch;
+    margin: 0;
+}
+
 .rmg-ordering__footer {
-    font-family: var(--font-ui);
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: 12px;
     color: var(--text-muted);
     margin: 0;
 }

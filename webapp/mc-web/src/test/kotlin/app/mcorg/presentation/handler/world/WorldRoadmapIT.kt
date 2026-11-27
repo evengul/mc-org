@@ -396,6 +396,25 @@ class WorldRoadmapIT : WithUser() {
             deleteWorld(worldId)
         }
 
+    /** The legend explains how to read a graph; with no graph it explained nothing (MCO-700). */
+    @Test
+    fun `a world where nothing supplies anything says so, without the graph's legend`() = testApplication {
+        setupRoutes()
+        val worldId = createWorld("No Chain World")
+        createProject(worldId, "Sorting Hall")
+
+        val body = client.get("/worlds/$worldId/roadmap") { addAuthCookie(this) }.bodyAsText()
+
+        val graph = body.substringAfter("rmg-section rmg-graph", missingDelimiterValue = "")
+            .substringBefore("rmg-section rmg-")
+        assertContains(graph, "SUPPLY GRAPH")
+        assertContains(graph, "so there is no chain to draw")
+        assertFalse(graph.contains("rmg-legend"), "no legend for a graph that is not drawn")
+        assertFalse(graph.contains("LINE WEIGHT"), "no line-weight key either")
+
+        deleteWorld(worldId)
+    }
+
     @Test
     fun `opening the roadmap records that the world was opened`() = testApplication {
         // The Worlds page sorts and captions by `last_opened_at` ("opened 2h ago"). Only the Projects
@@ -676,6 +695,7 @@ class WorldRoadmapIT : WithUser() {
         assertContains(table, "1,856 Iron Ingot")
         assertFalse(table.contains("Cobble Farm"), "a producing farm is supply, not work")
 
+        assertContains(body, "▬ SUPPLYING NOW", message = "a drawn graph keeps its legend")
         assertFalse(body.contains("rmg-node--start") || body.contains("rmg-node--sequence"), "no band in the graph")
         assertContains(body, "rmg-node--promised", message = "its supply arrives through the promised tab")
         assertContains(body, "href=\"#roadmap-to-build\"")
