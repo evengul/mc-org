@@ -816,7 +816,7 @@ private fun FlowContent.graphSection(view: RoadmapGraphView) {
             div("rmg-graph__head") {
                 sectionLabel { +"SUPPLY GRAPH" }
             }
-            div("rmg-graph__empty") {
+            p("rmg-graph__empty") {
                 +"No project in this world supplies another yet, so there is no chain to draw. "
                 +"Define some resources and the graph fills in."
             }
