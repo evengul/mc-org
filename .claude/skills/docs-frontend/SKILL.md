@@ -13,6 +13,10 @@ DSL + HTMX. Light "paper" theme — the "Daylight Field Notebook" Overworld pale
 For the *why* — visual spec, motion, mobile rules, design rationale — load `docs-product`.
 For the full `hx*` helper catalogue and swap mechanics, load `docs-htmx`.
 
+Everything named here exists in the code. *(Until 2026-11-27, MCO-617, this file also documented
+`planExecuteToggle`, `worldCard`, `planProjectCard`, `projectCard` and settings tabs, none of which
+existed any more.)*
+
 DSL lives in `webapp/mc-web/src/main/kotlin/app/mcorg/presentation/templated/dsl/`.
 CSS lives in `webapp/mc-web/src/main/resources/static/styles/`.
 
@@ -26,19 +30,27 @@ toast/alert container.
 
 ```kotlin
 pageShell(
-    pageTitle = "Projects",
+    pageTitle = "Seam — Survival",
     user = user,                                   // TokenProfile? — gates Profile link in header
 ) {
-    appHeader(worldName = "Survival", worldId = 1, user = user, isWorldAdmin = true) {
-        breadcrumb("Worlds", "/worlds") / current("Survival")
+    appHeader(worldName = "Survival", worldId = 1, user = user) {
+        link("Worlds", "/worlds").current("Survival")
     }
     main {
         container {
+            worldBar(worldId = 1, active = WorldTab.ROADMAP, isWorldAdmin = true) {
+                newProjectAffordance(worldId = 1)          // "+ New project", the bar's one action
+            }
             // page body
         }
     }
 }
 ```
+
+`worldBar` (`Navigation.kt`) draws the world tabs, Roadmap and Settings (admins only), with an
+optional action slot on the right. The phone header is part of `appHeader`; the project page adds
+its own second phone header (`.project-detail__mobile-header`), which the shell round (MCO-607)
+replaces with a drawer.
 
 **There is no per-page stylesheet or script list** (MCO-514, MCO-547). Every sheet under
 `static/styles/` is in one bundle, `StylesheetBundle.kt`, served at `/static/seam.<hash>.css`,
@@ -115,6 +127,11 @@ component's own class. Don't re-add it.
 
 ## Buttons (`Buttons.kt`)
 
+**As built, the four text-button helpers below have no callers.** Every button in the app is a raw
+`button(classes = "btn btn--<variant>")` or an anchor with those classes. The component sweep
+(MCO-606, decision Q10) ports every surface through the helpers before the first design is ported;
+until it lands, match the raw classes, and prefer the helper in new code.
+
 Canonical variants — `FlowContent` extensions taking a content lambda. Emit `btn btn--<variant>` (+ `btn--sm`
 when `small = true`). These are the ones to use.
 
@@ -130,9 +147,9 @@ To wire HTMX or set attributes, put helpers inside the lambda:
 
 ```kotlin
 primaryButton {
-    hxPost(Link.Worlds.world(worldId).projects().to)
-    hxTarget("#projects-view")
-    +"Create project"
+    hxPost(Link.Worlds.world(worldId).project(projectId).tasks().to)
+    hxTarget("#task-list")
+    +"Add task"
 }
 ```
 
@@ -148,19 +165,23 @@ For a **navigation link styled as a button**, use a plain anchor with the button
 `a(classes = "btn btn--primary") { href = Link.Ideas.single(id); +"View" }`.
 
 These five — `primaryButton`, `secondaryButton`, `ghostButton`, `dangerButton`, `iconButton` — are the entire
-button API. There is no `actionButton`/`neutralButton`/`backButton` family.
+button API. There is no `actionButton`/`neutralButton`/`backButton` family. `GenericButton.kt` is older
+and is not one of them.
 
 ---
 
 ## Badges (`Badge.kt`)
 
 ```kotlin
-statusBadge(BadgeStatus.IN_PROGRESS)        // NOT_STARTED | IN_PROGRESS | DONE | BLOCKED
-badge("v1.21", BadgeVariant.NEUTRAL)        // NEUTRAL | ACCENT | DANGER
+projectStateBadge(projectId, project.state)   // ProjectStateBadge.kt — a project's state, everywhere
+badge("v1.21", BadgeVariant.NEUTRAL)          // NEUTRAL | ACCENT | DANGER
+statusBadge(BadgeStatus.IN_PROGRESS)          // NOT_STARTED | IN_PROGRESS | DONE | BLOCKED
 ```
 
-`ProjectStage.toBadgeStatus()` / `.toDisplayStatus()` map domain stages to badge state.
-Badges are text-only — no icons inside.
+`projectStateBadge` is the one to use for a project: it labels the seven `ProjectState` values and
+maps them onto four badge styles (docs-product, "Status Badges"). `statusBadge` survives at the
+roadmap's start card only. A badge says its state in words; a glyph beside the words only in the
+roadmap's dense cells.
 
 ## Progress bar (`ProgressBar.kt`)
 
@@ -171,15 +192,6 @@ progressBar(current, total, large = true)          // 6px, .progress--lg (projec
 
 Fill turns green (`.progress__fill--complete`) at 100%. Width is a computed inline `style` — this is the one
 sanctioned inline-style exception (a dynamic percentage can't be a class).
-
-## Plan/Execute toggle (`Toggle.kt`)
-
-```kotlin
-planExecuteToggle(worldId, active = "plan")   // active: "plan" | "execute"
-```
-
-Fixed-width pill, two segments, each `hx-get`s the `list-fragment` endpoint and pushes the URL. `.toggle` /
-`.toggle__btn` / `.toggle__btn--active`.
 
 ## Section (`Section.kt`)
 
@@ -206,6 +218,10 @@ emptyStateCards(id = "world-empty") {         // two equal-weight cards
 
 ## Modals (`Modal.kt`)
 
+`modalForm` has callers; `modal()` has none, and most dialogs are hand-built `dialog` elements.
+Which shape every dialog takes is the component sweep's modal decision (MCO-606), which the
+delete tiers (MCO-615) build on.
+
 ```kotlin
 modal(id = "delete-confirm", title = "Delete project") {
     p { +"This cannot be undone." }
@@ -213,9 +229,9 @@ modal(id = "delete-confirm", title = "Delete project") {
 }
 
 // Modal with a baked-in HTMX form (resets + closes on success automatically):
-modalForm(id = "create-project", title = "New project",
-          action = Link.Worlds.world(worldId).projects().to,
-          hxTarget = "#project-card-list", hxSwap = "afterbegin") {
+modalForm(id = "add-task", title = "New task",
+          action = Link.Worlds.world(worldId).project(projectId).tasks().to,
+          hxTarget = "#task-list", hxSwap = "afterbegin") {
     input(classes = "form-control") { name = "name" }
     modalActions { primaryButton { +"Create" } }
 }
@@ -227,14 +243,10 @@ already injects.
 
 ## Tabs (`Tabs.kt`)
 
-```kotlin
-tabStrip(
-    tabs = listOf(TabItem("general", "General", "/worlds/$id/settings?tab=general"), ...),
-    activeValue = "general",
-    hxTarget = "#settings-panel",
-    variant = TabVariant.DEFAULT,   // or PILLS
-)
-```
+`tabStrip(tabs = listOf(TabItem(...)), activeValue, hxTarget, variant = TabVariant.DEFAULT | PILLS)`.
+Its only caller is the invitations filter on world settings (`settings/InvitationsTab.kt`), as
+pills. Settings pages are one stacked page with the danger zone last, not tabs (docs-ia, "Settings
+Pages"). The world's own sections are `worldTabs`, not this.
 
 ## Task list (`TaskList.kt`)
 
@@ -257,11 +269,24 @@ followedLabel(measured, followed)    // "from 4 chests · 2m ago" on a storage-t
 `#rowId`. Styles are `.resource-row__drift*`, `.resource-row__adopt` and `.followed-count` in
 `components/resource-row.css`.
 
-## Cards
+## Page components
 
-`worldCard(world)` / `worldCardList(worlds)` · `projectCard(worldId, project)` /
-`projectCardList(worldId, projects)` (execute view) · `planProjectCard(...)` / `planProjectCardList(...)`
-(plan view). Take domain list-item models and render the full card.
+- **Work row** (`pages/WorkRow.kt`): `workRowCollapsed` / `workRowStrip` draw one line of the
+  project's work list and its "Log" strip; `smallJobChip` the short tail. Each has an `…Html`
+  twin that returns the fragment string for an htmx swap.
+- **Items:** `itemGlyph(itemId, size)` (`ItemGlyphIcon.kt`) draws an item's glyph, tinted by CSS.
+  `formatItemCount(n)` writes "578 sb + 3 stacks + 32", and `formatPlainCount(n)` writes "101,121"
+  (`ItemQuantity.kt`). One item component for glyph, name, kind and quantity is MCO-519 / MCO-608.
+- **World empty state** (`pages/NewProjectDoors.kt`): `worldEmptyState(worldId)`, the two equal
+  cards; `newProjectMenu(worldId)` (`NewProjectMenu.kt`) is the "+ New project" menu whose three
+  doors the first card repeats.
+- **World tally** (`WorldTally.kt`): `worldTally(tally, compact)`, the Worlds page's
+  "N in flight · N done" line.
+- **Danger zone** (`DangerZone.kt`): `dangerZone(title, description) { }`, last on a settings page.
+- **Person row** (`PersonRow.kt`): `personRow(...)` for members and invitations.
+
+The draft list (`idea/DraftListPage.kt`) still borrows `.project-card` from the project card that
+was removed; nothing else uses it.
 
 ## Toasts / alerts (`Alert.kt`)
 
@@ -273,16 +298,19 @@ createAlert(id = "toast-1", type = AlertType.SUCCESS, title = "Saved", message =
 // types: SUCCESS | ERROR | WARNING | INFO. SUCCESS/INFO auto-close after 3s.
 ```
 
-## Icons (`Icons.kt`)
+## Icons (`Lucide.kt`, `Icons.kt`)
+
+Two helpers, which is one more than the rule in docs-product ("Iconography") allows. Which survives
+is an open decision.
 
 ```kotlin
-iconComponent(Icons.SEARCH, size = IconSize.MEDIUM)   // inline SVG <div class="icon ...">
-Icons.DELETE, Icons.BACK, Icons.CHECK, Icons.CLOSE, Icons.MENU, Icons.Users.ADD, ...
+lucide("search", size = 16)                          // inline Lucide <svg class="icon">, sized per call
+iconComponent(Icons.SEARCH, size = IconSize.MEDIUM)   // the app's own SVGs, in a <div class="icon ...">
 ```
 
-SVGs live under `/static/icons/`. Note: `IconColor` variants all currently resolve to `inherit` (semantic
-per-variant colors were stripped in the MCO-161 token sweep and are a pending follow-up) — icons take the
-surrounding text color.
+`iconComponent`'s SVGs live under `/static/icons/`. Its `IconColor` variants all resolve to
+`inherit`, and its `.icon--sm/md/lg` size classes have no CSS rule, so its icons take the
+surrounding text colour and their size from the SVG.
 
 ---
 
@@ -329,9 +357,10 @@ Build URLs through the `Link` sealed interface, not string literals. `.to` yield
 
 ```kotlin
 Link.Worlds.to                                   // /worlds
-Link.Worlds.world(worldId).to                    // /worlds/{id}
-Link.Worlds.world(worldId).projects().to         // /worlds/{id}/projects
+Link.Worlds.world(worldId).to                    // /worlds/{id} (redirects to the roadmap)
+Link.Worlds.world(worldId).roadmap().to          // /worlds/{id}/roadmap — where a world opens
 Link.Worlds.world(worldId).project(pid).to       // /worlds/{id}/projects/{pid}
+Link.Worlds.world(worldId).project(pid).settings().to       // .../projects/{pid}/settings
 Link.Worlds.world(worldId).project(pid).tasks().task(tid)   // .../tasks/{tid}
 Link.Worlds.world(worldId).settings().to         // /worlds/{id}/settings
 Link.Ideas.to / Link.Ideas.single(id)
@@ -360,6 +389,6 @@ in **docs-htmx** — load it for fragment/OOB/inline-edit patterns. Two new-syst
 - No hardcoded colors / px / font names — always `var(--token)`.
 - Only IBM Plex Mono (`--font-ui`) and Inter (`--font-body`).
 - Buttons use `--radius` (6px), never pill.
-- Status badges are text-only; warning callouts are left-border, never full-width banners.
+- Status badges say their state in words; warning callouts are left-border, never full-width banners.
 - Import `kotlinx.html.stream.createHTML` — never `kotlinx.html.createHTML`.
 - All responses are HTML fragments — never JSON.
