@@ -50,7 +50,6 @@ fun worldListPage(
     appHeader(user = user)
     main {
         container {
-            div { id = "notice-container" }
             div {
                 id = "worlds-content"
                 worldsContent(user, worlds, supportedVersions, pendingInvitations, heroPeek)

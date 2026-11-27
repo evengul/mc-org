@@ -31,6 +31,10 @@ fun FlowContent.pendingInvitationsSection(invitations: List<Invite>) {
     }
 }
 
+/**
+ * Accept and Decline answer with the whole of `#worlds-content` (`invitationAnsweredHtml`), so a
+ * joined world lands in the list and the section goes with its last row.
+ */
 fun FlowContent.invitationRow(invitation: Invite) {
     val role = invitation.role.name.lowercase().replaceFirstChar { it.uppercase() }
     val rowId = "pending-invitation-${invitation.id}"
@@ -48,7 +52,7 @@ fun FlowContent.invitationRow(invitation: Invite) {
                 classes = setOf("btn", "btn--ghost")
                 type = ButtonType.button
                 attributes["hx-patch"] = "/invites/${invitation.id}/decline"
-                attributes["hx-target"] = "#$rowId"
+                attributes["hx-target"] = "#worlds-content"
                 attributes["hx-swap"] = "outerHTML"
                 attributes["hx-confirm"] = "Decline invitation to ${invitation.worldName}?"
                 +"Decline"
@@ -57,7 +61,7 @@ fun FlowContent.invitationRow(invitation: Invite) {
                 classes = setOf("btn", "btn--primary")
                 type = ButtonType.button
                 attributes["hx-patch"] = "/invites/${invitation.id}/accept"
-                attributes["hx-target"] = "#$rowId"
+                attributes["hx-target"] = "#worlds-content"
                 attributes["hx-swap"] = "outerHTML"
                 attributes["hx-confirm"] = "Accept invitation to join ${invitation.worldName}?"
                 +"Accept"

@@ -72,7 +72,10 @@ class PendingInvitationsSectionTest {
         val html = render(listOf(invite(id = 7, worldName = "Mine World")))
         assertTrue(html.contains("hx-patch=\"/invites/7/accept\""))
         assertTrue(html.contains("hx-patch=\"/invites/7/decline\""))
-        assertTrue(html.contains("hx-target=\"#pending-invitation-7\""))
+        // MCO-623: the answer re-renders the whole list, so a joined world appears and the
+        // section goes when the last invitation does. Targeting the row only removed the row.
+        assertEquals(2, Regex("hx-target=\"#worlds-content\"").findAll(html).count())
+        assertFalse(html.contains("hx-target=\"#pending-invitation-7\""))
         assertTrue(html.contains("hx-swap=\"outerHTML\""))
         assertTrue(html.contains("Accept invitation to join Mine World?"))
         assertTrue(html.contains("Decline invitation to Mine World?"))
