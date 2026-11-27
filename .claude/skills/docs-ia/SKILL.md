@@ -1,12 +1,19 @@
 ---
 name: docs-ia
-description: Information architecture reference for MC-ORG. Load when evaluating feature scope, URL structure, navigation behaviour, plan/execute toggle semantics, page content hierarchy, progressive disclosure model, or user personas.
+description: Information architecture reference for Seam (MC-ORG). Load when evaluating feature scope, URL structure, navigation and header behaviour, what each page is for and what it contains, where a feature belongs, the project page's work list vs "What I need", the world's roadmap, settings pages, or the coherence-pass decisions (state vocabulary, quantities, destructive-action tiers).
 user-invocable: false
 ---
 
 # Information Architecture Reference
 
-Complete IA specification for MC-ORG. This is the ground truth for all product and UX decisions.
+How Seam's pages fit together, and why. This file describes the app as it is built. Where a
+decision has been made and not yet built, it is marked **Decided, not built** and names the issue
+that builds it. Read those as the target, not as a description of the code.
+
+*(This file was rewritten on 2026-11-27 (MCO-617) to match the build and the decisions of the
+Webapp coherence pass (Linear project P-MCO-63). Until then its spine was a per-project,
+server-persisted Plan/Execute toggle that MCO-481 had removed, and it described a mobile drawer
+that was never built. Each design round updates this file in the same PR as its implementation.)*
 
 ---
 
@@ -14,15 +21,15 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 1. **Start flat, grow deep.** Every user lands on the same page structure. Complexity is reachable through contextual links. No persona gates, no mandatory setup flows.
 
-2. **Resume the world, not the project.** The app knows which world you were in and opens it on its **roadmap**, the first of the world's tabs. Projects are not pinned in session. *(This said "lands you on the project list" until 2026-10-07. MCO-474 moved the world's home to the roadmap; MCO-586 moved the last links that still treated the list as home. Opening on whichever tab you last used is parked as MCO-587.)*
+2. **Resume the world, not the project.** The app knows which world you were in and opens it on its **roadmap**. Projects are not pinned in session. *(This said "lands you on the project list" until 2026-10-07. MCO-474 moved the world's home to the roadmap; MCO-586 moved the last links that still treated the list as home.)*
 
-3. **Plan and execute are views, not modes.** The toggle is a per-project preference stored server-side. A user can have execute view on one project and plan view on another simultaneously.
+3. **The project page is the plan.** A project page opens on how to make it: the work list, ordered and grouped, with one next move. "What I need", the list of targets the player defined, is where that list is changed and the checklist read at the end. It is not a second equal view. *(This said "Plan and execute are views, not modes", with a per-project toggle stored server-side, until 2026-11-27. MCO-481 removed the toggle; decision Q2 of the coherence pass made the plan the page.)*
 
-4. **Execute means doing work — including gathering.** Execute view is the primary interface for active work, which includes resource gathering. Plan view is for defining and structuring what needs to happen.
+4. **One derivation, many surfaces.** A number shown in two places is computed once. Gathered / required is one definition everywhere (`GetGatherProgressStep`), and the roadmap's sections and the project page agree on it. Every extra view of the same data is another place a fix has to land: MCO-318 and MCO-505 were drift between two such views.
 
-5. **Mobile is a first-class surface.** Every page must function well at narrow width with large tap targets. Deeper pages (production path, roadmap) exist on mobile but are not optimised for it.
+5. **Mobile is a first-class surface.** Every page must function well at narrow width with large tap targets. The roadmap's graph exists on mobile but is not optimised for it.
 
-6. **No entry point bias.** When a user has no projects, both creation paths are presented as equals. Neither is the default.
+6. **No entry point bias.** When a world has no projects, both creation paths are presented as equals. Neither is the default.
 
 ---
 
@@ -30,19 +37,26 @@ Complete IA specification for MC-ORG. This is the ground truth for all product a
 
 ```
 /                                                        → redirect (JWT logic)
+/auth/sign-in                                            → landing + sign-in
+/auth/sign-out?error=                                    → signed out, with the reason
+/privacy                                                 → privacy page (public)
 /worlds                                                  → world list
-/worlds/new                                              → create world
 /worlds/:worldId                                         → redirect to the roadmap (non-permanent)
 /worlds/:worldId/roadmap                                 → Roadmap tab (world home)
-/worlds/:worldId/projects/:projectId                     → project detail
-/worlds/:worldId/projects/:projectId/path                → production path
-/worlds/:worldId/projects/:projectId/settings            → project settings
 /worlds/:worldId/settings                                → Settings tab (world settings, admins)
-/ideas                                                   → idea hub
-/ideas/:ideaId                                           → idea detail
+/worlds/:worldId/projects/:projectId                     → project page
+/worlds/:worldId/projects/:projectId?drill=:itemId       → the project page with one target's source chain open
+/worlds/:worldId/projects/:projectId/settings            → project settings
+/ideas                                                   → idea library
+/ideas/:ideaId                                           → one idea
+/ideas/create, /ideas/drafts/:draftId/edit               → draft list, draft form
+/profile                                                 → profile (sign out, delete account)
+/admin                                                   → superadmin only; 404 for everyone else
+/link                                                    → device-code approval for the Seam Notebook mod
+/api/v1/...                                              → the mod's JSON API (the one JSON carve-out)
 ```
 
-No mode in the URL. Plan/execute is a per-project preference stored server-side. Every URL is real, shareable, and bookmarkable.
+No mode in the URL. Every URL is real, shareable, and bookmarkable. `?drill=` is one: a reload or a shared link opens the same chain.
 
 Creating a project has no URL of its own (a `POST` to `/worlds/:worldId/projects`, which has no `GET` since MCO-692). "+ New project" opens a dialog on the roadmap, and every way of creating one project (blank, from a schematic, recording an existing farm, importing a single idea) lands on the new project's page. A batch import is the exception: it moves to the next design in the batch, and at the end back to where the batch started (MCO-459, `ImportQueue`). `/worlds/:worldId/roadmap#new` opens that menu on arrival, for links from outside the world such as the Worlds page.
 
@@ -56,7 +70,6 @@ The redirect on `/worlds/:worldId` is deliberately not permanent: a 301 is cache
 
 - `activeWorldId` stored in JWT — set when entering a world, cleared on explicit world switch
 - `activeProjectId` — **not stored**. Users switch projects freely; pinning creates friction.
-- Per-project view preference (`plan` | `execute`) stored in DB per user per project. Default: `execute`.
 
 ### Redirect on `/`
 
@@ -69,43 +82,53 @@ if activeWorldId    → /worlds/:activeWorldId/roadmap
 
 ## Navigation Chrome
 
-### Mobile (< 768px)
+### As built
 
-Default header:
-```
-[World Name]                     Profile
-```
+**Desktop (≥ 768px)** — one header (`appHeader` in `Navigation.kt`):
 
-Project detail header:
 ```
-←  [Project Name]          [⚙ Settings]
+[Logo]   Worlds › [World Name] › [Project]               Ideas   Profile
 ```
 
-No persistent bottom nav. Navigation is breadcrumb/back + in-page contextual links.
+**Mobile (< 768px)** — the default header carries no breadcrumb, and no Ideas link:
 
-### Desktop (≥ 768px)
-
-Default:
 ```
-[Logo]   Worlds › [World Name]               Ideas   Profile
+[World Name]                                             Profile
 ```
 
-Project pages:
+The world name links to the world (and so to its roadmap), because without it a phone has no way back out of a world's sub-pages.
+
+The **project page on a phone** stacks a second header under that one:
+
 ```
-[Logo]   Worlds › [World] › [Project]        Ideas   Profile
+←  [Project Name]                                    [⚙ Settings]
 ```
 
-The header carries no settings link. Settings belongs to the thing it configures: world settings is a world tab, and project settings a labelled `⚙ Settings` button in the project's own header, on the phone header too. *(Until 2026-10-09 a bare ⚙ at the far end of the app header led to world settings, for admins, on the roadmap and project list only, and nothing led to project settings because there were none. MCO-540 moved it: the gear was too small and too far from the page it configured.)*
+Its `←` goes to the roadmap, the same place as the world name in the desktop breadcrumb.
+
+The app header carries no settings link. Settings belongs to the thing it configures: world settings is a world tab, and project settings is a labelled `⚙ Settings` button in the project's own header, on the phone header too. *(Until 2026-10-09 a bare ⚙ at the far end of the app header led to world settings, for admins, on the roadmap and project list only. MCO-540 moved it: the gear was too small and too far from the page it configured.)*
+
+No persistent bottom nav.
+
+### Decided, not built: one header with a drawer (Q3, MCO-607)
+
+The phone has no way to reach Ideas, and the project page stacks two headers. The decision:
+
+- A **☰ drawer** holding Worlds, Ideas, Profile, Settings and Sign out, with the **world name centred**.
+- On project pages the logo slot becomes **←**, so the second header goes.
+- ⚙ goes into the drawer (Q8).
+
+The shell design round (MCO-607) draws it. Until it ships, the "As built" section above is what renders.
 
 ### World bar
 
 Every world tab carries the same bar under the header (`worldBar` in `Navigation.kt`):
 
 ```
-Roadmap · Projects · Settings                   [+ New project]
+Roadmap · Settings                               [+ New project]
 ```
 
-Roadmap is first and is where the world opens. "+ New project" sits in the bar rather than in either page's own toolbar, so it is reachable from Roadmap and Projects; the Settings tab has no action, since creating a project is not a setting. **Settings is drawn for admins only**: its route is admin-gated, and a tab that answers 403 is worse than no tab.
+Roadmap is first and is where the world opens. "+ New project" sits in the bar rather than in a page's own toolbar. The Settings tab has no action, since creating a project is not a setting. **Settings is drawn for admins only**: its route is admin-gated, and a tab that answers 403 is worse than no tab.
 
 ### Breadcrumb by page
 
@@ -116,38 +139,10 @@ The breadcrumb locates the *world*; which section of it you are in is the tab. S
 | World list | *(none)* |
 | Roadmap tab | Worlds › [World Name] |
 | Settings tab | Worlds › [World Name] |
-| Project detail | Worlds › [World Name] › [Project Name] |
+| Project page | Worlds › [World Name] › [Project Name] |
 | Project settings | Worlds › [World Name] › [Project Name] › Settings |
-| Production path | Worlds › [World Name] › [Project Name] › Path |
-| Idea Hub | Ideas |
-| Idea detail | Ideas › [Idea Name] |
-
-On a phone the project page has no breadcrumb; its `←` goes to the roadmap, the same place as the world name in the desktop breadcrumb.
-
----
-
-## Plan / Execute Toggle
-
-### Rules
-
-- Appears **only** on project detail page. Not on: resources, path, roadmap, idea hub, settings.
-- Per-project preference persisted in DB per user.
-
-### Persistence model
-
-| Surface | Persistence | Scope |
-|---------|-------------|-------|
-| Project detail | Database, per user per project | Per project |
-
----
-
-## Project Settings
-
-`/worlds/:worldId/projects/:projectId/settings` holds what changes how a project *behaves* and is set once: today the **Chest Counts** switch (storage-tracked, MCO-540) and the **Danger zone** with Delete project. What a project *is* — name, state, location — stays inline in its header, where it is read every visit and edited often.
-
-- A page of its own, not a panel, because more will land there and a project page is already the longest page in the app.
-- Open to every world participant, like the inline fields: what is there changes how the project counts, which any member can already do by hand. The danger zone is drawn for admins only, matching the delete route's gate.
-- Delete moved here from beside the project name (2026-10-09), one deliberate step further from a stray click.
+| Idea library | Ideas |
+| One idea | Ideas › [Idea Name] |
 
 ---
 
@@ -162,151 +157,139 @@ Every project in a world is reachable from the roadmap:
 | FINISH THESE FIRST / TO BUILD | Farms and other work still to build before a final project; a row with anything gathered says "N / M gathered" under its state |
 | Final-project panels, "+N more" | What the world drains into, with a percentage |
 | NOT IN ANY CHAIN | Unfinished projects with no edge; the note is "N / M gathered" when the project has resources, else its task count |
-| PRODUCING | Finished farms feeding the roadmap |
+| PRODUCING | Finished farms feeding the roadmap. Their one home (Q1) |
 | STOPPED | Decommissioned farms |
 | SHELVED (folded shut, at the foot) | Cancelled and archived projects |
 
-Gathered / required is one definition on every surface: ignored rows excluded, and nothing counts past what was required (`GetGatherProgressStep`).
+Below the graph: the order to build in, and **Manual ordering**, the edges a player added by hand on top of the ones generated from farm output.
+
+**Empty world**: the shared world empty state below, not a roadmap-specific one.
+
+*(Until mc-org PR 500, 2026-10-05, the roadmap also had a Table view toggle. It was removed; the graph's TO BUILD list carries the ARIA table roles the table had stood in for.)*
 
 ### Why there is no Projects tab (MCO-692, 2026-11-26)
 
-There was one, between Roadmap and Settings, until MCO-692. MCO-529 had kept it (2026-10-07) for four things only it had: a resume hero with counters, rows that expanded in place (with "adopt all" chest counts), every project grouped by state including shelved ones, and gathered/required on every active project. The owner then judged it redundant beside the roadmap. The last two moved to the roadmap (the SHELVED section and the per-row "gathered" counts). The resume hero, the expanding rows and adopt-all were let go: counting from chests (MCO-540) does what adopt-all did. Every extra view of the same projects is another place a fix has to land: MCO-318 and MCO-505 were drift between two such views.
+There was one, the Field Log, between Roadmap and Settings until MCO-692. MCO-529 had kept it (2026-10-07) for four things only it had: a resume hero with counters, rows that expanded in place (with "adopt all" chest counts), every project grouped by state including shelved ones, and gathered/required on every active project. The owner then judged it redundant beside the roadmap. The last two moved to the roadmap (the SHELVED section and the per-row "gathered" counts). The resume hero, the expanding rows and adopt-all were let go: counting from chests (MCO-540) does what adopt-all did.
 
 Opening a world on the last-used tab (MCO-587) has no second view to open on now.
 
 ---
 
-## Project Detail Page
+## Project Page
 
-### Execute view
-
-Primary content is **resources**, not tasks. Structure:
+`/worlds/:worldId/projects/:projectId`. The plan for one project. Top to bottom:
 
 ```
-[Project Name]                              [Plan | Execute]
-[Status badge]  Location: X:120, Z:-430    [Progress bar]
+[Project Name]                                       [⚙ Settings]
+[State]  Location: X, Z   Produces …   Imported from …
+[Overall gathered progress]
 
-─── Resources to Gather ────────────────────────────────────
+[What the world's plans ask of this farm]            (a running farm only, MCO-605)
 
-[Search / filter]
+NEXT UP — one move, and a way to ask for another      (hidden while a question is open)
+[What I need · edit the list]
 
-  Iron Ingot     ████████░░  32 / 64      [+1][+64][+1782]   Source: Iron Farm
-  Redstone Dust  ░░░░░░░░░░   0 / 8       [+1][+64]          Source: Manual gather
-  Oak Planks     ██████████  16 / 16  ✓                      Source: Manual gather
+Needs attention — the choices the plan can't make for you, largest first
+Collect / Gather / Hunt / Loot / Trade / Smelt / Craft / Other — the work list
+Small jobs — the short tail, as chips
+Worth a farm — demand big enough to build for, with designs to choose from
+Prerequisites — farms still to build that this plan waits on
+Answered for you — tag choices too small to ask about
 
-─── Tasks ──────────────────────────────────────────────────
-
-  ☐  Lay out foundation
-  ☐  Place hoppers
-  ☑  Dig out area
-  [+ Add task]
-
-─── Partial dependency notice ──────────────────────────────
-  ⚠ 32× iron ingot will come from [Iron Farm] once running.
-    Gather the remaining 32 manually in the meantime.
+Tasks — N / M                                         (collapsed)
 ```
 
-Key rules:
-- Resources are primary. Tasks are below resources.
-- Counter increment tiers: `+1`, `+64` (one stack), `+1782` (one double chest = 27 × 64). Matching decrements. Tapping count opens free-entry field.
-- Partial dependency notice is **not a banner** — lower visual weight, bottom of resources section. Only shown when at least one resource comes from an unfinished project.
-- Source shown on each resource row: manual gather, crafting, or named project.
+- **The work list is the page.** It is grouped by what the player does (`ActivityGroup`), and each line is a `WorkRow` with a "Log" strip for counting.
+- **"What I need"** replaces the work list in place when the quiet toggle is pressed, and "← Back to the work list" returns. It is the list of targets the player defined: where a resource is added, a quantity changed, or a schematic uploaded. The choice is kept per project in `sessionStorage`, so it survives `#project-content` re-renders but is not stored on the server.
+- **A source chain** (`?drill=:itemId`, the "⇄" buttons) replaces `#project-content` with one target's tree and a node picker. It took the place of the production path page.
+- **A resource row's detail** opens in the `#resource-panel` dialog: a slide-over on desktop, a bottom sheet on a phone.
+- **Tasks** sit below everything and are collapsed.
 
-### Plan view
+*(The project page had Execute and Plan views with a toggle until MCO-481, then a "What I need | How to make it" pill. The pill became the one quiet button above, because two equal tabs said the lists were equal, and they are not.)*
 
-Primary content is **resource definition** in a dense table:
+Open (Q2): where adding a resource and changing a quantity live once "What I need" is no longer a lens. The project page design round (MCO-611) answers it. It waits on the state audit (MCO-609) and the tasks audit (MCO-610).
 
-```
-[Project Name]                              [Plan | Execute]
-[Status badge]  Location: X:120, Z:-430
+### Project Settings
 
-─── Required Resources ─────────────────────────────────────
+`/worlds/:worldId/projects/:projectId/settings` holds what changes how a project *behaves* and is set once: today the **Chest Counts** switch (storage-tracked, MCO-540) and the **Danger zone** with Delete project. What a project *is* — name, state, location — stays inline in its header, where it is read every visit and edited often.
 
-[+ Add resource]    [Generate path →]    [View path →]
-
-  ┌─────────────────┬────────┬──────────────────────────┐
-  │ Item            │  Qty   │ Source                   │
-  ├─────────────────┼────────┼──────────────────────────┤
-  │ Iron Ingot      │   64   │ Iron Farm (planned)      │
-  │ Redstone Dust   │    8   │ Manual gather            │
-  ...
-  └─────────────────┴────────┴──────────────────────────┘
-
-─── Produced Resources ─────────────────────────────────────
-
-─── Dependencies ───────────────────────────────────────────
-  Blocked by:   Iron Farm  (provides iron ingot)
-  Blocks:       Auto Crafter Array, Hopper Array
-
-─── Tasks ──────────────────────────────────────────────────
-  (collapsed by default)
-```
-
-Key rules:
-- Required resources: dense sortable table, not a stacked list. Scales to hundreds of rows.
-- "Generate path" and "View path" CTAs sit above the resources table — this is where automation is accessed.
-- Tasks collapsed by default in plan view.
-- Dependencies show specific resource edges, not whole-project blocks.
+- A page of its own, not a panel, because more will land there and a project page is already the longest page in the app.
+- Open to every world participant, like the inline fields: what is there changes how the project counts, which any member can already do by hand. The danger zone is drawn for admins only, matching the delete route's gate.
+- Delete moved here from beside the project name (2026-10-09), one deliberate step further from a stray click.
 
 ---
 
-## Production Path Page
+## Settings Pages (Q8)
 
-`/worlds/:worldId/projects/:projectId/path`
-
-Reached from plan view → "View path →". Not linked from execute view directly.
-
-Pre-DAG-viz: step list with method, inputs, status per step.
-Post-DAG-viz (future): rendered graph replaces step list. List stays as accessible alternative.
+One stacked page per settings scope, with the **danger zone last**. World settings (general, invitations, members, Discord, server token, danger zone) and project settings share the shape. World settings has no tabs; the only tab strip on it is the invitations pills. The worlds/settings design round (MCO-614) revisits both, now that project settings exists.
 
 ---
 
-## Roadmap Page
+## Ideas (the idea library)
 
-`/worlds/:worldId/roadmap`
+`/ideas` — top-level, linked from the desktop header and from the world empty state.
 
-The first world tab, and what a world opens on (`/`, `/worlds/:worldId`, the Worlds page's "Open world").
+**Decided (Q7): the library is called Designs**, settled in the Ideas design round (MCO-613, 2026-10-28). The build work, including the rename and the `/designs` URLs, is the *Idea System Overhaul* project (MCO-640 to MCO-646), not this file. Until that ships, the app says "Ideas", and this section describes what renders.
 
-**Empty world**: the shared world empty state below, not a roadmap-specific one. *(The roadmap used to have its own, whose only offer was a link to the project list.)*
+- A filterable card grid: version filter, search by name or produced resource.
+- Importing happens on the idea's own page, not on a card. Its world select lists only the worlds whose version the idea supports, so there is no version-mismatch warning to show.
+- Importing creates the project with its resources and no tasks, and lands on the new project's page, or on the batch's next review.
 
-**Shape**: a graph of every project in a chain, ordered by dependency depth, with a "start here" project, the final projects, and a "Not in any chain" list for projects with no edges. *(Until mc-org PR 500, 2026-10-05, it also had a Table view toggle. It was removed; the graph's TO BUILD list carries the ARIA table roles the table had stood in for.)*
-
----
-
-## Idea Hub
-
-`/ideas` — top-level, always accessible from nav.
-
-- Filterable card grid: version filter, search by name or produced resource
-- Each card: farm name, produced resources + rate, required resources count, version range, attribution
-- "Import to [World]" action on each card
-
-### Import behaviour
-
-1. If version matches: import proceeds directly
-2. If version mismatch: modal warning with option to proceed
-3. On import: project created with resources pre-populated, two default tasks added:
-    - `Gather all required resources`
-    - `Build [idea name]`
-    - Note on tasks: "These are starter tasks — replace them with your own checklist." (dismissible)
-4. Redirect to new project detail in **execute view**
+*(This section described import on every card, a version-mismatch modal and two default tasks until 2026-11-27. None of them were built; the compatible-worlds select replaced the modal.)*
 
 ---
 
 ## World Empty State
 
-When a world has no projects, **both tabs** show the same block (`worldEmptyState`): a world is empty in exactly one way, so it answers in one way. Two equal-weight cards, no dominant CTA:
+When a world has no projects, the roadmap shows `worldEmptyState`: a world is empty in exactly one way, so it answers in one way. Two equal-weight cards, no dominant CTA:
 
 ```
 ┌───────────────────────┐  ┌───────────────────────┐
 │  Plan your own        │  │  Browse community      │
 │  project              │  │  ideas                 │
 │                       │  │                        │
-│  [Create project]     │  │  [Browse Idea Hub]     │
+│  [the three doors]    │  │  [Browse Ideas]        │
 └───────────────────────┘  └───────────────────────┘
 ```
 
-Both cards: same size, same visual prominence. On mobile: stack vertically, still equal size. Once a user has any projects, this empty state is gone.
+The first card carries the same three doors as the "+ New project" menu (from a schematic, blank, record an existing farm), so the empty and populated entry points read as one control.
+
+Both cards: same size, same visual prominence. On mobile: stack vertically, still equal size. Once a world has any projects, this empty state is gone.
+
+---
+
+## Coherence-pass Decisions
+
+Recorded on the Webapp coherence pass project (P-MCO-63, 2026-10-09). Each is the input to the design round that builds it.
+
+### Project state: one vocabulary (Q4)
+
+- **As built:** `ProjectState` has seven values: Pending, Active, Paused, Done, Cancelled, Archived, Decommissioned. Its labels (`ProjectStateBadge.kt`) are mapped onto four badge styles, so Paused, Cancelled, Archived and Decommissioned all look alike. The world tally on the Worlds page uses its own words ("in flight", "queued").
+- **Decided, not built:** the `ProjectState` labels everywhere, the world tally's words included. Glyphs only where the roadmap needs one in a dense cell. Paused, Cancelled, Archived and Decommissioned each get a visual of their own.
+- **First:** the state audit (MCO-609) asks what state, stage, type and progress are for and which a player should ever set, since much of it is derived from gathering. Tasks get their own audit (MCO-610).
+
+### Quantities count in shulker boxes (Q5)
+
+It is how players think: 100 shulker boxes of sand is a picture of the work, and 150,000 sand is not. One item component draws glyph, name and muted kind (MCO-519, MCO-608).
+
+- **As built:** `formatItemCount` (`ItemQuantity.kt`) writes "578 sb + 3 stacks + 32", and assumes 64 to a stack for every item. `formatPlainCount` writes "101,121" where the breakdown is noise, such as a group header (MCO-478). Seam has no stack-size data.
+- **Open:** where a plain count still earns its place, and stack sizes. The item design round (MCO-608) answers both.
+
+### Destructive actions: three tiers (Q6)
+
+- **Type the name** for a project, world, account or idea.
+- **A modal whose button names the verb** for anything with children.
+- **An undo toast** for reversible row actions.
+
+Project delete has already moved into project settings. The tiers and the verb-named confirm button are MCO-615, which comes after the component sweep's modal decision (MCO-606).
+
+### Admin (Q9)
+
+`/admin` is linked from Profile for superadmins. The buttons that do nothing are removed until they work (MCO-619). Today nothing links to it.
+
+### Components (Q10)
+
+The shared helpers (buttons, modal, empty state, section heading) are adopted by a mechanical sweep (MCO-606) before the first design is ported, so every port goes through one path. See docs-frontend for what is adopted today.
 
 ---
 
@@ -314,34 +297,10 @@ Both cards: same size, same visual prominence. On mobile: stack vertically, stil
 
 | Feature | How reached | Hidden from users who don't need it |
 |---------|-------------|--------------------------------------|
-| Plan view | Toggle on project detail | ✓ Default is execute |
-| Production path | Plan view → "View path" | ✓ Only relevant after resources defined |
+| "What I need" | The quiet toggle on the project page | ✓ The work list opens first |
+| Source chain | "⇄" on a row, or a source chip | ✓ Only when a player wants to change a source |
+| Answered for you | Below the work list | ✓ Small choices are made for you, and listed after the work |
+| Tasks | Below the plan, collapsed | ✓ Collapsed by default |
 | Roadmap | What a world opens on; first world tab | ✗ It is the world's home |
 | Shelved projects | SHELVED at the foot of the roadmap, folded | ✓ Folded shut; the count is always shown |
-| Idea Hub | Nav + world empty state | ✓ Empty state disappears once projects exist |
-
----
-
-## User Personas
-
-### Casual player
-Uses execute view only. Imports from Idea Hub. Tracks resources by incrementing counters while mining. Never touches plan view, path, or roadmap. Needs a complete experience from Phase 1.
-
-### Technical player
-Uses both views. Defines resources manually, generates paths, checks the roadmap. May have multiple projects open simultaneously in different views. Values the per-project view persistence.
-
-### Worker
-Daily session: opens execute view, scans the roadmap, tracks resources, closes app. Never needs planning features. May encounter partial dependency notices but doesn't need to act on them.
-
----
-
-## Build Phases
-
-**Phase 1 — Core (current target)**
-JWT world resume, project list with plan/execute toggle, project detail with per-project toggle persisted in DB, resource tracking in execute view (counter per resource row), task checklist, breadcrumb nav, world empty state (two equal cards), Idea Hub with import (version range validation, version mismatch warning, default tasks).
-
-**Phase 2 — Automation**
-Inline resource definition in plan view, production path generation (list form), partial dependency notice on project detail, roadmap as dependency table, roadmap empty state CTA.
-
-**Phase 3 — Visualisation + Team**
-DAG visualisation on roadmap and path pages, task assignment to team members, worker role default view preference.
+| Ideas | Desktop header + world empty state | ✓ The empty state disappears once projects exist |

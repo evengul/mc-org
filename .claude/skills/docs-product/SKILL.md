@@ -8,6 +8,12 @@ user-invocable: false
 
 MC-ORG design system. This is the ground truth for all UI implementation and review decisions.
 
+Components are described as built. Where the Webapp coherence pass (Linear project P-MCO-63) has
+decided a change that is not built yet, the entry says **Decided, not built** and names the issue
+that builds it. Each design round updates this file in the same PR as its implementation.
+*(Rewritten to the build on 2026-11-27, MCO-617. Until then it specified a PLAN / EXEC toggle, a
+project card and a version-mismatch modal that no longer exist or were never built.)*
+
 ## Where the design system lives
 
 Each thing lives in one place:
@@ -152,7 +158,7 @@ Max content width: `1080px`. Mobile breakpoint: `768px`.
 | Token | Value | Use |
 |-------|-------|-----|
 | `--radius` | 6px | Everything by default — **buttons always**, cards, inputs, panels |
-| `--radius-pill` | 999px | Badges, chips, sort pills, the plan/execute toggle. **Never buttons.** |
+| `--radius-pill` | 999px | Badges, chips, sort pills. **Never buttons.** |
 
 Shadows are **ink-coloured** — `rgba(42, 34, 24, …)`, i.e. `--text-primary` at low alpha. A
 shadow on warm paper is a smudge of the same ink, never a neutral grey halo. Two levels only:
@@ -171,28 +177,43 @@ sites (MCO-388). The one sanctioned raw `box-shadow` is a focus/selection ring
 
 ## Components
 
-### Plan / Execute Toggle
+### The list toggle (project page)
 
-Most-used interactive element. Must look intentional, not like a form control.
+The project page opens on its work list. One quiet button under NEXT UP offers whichever view is
+not showing: "What I need · edit the list", then "← Back to the work list". It is a ghost button
+(`.btn--ghost.btn--sm`), not a pair of tabs: two equal tabs said the two lists were equal, and the
+work list is what the page is for (docs-ia, "Project Page"). CSS: `.list-resolution`,
+`.list-resolution__option`.
 
-- Pill shape, 2 segments, **fixed width** — not content-derived (no layout shift on toggle)
-- Inactive: `--bg-raised` background, `--text-muted` text
-- Active: `--accent` background, `--on-accent` text
-- Text: IBM Plex Mono, 12px, uppercase (`PLAN` / `EXEC`)
-- Position: top-right of project detail header on desktop; inline in mobile header
-- Transition: 150ms ease-in-out on background + text color
-- CSS: `.toggle`, `.toggle__btn`, `.toggle__btn--active`
+*(This was a two-segment PLAN / EXEC pill, top-right of the project header, until MCO-481, then a
+"What I need | How to make it" segmented pill.)*
 
 ### Status Badges
 
-Pill badges. IBM Plex Mono. Text-only — no icons in badges.
+Pill badges. IBM Plex Mono. **The meaning is in the text**: a badge always says its state in
+words, so it never relies on colour (the colour-blind rule below).
+
+A project's state is `ProjectState`, labelled in `ProjectStateBadge.kt`. As built, its seven
+values share four styles:
 
 | State | CSS class | Background | Text |
 |-------|-----------|------------|------|
-| Not Started | `.badge--not-started` | `--bg-raised` | `--text-muted` |
-| In Progress | `.badge--in-progress` | `--accent-muted` | `--accent` |
+| Pending | `.badge--not-started` | `--bg-raised` | `--text-muted` |
+| Active | `.badge--in-progress` | `--accent-muted` | `--accent` |
 | Done | `.badge--done` | `--green-bg` | `--green` |
-| Blocked | `.badge--blocked` | `--red-bg` | `--red` |
+| Paused, Cancelled, Archived, Decommissioned | `.badge--neutral` | — | — |
+
+`.badge--blocked` (`--red-bg` / `--red`) exists for `BadgeStatus.BLOCKED`, which survives at the
+roadmap's start card only.
+
+**Decided, not built (Q4, after MCO-609):** Paused, Cancelled, Archived and Decommissioned each get
+a visual of their own, and the `ProjectState` labels are used everywhere, the world tally's words
+included.
+
+**Glyphs:** a badge may carry a glyph beside its text only where the roadmap needs one in a dense
+cell ("◐ building", "‖ paused", "○ planned" on TO BUILD rows). Elsewhere badges are text alone. *(This said "Text-only — no icons in badges"
+until 2026-11-27, which the roadmap already broke and which contradicted the glyph-beside-colour
+rule. Decision Q4 settled it.)*
 
 ### Buttons
 
@@ -208,16 +229,32 @@ IBM Plex Mono, `--text-ui` size, 8px vertical / 16px horizontal padding, **6px b
 
 ### Progress Bar
 
-- Height: 4px in resource rows, 6px in project list cards (`.progress--lg`)
+- Height: 4px by default, 6px on the roadmap's start card and final-project panels (`.progress--lg`)
 - Fill: `--progress` (accent), full green (`--green`) when complete
 - Track: `--bg-raised`
 - Border-radius: 2px
 - Transition: 200ms ease on width change
 - CSS: `.progress`, `.progress__fill`, `.progress__fill--complete`
 
-### Resource Table (Plan View)
+### Work Row (project page)
 
-Dense data table.
+One line of the work list (`WorkRow.kt`): item glyph, name and muted kind, the amount still to get,
+and a "Log" strip for counting what you gathered. The short tail of the list renders as chips
+under "Small jobs". A storage-tracked project shows "from N chests" instead of a typed count.
+
+**Quantities (Q5):** counts are written in shulker boxes, stacks and items
+(`formatItemCount`: "578 sb + 3 stacks + 32"); a plain "101,121" (`formatPlainCount`) is kept for
+places where the breakdown is noise, such as a group header. `formatItemCount` assumes 64 to a stack
+for every item. The item design round (MCO-608) settles where a plain count still belongs, and one
+item component that draws glyph, name and kind everywhere (MCO-519).
+
+*(A "Resource Row" with `+1 +64 +1782` counter buttons was specced here until 2026-11-27. 1782
+was a typo for 1728, which is 27 × 64. The row it described belonged to the Projects tab, which
+MCO-692 removed.)*
+
+### Resource Table ("What I need")
+
+Dense data table: the targets a player defined, behind the list toggle.
 
 - Row height: 40px desktop / 48px mobile (stacked card on mobile)
 - Alternating rows: `--bg-surface` / `--bg-raised`
@@ -226,7 +263,7 @@ Dense data table.
 - Table border: 1px `--border` around whole table, no vertical column dividers
 - Inline edit: clicking a cell activates inline input — no modal
 - Mobile: thead hidden, rows become stacked cards with `data-label` attributes on td
-- CSS: `.data-table`
+- CSS: `.data-table`, plus `.plan-resource-table` for the project's own (`PlanResourceTable.kt`)
 
 ### Warning / Notice Callout
 
@@ -246,23 +283,28 @@ Used for partial dependency notices and inline warnings. **Not a banner. Not ful
 
 Breadcrumb: `›` separators in `--text-disabled`. Current page: `--text-primary`, not a link. Prior segments: links.
 
-**Mobile** — 56px tall. World name in IBM Plex Mono centered, Profile right.
+**Mobile** — 56px tall. World name in IBM Plex Mono (a link to the world), Profile right. No
+breadcrumb and no Ideas link.
 
-Project detail mobile header: back arrow left, project name centered, `⚙ Settings` right.
+Project page on a phone: a second header under it, with a back arrow left, the project name, and
+`⚙ Settings` right.
 
-CSS: `.app-header`, `.breadcrumb`, `.breadcrumb__item`, `.breadcrumb__item--current`, `.breadcrumb__sep`, `.mobile-header`
+CSS: `.app-header`, `.app-header__desktop`, `.app-header__mobile`, `.breadcrumb`,
+`.breadcrumb__item`, `.breadcrumb__item--current`, `.breadcrumb__sep`,
+`.project-detail__mobile-header`
 
-### Project Card (Project List)
+**Decided, not built (Q3, MCO-607):** on a phone, a ☰ drawer (Worlds, Ideas, Profile, Settings,
+Sign out) with the world name centred; on project pages the logo slot becomes ←, and the second
+header goes. The shell design round draws it.
 
-- Background: `--bg-surface`, border: `--border`, border-radius: `--radius`
-- Hover: border-color `--border-strong`, background `--bg-raised`
-- Project name: IBM Plex Mono, `--text-base`, weight 600
-- Meta: IBM Plex Mono, `--text-xs`, `--text-muted`
-- CSS: `.project-card`, `.project-card__header`, `.project-card__name`, `.project-card__meta`
+The shell has one breakpoint disagreement to settle in that round: the header switches between
+its desktop and mobile layouts at 768px (`min-width: 768px` / `max-width: 767px`), while 28 other
+rules use `max-width: 768px`, so at exactly 768px the header is desktop and the page under it is
+mobile.
 
 ### Empty States
 
-**Two-card world home:**
+**Two-card world home** (the roadmap of a world with no projects):
 - Two equal cards, same size, same prominence — never one dominant
 - `--bg-surface` with `--border`
 - No illustration — copy and structure carry weight
@@ -278,8 +320,21 @@ CSS: `.app-header`, `.breadcrumb`, `.breadcrumb__item`, `.breadcrumb__item--curr
 - Backdrop: rgba black 60%, fade-in 150ms
 - Modal: `--bg-surface`, `--border`, scale 0.97→1.0 150ms
 - Max width: 440px
-- Version mismatch modal uses amber treatment (`--amber` in heading icon)
 - CSS: `.modal-backdrop`, `.modal`, `.modal__heading`, `.modal__body`, `.modal__actions`
+
+### Destructive actions
+
+As built there are four ways to confirm a delete, and the shared confirm modal's button reads
+"Delete" whatever it does. **Decided, not built (Q6, MCO-615):** three tiers.
+
+| What | Confirm |
+|------|---------|
+| A project, world, account or idea | Type its name |
+| Anything with children | A modal whose button names the verb |
+| A reversible row action | No confirm; an undo toast |
+
+Destructive actions live in a danger zone at the foot of the thing's settings page (`dangerZone`),
+not in a page header. Project delete has moved there already.
 
 ### Task List
 
@@ -301,7 +356,13 @@ Use **Lucide** icons only. Icons only where they carry meaning not expressed by 
 | `⚠` | Warning callout |
 | `+` | Add actions (prefer text button over icon-only) |
 
-No icon decorations on nav items. No custom icons in Phase 1.
+No icon decorations on nav items. No custom icons, apart from the item glyphs, which draw
+Minecraft items rather than UI actions (`itemGlyph`).
+
+**Known violations:** the build has three icon systems besides the item glyphs: `lucide()`
+(inline Lucide), `iconComponent()` (Material-style SVGs under `/static/icons/`) and bare Unicode
+glyphs (⇄, ⤓, ◐). The rule above is the target. Which system survives is an open decision, not a
+fix to make in passing.
 
 ---
 
@@ -311,7 +372,6 @@ Minimal. Functional tool.
 
 | Element | Animation |
 |---------|-----------|
-| Plan/Execute toggle | 150ms ease-in-out on background + text color |
 | Progress bar fill | 200ms ease on width change |
 | Modal | 150ms fade-in + scale 0.97 → 1.0 |
 | Page transitions | None |
@@ -357,8 +417,7 @@ These rules apply to every UI implementation without exception:
 - No fonts other than IBM Plex Mono and Inter
 - No icons other than Lucide
 - No pill border-radius on buttons — always `--radius` (6px)
-- Plan/Execute toggle fixed width — never content-derived
-- Status badges text-only — no icons inside badges
+- Status badges say their state in words; a glyph beside the words only in the roadmap's dense cells
 - Warning callouts left-border only — never full-width banners
 - Mobile minimum tap target: 36px for counter buttons, 44px for primary actions
 - Each accent hue keeps one role: lapis = act/info, grass = done, gold = warn, redstone = danger, brown = structure
@@ -372,3 +431,6 @@ A static gallery of every component on the live tokens lives at
 **`/static/styleguide.html`** (no auth). Use it to eyeball palette/token changes
 in one place before rolling them across real pages. Source:
 `static/styleguide.html` + `static/styles/pages/styleguide.css`.
+
+It is stale: it predates the roadmap's `rmg-*` vocabulary and the work row. Regenerate it after the
+design rounds rather than patching it now.

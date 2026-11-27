@@ -139,18 +139,18 @@ fun ApplicationCall.hxSwap(value: String)
 ```kotlin
 // Template
 form {
-    id = "create-project-form"
-    hxPost(Link.Worlds.world(worldId).projects().to)   // POST /worlds/{id}/projects
-    hxTarget("#project-card-list")
+    id = "add-task-form"
+    hxPost(Link.Worlds.world(worldId).project(projectId).tasks().to)   // POST .../projects/{pid}/tasks
+    hxTarget("#task-list")
     hxSwap("afterbegin")
 
-    input(classes = "form-control") { name = "name"; placeholder = "Project name" }
+    input(classes = "form-control") { name = "name"; placeholder = "Task name" }
     fieldError("name")   // a validation message for `name` lands here
     button(classes = "btn btn--primary") { type = ButtonType.submit; +"Create" }
 }
 
-// Handler success: return the new card; it's prepended to the list
-respondHtml(createHTML().div { projectCard(worldId, project) })
+// Handler success: return the new row; it's prepended to the list
+respondHtml(taskRowFragment(worldId, projectId, task))
 ```
 
 (For modal create flows prefer the `modalForm(...)` DSL — it wires `hx-post`/target/swap and auto-closes +
@@ -221,15 +221,14 @@ div {
 ### Out-of-band swap (update multiple elements)
 
 ```kotlin
-// Main target gets the list; #project-count is updated out-of-band in the same response
+// Main target gets the list; #task-count is updated out-of-band in the same response
 respondHtml(createHTML().div {
-    id = "project-card-list"
-    projectCardList(worldId, projects)
+    taskList(worldId, projectId, tasks) { }   // renders <ul id="task-list">
 
     span {
-        id = "project-count"
+        id = "task-count"
         hxOutOfBands("true")
-        +"${projects.size}"
+        +"${tasks.size}"
     }
 })
 ```
