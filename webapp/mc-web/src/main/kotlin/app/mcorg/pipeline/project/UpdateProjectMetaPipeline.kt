@@ -3,6 +3,10 @@ package app.mcorg.pipeline.project
 import app.mcorg.domain.model.project.Project
 import app.mcorg.domain.model.project.ProjectState
 import app.mcorg.domain.model.user.Role
+import app.mcorg.event.ProjectStatusChanged
+import app.mcorg.event.actorDisplayName
+import app.mcorg.event.eventBus
+import java.time.Instant
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -111,6 +115,7 @@ suspend fun ApplicationCall.handleUpdateProjectStateInline() {
     val user = getUser()
     val worldId = getWorldId()
     val projectId = getProjectId()
+    val bus = eventBus
 
     handlePipeline<Project>(
         onSuccess = { respondHtml(projectStateViewFragment(it, isAdmin = true)) }
@@ -124,7 +129,16 @@ suspend fun ApplicationCall.handleUpdateProjectStateInline() {
         // Same rule as the Field Log's badge — this is the project page's door to the same
         // transition, and a farm reaching DONE here supplies the world just as much (MCO-404).
         invalidateDemandOnStateChange(worldId, projectId, current, newState)
-        GetProjectByIdStep.run(projectId)
+        val project = GetProjectByIdStep.run(projectId)
+        // The same event as handleUpdateProjectState: this is the door the UI actually uses, so
+        // without it no state change a player makes reaches a webhook subscriber (MCO-620).
+        bus.publish(
+            ProjectStatusChanged(
+                worldId, user.id, Instant.now(), projectId, current, newState,
+                actorName = user.actorDisplayName(), projectName = project.name,
+            )
+        )
+        project
     }
 }
 

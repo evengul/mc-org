@@ -1,6 +1,10 @@
 package app.mcorg.presentation.handler.project
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.project.ProjectType
+import app.mcorg.event.ProjectCreated
+import app.mcorg.event.actorDisplayName
+import app.mcorg.test.RecordedEvents
 import app.mcorg.nbt.util.LitematicaReader
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -460,6 +464,30 @@ class CreateProjectFromSchematicIT : WithUser() {
             listOf("minecraft:oak_planks" to 12, "minecraft:stone" to 64),
             readRequirements(projectId),
         )
+    }
+
+    @Test
+    fun `create publishes exactly one ProjectCreated (MCO-620)`() = testApplication {
+        setupRoutes()
+        RecordedEvents.start()
+
+        val client = createClient { followRedirects = false }
+        val response = client.post("/worlds/$worldId/projects/from-schematic") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("name=Announced Build&" + materials("minecraft:stone" to 64))
+        }
+
+        assertEquals(HttpStatusCode.SeeOther, response.status, response.bodyAsText())
+        val projectId = response.headers["Location"]!!.substringAfterLast("/").toInt()
+        val published = RecordedEvents.of<ProjectCreated> { it.projectId == projectId }
+        assertEquals(1, published.size, "events published for project $projectId: $published")
+        val event = published.single()
+        assertEquals(worldId, event.worldId)
+        assertEquals(user.id, event.actorId)
+        assertEquals(user.actorDisplayName(), event.actorName)
+        assertEquals("Announced Build", event.name)
+        assertEquals(ProjectType.BUILDING, event.type)
     }
 
     @Test

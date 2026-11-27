@@ -3,7 +3,11 @@ package app.mcorg.pipeline.project
 import app.mcorg.config.CacheManager
 import app.mcorg.domain.model.minecraft.Item
 import app.mcorg.domain.model.minecraft.Litematica
+import app.mcorg.domain.model.project.ProjectType
 import app.mcorg.domain.model.user.Role
+import app.mcorg.event.ProjectCreated
+import app.mcorg.event.actorDisplayName
+import app.mcorg.event.eventBus
 import app.mcorg.pipeline.Step
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
@@ -32,6 +36,7 @@ import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
+import java.time.Instant
 
 /**
  * Creates a project directly from an uploaded schematic file with its exact
@@ -167,6 +172,7 @@ suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
     val user = this.getUser()
     val worldId = this.getWorldId()
     val parameters = receiveParameters()
+    val bus = this.eventBus
 
     val items = GetItemsInWorldVersionStep.process(worldId).getOrNull() ?: emptyList()
 
@@ -188,6 +194,14 @@ suspend fun ApplicationCall.handleCreateProjectFromSchematic() {
         ValidateWorldMemberRole<SchematicProject>(user, Role.ADMIN, worldId).run(project)
         val projectId = CreateProjectFromSchematicStep(worldId).run(project)
         CacheManager.onProjectCreated(worldId, projectId)
+        // A schematic import is a new project like any other, and subscribers hear of it the
+        // same way (MCO-620). BUILDING is what CreateProjectFromSchematicStep writes.
+        bus.publish(
+            ProjectCreated(
+                worldId, user.id, Instant.now(), projectId, project.name, ProjectType.BUILDING,
+                actorName = user.actorDisplayName(),
+            )
+        )
         projectId
     }
 }
