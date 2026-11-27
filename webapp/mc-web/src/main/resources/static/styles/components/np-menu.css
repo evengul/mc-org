@@ -82,14 +82,11 @@
     color: var(--text-muted);
 }
 
-/* On a phone the panel hangs from the world bar, not from the trigger, and spans it. The trigger
-   is at the bar's right end until the bar wraps (below ~360px), then at its left, so anchoring
-   to the trigger on either side opens the panel past one edge of the screen. */
+/* On a phone the panel hangs from the world bar (positioned in world-tabs.css), not from the
+   trigger, and spans it. The trigger is at the bar's right end until the bar wraps (below
+   ~360px), then at its left, so anchoring to the trigger on either side opens the panel past one
+   edge of the screen. */
 @media (max-width: 768px) {
-    .world-bar {
-        position: relative;
-    }
-
     .np-menu {
         position: static;
     }

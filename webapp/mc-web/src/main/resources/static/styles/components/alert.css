@@ -2,8 +2,9 @@
    ALERT CONTAINER
    Fixed-position toast list rendered in pageShell. Server pipelines
    inject <li> elements via OOB swaps to surface success/error feedback.
-   The variant shows in the border colour, so success and error read
-   apart without a stripe or an icon.
+   The title says what happened; it is what tells success from error.
+   The border colour per variant is a second cue, never the only one
+   (the primary user is red-green colour-blind).
    ======================================== */
 
 #alert-container {
@@ -37,7 +38,7 @@
    border colour and the room for the close button would never apply. */
 #alert-container > .alert-dialog {
     position: relative;
-    padding-right: var(--space-6);
+    padding-right: var(--space-8);
 }
 
 #alert-container > .alert-dialog--success { border-color: var(--green); }
@@ -59,17 +60,24 @@
     line-height: 1.5;
 }
 
+/* 36px square: error and warning toasts don't close themselves, so on a phone this is the only
+   way to dismiss them, and docs-product's tap-target floor applies. */
 .alert-dialog__close-button {
     position: absolute;
-    top: var(--space-2);
-    right: var(--space-2);
+    top: var(--space-1);
+    right: var(--space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
     background: none;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
     font-size: var(--text-base);
     line-height: 1;
-    padding: var(--space-1) var(--space-2);
+    padding: 0;
     border-radius: var(--radius);
 }
 
