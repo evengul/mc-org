@@ -97,8 +97,7 @@ svg.icon--fill  { fill: currentColor; stroke: none; }
 /* multi-world lead hero packs the tally + actions on one row */
 .world-hero__body--row { display: flex; align-items: center; justify-content: space-between;
                          gap: var(--space-4); flex-wrap: wrap; }
-/* wraps so the second button drops under the first on a phone instead of being clipped */
-.world-hero__cta       { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.world-hero__cta       { display: flex; align-items: center; gap: var(--space-2); }
 
 /* right-hand active-projects peek */
 .world-peek__row     { display: flex; align-items: center; justify-content: space-between;
