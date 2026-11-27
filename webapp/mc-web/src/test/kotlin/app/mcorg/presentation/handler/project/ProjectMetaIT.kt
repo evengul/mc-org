@@ -1,6 +1,10 @@
 package app.mcorg.presentation.handler.project
 
 import app.mcorg.domain.model.minecraft.MinecraftVersion
+import app.mcorg.domain.model.project.ProjectState
+import app.mcorg.event.ProjectStatusChanged
+import app.mcorg.event.actorDisplayName
+import app.mcorg.test.RecordedEvents
 import app.mcorg.pipeline.DatabaseSteps
 import app.mcorg.pipeline.Result
 import app.mcorg.pipeline.SafeSQL
@@ -192,6 +196,46 @@ class ProjectMetaIT : WithUser() {
         assertContains(body, "project-meta-state-$projectId")
         assertContains(body, "Active")
         assertEquals("ACTIVE", getState(projectId))
+    }
+
+    @Test
+    fun `a state change via the meta editor publishes exactly one ProjectStatusChanged (MCO-620)`() = testApplication {
+        setupRoutes()
+        RecordedEvents.start()
+        val projectId = createProject(worldId)
+
+        val response = client.patch("/worlds/$worldId/projects/$projectId/meta/state") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("state=ACTIVE")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val published = RecordedEvents.of<ProjectStatusChanged> { it.projectId == projectId }
+        assertEquals(1, published.size, "events published for project $projectId: $published")
+        val event = published.single()
+        assertEquals(worldId, event.worldId)
+        assertEquals(user.id, event.actorId)
+        assertEquals(user.actorDisplayName(), event.actorName)
+        assertEquals(ProjectState.PENDING, event.previousState)
+        assertEquals(ProjectState.ACTIVE, event.newState)
+        assertEquals("Meta IT Project", event.projectName)
+    }
+
+    @Test
+    fun `a refused state change publishes nothing`() = testApplication {
+        setupRoutes()
+        RecordedEvents.start()
+        val projectId = createProject(worldId)
+
+        val response = client.patch("/worlds/$worldId/projects/$projectId/meta/state") {
+            addAuthCookie(this)
+            contentType(ContentType.Application.FormUrlEncoded)
+            setBody("state=PAUSED")
+        }
+
+        assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+        assertEquals(emptyList(), RecordedEvents.of<ProjectStatusChanged> { it.projectId == projectId })
     }
 
     @Test
