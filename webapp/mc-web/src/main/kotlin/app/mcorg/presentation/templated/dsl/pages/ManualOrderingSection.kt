@@ -92,7 +92,7 @@ fun FlowContent.manualOrderingSection(
         orderingFormSlot()
 
         if (orderings.isEmpty()) {
-            p("rmg-ordering__empty") { +emptyLine(generatedEdgeCount) }
+            p("rmg-ordering__empty") { +emptyLine(generatedEdgeCount, canEdit) }
             return@div
         }
 
@@ -110,10 +110,15 @@ fun FlowContent.manualOrderingSection(
 /**
  * The empty section's one line. With generated edges on the page it carries the footer's
  * point too — where those edges are changed — since that is what someone opening an empty
- * roster is most likely looking for.
+ * roster is most likely looking for. The invitation to add one goes only to someone who has
+ * the button.
  */
-private fun emptyLine(generatedEdgeCount: Int): String = when (generatedEdgeCount) {
-    0 -> "Nothing ordered by hand. Add one when a project has to wait for another that supplies it nothing."
+private fun emptyLine(generatedEdgeCount: Int, canEdit: Boolean): String = when (generatedEdgeCount) {
+    0 -> if (canEdit) {
+        "Nothing ordered by hand. Add one when a project has to wait for another that supplies it nothing."
+    } else {
+        "Nothing ordered by hand."
+    }
     1 -> "Nothing ordered by hand. The 1 generated edge comes from farm output — change what the farm " +
         "produces, or what the project needs."
     else -> "Nothing ordered by hand. The $generatedEdgeCount generated edges come from farm output — " +

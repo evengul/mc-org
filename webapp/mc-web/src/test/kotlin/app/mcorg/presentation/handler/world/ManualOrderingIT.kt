@@ -86,7 +86,7 @@ class ManualOrderingIT : WithUser() {
         assertContains(section, "Add ordering")
         assertContains(section, "id=\"rmg-ordering-form\"", message = "the slot Add ordering swaps the form into")
         // One line, not three about edges a world may not have (MCO-700).
-        assertEquals(1, Regex("<p ").findAll(section).count(), section)
+        assertEquals(1, Regex("<p[ >]").findAll(section).count(), section)
         assertContains(section, "Nothing ordered by hand.")
         assertFalse(section.contains("edges are generated from farm output"), "the roster's note, with no roster")
         assertFalse(section.contains("Removing a generated edge"), "the roster's footer, with no roster")
@@ -416,6 +416,8 @@ class ManualOrderingIT : WithUser() {
         val page = client.get("/worlds/$world/roadmap") { addAuthCookie(this, member) }.bodyAsText()
         assertContains(page, "MANUAL ORDERING · 0")
         assertFalse(page.contains("Add ordering"))
+        assertContains(orderingSection(page), "Nothing ordered by hand.")
+        assertFalse(page.contains("Add one when"), "no invitation to use a button they don't have")
     }
 
     // ---- fixtures -------------------------------------------------------------------------------------
