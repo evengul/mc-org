@@ -1,7 +1,9 @@
 package app.mcorg.presentation.templated.dsl
 
 import kotlinx.html.BODY
+import kotlinx.html.ButtonType
 import kotlinx.html.LI
+import kotlinx.html.button
 import kotlinx.html.classes
 import kotlinx.html.id
 import kotlinx.html.p
@@ -49,9 +51,12 @@ fun LI.createAlert(
             }
         }
     }
-    iconButton(Icons.CLOSE, "Close Alert") {
-        classes += "alert-dialog__close-button"
-        onClick = "document.getElementById('$id')?.remove()"
+    // A plain glyph button, like .modal__close-btn. iconButton would draw its 48px SVG in an
+    // unstyled button, the largest thing in the toast.
+    button(type = ButtonType.button, classes = "alert-dialog__close-button") {
+        attributes["aria-label"] = "Dismiss"
+        attributes["onclick"] = "document.getElementById('$id')?.remove()"
+        +"×"
     }
     p {
         classes = setOf("alert-dialog__title")
