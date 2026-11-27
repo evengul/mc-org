@@ -2,8 +2,8 @@
    ALERT CONTAINER
    Fixed-position toast list rendered in pageShell. Server pipelines
    inject <li> elements via OOB swaps to surface success/error feedback.
-   Variant styling for alert dialogs is intentionally minimal pending
-   a dedicated alert redesign feature.
+   The variant shows in the border colour, so success and error read
+   apart without a stripe or an icon.
    ======================================== */
 
 #alert-container {
@@ -30,4 +30,50 @@
     padding: var(--space-3) var(--space-4);
     color: var(--text-primary);
     font-size: var(--text-sm);
+    box-shadow: var(--shadow-pop);
+}
+
+/* Scoped under the container's id: a bare class loses to `#alert-container > li` above, and the
+   border colour and the room for the close button would never apply. */
+#alert-container > .alert-dialog {
+    position: relative;
+    padding-right: var(--space-6);
+}
+
+#alert-container > .alert-dialog--success { border-color: var(--green); }
+#alert-container > .alert-dialog--error   { border-color: var(--red); }
+#alert-container > .alert-dialog--warning { border-color: var(--amber); }
+#alert-container > .alert-dialog--info    { border-color: var(--accent); }
+
+.alert-dialog__title {
+    margin: 0;
+    font-family: var(--font-body);
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.alert-dialog__message {
+    margin: var(--space-1) 0 0;
+    font-family: var(--font-body);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.alert-dialog__close-button {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: var(--text-base);
+    line-height: 1;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius);
+}
+
+.alert-dialog__close-button:hover {
+    color: var(--text-primary);
+    background: var(--bg-raised);
 }

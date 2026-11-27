@@ -95,6 +95,14 @@
     margin: 0;
 }
 
+.landing-hero__learn-more a {
+    color: var(--accent);
+}
+
+.landing-hero__learn-more a:hover {
+    color: var(--accent-hover);
+}
+
 /*
    Microsoft "Sign in with Microsoft" button — branded per Microsoft's identity
    platform guidelines. Colors, typography, and dimensions are dictated by

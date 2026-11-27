@@ -61,20 +61,22 @@ fun BODY.confirmDeleteModal() {
                         +"Text does not match"
                     }
                 }
-            }
 
-            div("modal__actions") {
-                button(classes = "btn btn--secondary") {
-                    type = ButtonType.button
-                    attributes["onclick"] = "window.closeDeleteConfirmModal()"
-                    +"Cancel"
-                }
-                button(classes = "btn btn--danger") {
-                    id = "$CONFIRM_DELETE_MODAL_ID-confirm-btn"
-                    type = ButtonType.button
-                    disabled = true
-                    attributes["onclick"] = "window.executeDeleteConfirmation()"
-                    +"Delete"
+                // Inside the body, as in modalForm: .modal__actions has no padding of its own,
+                // so outside it the buttons sit on the dialog's edge.
+                div("modal__actions") {
+                    button(classes = "btn btn--secondary") {
+                        type = ButtonType.button
+                        attributes["onclick"] = "window.closeDeleteConfirmModal()"
+                        +"Cancel"
+                    }
+                    button(classes = "btn btn--danger") {
+                        id = "$CONFIRM_DELETE_MODAL_ID-confirm-btn"
+                        type = ButtonType.button
+                        disabled = true
+                        attributes["onclick"] = "window.executeDeleteConfirmation()"
+                        +"Delete"
+                    }
                 }
             }
         }

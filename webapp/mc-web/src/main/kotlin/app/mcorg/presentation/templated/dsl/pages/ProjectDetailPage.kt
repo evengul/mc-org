@@ -257,7 +257,7 @@ fun FlowContent.overallProgressInner(totalRequired: Long, totalCollected: Long) 
     val pct = if (totalRequired > 0) (totalCollected * 100 / totalRequired) else 0
     val toGo = (totalRequired - totalCollected).coerceAtLeast(0)
     p("project-detail__overall-progress-label") {
-        +"$pct% gathered · $toGo to go"
+        +"$pct% gathered · ${formatPlainCount(toGo)} to go"
     }
     progressBar(totalCollected.toInt().coerceAtMost(totalRequired.toInt()), totalRequired.toInt())
 }
